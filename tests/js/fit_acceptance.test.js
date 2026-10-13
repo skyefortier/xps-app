@@ -569,7 +569,8 @@ test('W1 helpers: weighted local results are chi-square but still designated; le
 // ── W1 Codex round 1: the TSV export's warning follows the GOVERNING objective (behavioural) ──
 test('TSV export warning is objective-aware: legacy result, legacy imported model, weighted result, server result', () => {
   const src = ['_isUnweightedLocal', '_isLocalProvenance', '_isLocalFit', '_isLocalModel', '_localFitCaveat', '_governingProvenance', 'exportResults', '_isFitRecord', '_fitRecordRows', '_fitRecordTextLines', '_b64Utf8', '_recordParts', '_fitRecordXlsxRows', '_isUnsupported', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure'].map(extractFn).join('\n')
-    + '\nconst _statsLiveState = () => "current";';   // F1's stale note is pinned in stale_statistics.test.js
+    + '\nconst _statsLiveState = () => "current";'   // F1's stale note is pinned in stale_statistics.test.js
+    + '\nconst _autoFitBlocks = () => false;';     // Q8's Auto-Fit transaction guard: tests/test_browser_autofit_refit.py
   const consts = html.match(/^const _LOCAL_FIT_CAVEAT\w* = .*$/mg).join('\n');
   const run = (fitResult, modelProvenance) => {
     let text = null;

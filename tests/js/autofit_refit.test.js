@@ -52,6 +52,7 @@ async function runAutoFit({ replies, refuseFinal = false, refuseAnchor = false, 
     applyAutoFitResult: j => { if (refuseAnchor) return false; out.shiftedBy = j.tag; state.ccShift = 0.2; for (const p of state.peaks) p.fixCenter = true; return true; },
     _autoFitAnchorRefusal: j => { out.refusalOf.push(j.tag); return refuseFinal ? 'Auto-fit: the data do not support the Graphite component.' : null; },
     _autoFitPublish: j => { out.published.push(j.tag); state.fitResult = { chiReduced: j.statistics.reduced_chi_square }; return true; },
+    _autoFitBusyBegin: () => { out.busy = (out.busy || 0) + 1; }, _autoFitBusyLabel: t => out.labels.push(t), _autoFitBusyEnd: () => { out.busyEnded = (out.busyEnded || 0) + 1; },
     console: { warn() {} } };
   // the poll routes answer from the reply of the last start
   const inner = deps.fetch; let reply = null;
@@ -66,6 +67,9 @@ async function runAutoFit({ replies, refuseFinal = false, refuseAnchor = false, 
   const src = KEY_SRC + '\n' + ['runAutoFitC1sGraphite', '_autoFitRequest', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure', '_readFitReply',
     '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey'].map(extractFn).join('\n');
   await new Function(...Object.keys(deps), src + '\n' + POLL_SRC + '\nreturn runAutoFitC1sGraphite;')(...Object.values(deps))();
+  // the page waits for exactly this one transaction: the overlay goes up once and comes down once, on every exit
+  assert.strictEqual(out.busy, 1, 'the overlay is shown once');
+  assert.strictEqual(out.busyEnded, 1, 'and taken down once');
   return out;
 }
 const OK = (tag, chi) => ({ tag, success: true, statistics: { reduced_chi_square: chi }, fitted_y: [10, 20, 10], residuals: [0, 0, 0] });

@@ -1139,8 +1139,13 @@ artefacts are unhandled generally — so if this becomes a despike /
 outlier-flag unit, those three are one piece of work. CLOSED 2026-10-12 (sealed-fit v6
 Q8, owner: switch): after its charge shift Auto-Fit used to assemble its result from the
 re-selected window with the anchor fit's `fitted_y` for the original samples, so its R and
-stored envelope described other points (R shown 15-17 % for fits whose own R is ~2 % on 18
-of 51 committed C 1s Auto-Fits). Auto-Fit now REFITS after the shift: the anchor fit
+stored envelope described other points (R shown 15-17 % for fits whose own R is ~2 % on 16
+of 51 committed C 1s Auto-Fits, 11-12 % for ~6 % on 2 more). Its two fits are ONE transaction:
+a full-page overlay with Cancel from the first change to the commit (saves, exports and
+shortcuts refused — `_autoFitBlocks`), one undo entry that also restores the charge
+correction, ROI / background fields and manual anchors (`_peaksSnapshot({ context })`), a
+rollback that restores the tab's undo and redo stacks too, and both uploads under the
+operation's abort signal. Auto-Fit now REFITS after the shift: the anchor fit
 (`applyAutoFitResult`: the gates `_autoFitAnchorRefusal`, the shift, the centre locks) is
 never published; the FINAL fit — the same model with every centre locked, the same bounds,
 method, restarts and anchor check (`_autoFitRequest`), on the window and background the

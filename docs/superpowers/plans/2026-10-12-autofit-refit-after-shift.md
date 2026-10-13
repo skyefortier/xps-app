@@ -9,8 +9,8 @@ it)." Its own unit, Codex ×2, stop for deploy approval. Measurement before the 
 Auto-Fit made ONE fit in its provisional frame, then moved the frame by the fitted graphite
 centre, re-selected the window, recomputed the background and locked every centre — and showed
 that fit's statistics, curve and areas with the moved points. Its R-factor compared the fit's
-curve with other points: on 18 of the 51 committed C 1s Auto-Fits it read 15–17 % for fits whose
-own R is ~2 %; χ²ᵣ and the areas belonged to a fit on other points and another background.
+curve with other points: on 16 of the 51 committed C 1s Auto-Fits it read 15–17 % for fits whose
+own R is ~2 %, on 2 more (B4C) 11–12 % for ~6 %; χ²ᵣ and the areas belonged to a fit on other points and another background.
 
 ## The change
 
@@ -78,3 +78,29 @@ shown (main: the harness's final fit; the unit: Auto-Fit's result):
 Scan_0's anchor fit is refused in some runs and applied in others on main and on the unit alike (a
 NaN uncertainty in the anchor fit's reply); the measurement run's 13.2 % on Scan_1 and its applied
 Scan_8 were such runs. The unit reproduces main's result wherever main's own anchor fit does.
+
+## Codex round 1 (NO-GO ×2, the same findings) — fixed
+
+- **The two fits are one transaction.** Between them the shifted state — the anchor fit's values,
+  the corrected charge shift, moved ROI / background fields and manual anchors — was live: it could
+  be saved, exported, undone, or picked up by a superseding fit (the spinner covered only the chart).
+  Now, from the moment Auto-Fit starts changing the tab until it commits or restores, a full-page
+  overlay shows only its progress line and a Cancel button (`_autoFitBusyBegin` / `_autoFitBusyEnd`,
+  always taken down in a `finally`); every save and export refuses ("Auto-Fit is running — wait for it
+  to finish, or cancel it, before saving or exporting", `_autoFitBlocks`), and no keyboard shortcut runs.
+  (Today's single-fit Auto-Fit had the same in-flight window; it is closed for both fits.)
+- **History.** Auto-Fit's one undo entry now carries the frame it changes (`pushUndo({ context:
+  true })`: the charge correction, the cc / ROI / background fields, the manual anchors), so one Undo
+  returns the spectrum as it was and Redo the Auto-Fit; a rollback restores the tab's undo AND redo
+  stacks exactly (`_autoFitSnapshot` keeps them). Other undo entries are unchanged.
+- **Cancellation reaches the uploads.** `uploadToBackend(be, inten, signal)`: both of Auto-Fit's
+  uploads take the operation's abort signal, so the 2-minute limit and Cancel end a stalled upload.
+- **Tests on real state.** `tests/test_browser_autofit_refit.py`, real browser and server: with the
+  final fit held, the page is covered, six save / export calls and Ctrl+Z are refused and nothing is
+  written; a final fit that fails (HTTP error), does not converge, is cancelled, or whose upload stalls
+  and is cancelled restores the peaks, charge correction, every field, the anchors, the previous result
+  and both history stacks EXACTLY; after a success one Undo returns all of it and Redo the Auto-Fit. Each
+  fails on 947f4b4 (the stalled upload hangs without the signal).
+- MINOR: the R count is 16 tabs at 15–17 % → ~2 %, plus 2 B4C tabs 11–12 % → ~6 % (18 above 10 %);
+  corrected everywhere. The student note now qualifies its numbers as paired with the same Auto-Fit's
+  first fit and separates rerun variability.

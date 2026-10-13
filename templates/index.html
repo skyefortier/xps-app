@@ -2174,6 +2174,15 @@
           padding:2px 8px;border-radius:10px;font-size:10px;font-family:var(--mono);
           background:rgba(0,0,0,0.5);border:1px solid #00FFDD;color:#00FFDD;
           pointer-events:none;line-height:1.6;letter-spacing:0.04em">&#9679; Smoothed</div>
+        <!-- Auto-Fit's two-fit transaction (Q8): the whole page waits; nothing is shown, edited or saved
+             between the anchor fit and the final fit -->
+        <div id="autofit-busy-overlay" style="display:none;position:fixed;inset:0;z-index:5000;background:rgba(0,0,0,0.45);align-items:center;justify-content:center">
+          <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);padding:18px 22px;display:flex;flex-direction:column;align-items:center;gap:10px;min-width:280px">
+            <div class="fit-spinner"></div>
+            <div id="autofit-busy-label" style="font-size:12px;color:var(--text)">Auto-fitting…</div>
+            <button id="autofit-busy-cancel" class="btn btn-sm" type="button">Cancel</button>
+          </div>
+        </div>
         <div id="fit-spinner-overlay" class="fit-spinner-overlay" style="display:none">
           <div class="fit-spinner"></div>
           <div class="fit-spinner-label" id="fit-spinner-label">Fitting<span class="ellipsis"></span></div>
@@ -2390,12 +2399,35 @@ function _historyTab() {
 function _peaksSnapshot(extra) {
   const snap = JSON.parse(JSON.stringify(state.peaks));
   if (extra && extra.endpointAvg !== undefined) snap._endpointAvg = String(extra.endpointAvg);
+  // Auto-Fit's entry also carries the frame it changes — the charge correction and every field and
+  // anchor the correction moves — so one undo returns to the spectrum as it was (Q8, Codex round 1)
+  if (extra && extra.context) snap._context = _historyContext();
   // The model's provenance (imported local fit = starting point) travels
   // with the model through undo/redo (unit A0).
   const t = _historyTab();
   // The active tab's live result is state.fitResult (the record is synced on switch-away).
   snap._modelProvenance = t ? _provenanceOf({ modelProvenance: t.modelProvenance, fitResult: state.fitResult }) : null;
   return snap;
+}
+function _historyContext() {
+  const v = id => document.getElementById(id)?.value ?? '';
+  return { ccShift: state.ccShift, manualAnchors: JSON.parse(JSON.stringify(_getManualAnchors())),
+           ccMethod: v('cc-method') || 'none', ccObs: v('cc-obs'), ccLit: v('cc-lit'),
+           roiMin: v('roi-min'), roiMax: v('roi-max'), bgStart: v('bg-start'), bgEnd: v('bg-end') };
+}
+function _restoreSnapshotContext(tab, snap) {
+  const c = snap && snap._context;
+  if (!c) return;
+  state.ccShift = c.ccShift;
+  _setManualAnchors(JSON.parse(JSON.stringify(c.manualAnchors || [])));
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+  set('cc-method', c.ccMethod); set('cc-obs', c.ccObs); set('cc-lit', c.ccLit);
+  { const rf = document.getElementById('cc-ref-field'), tf = document.getElementById('cc-target-field');
+    if (rf) rf.style.display = (c.ccMethod === 'none') ? 'none' : 'block';
+    if (tf) tf.style.display = (c.ccMethod === 'custom') ? 'block' : 'none'; }
+  set('roi-min', c.roiMin); set('roi-max', c.roiMax); set('bg-start', c.bgStart); set('bg-end', c.bgEnd);
+  const disp = document.getElementById('cc-shift-display');
+  if (disp) { const sh = -state.ccShift; disp.textContent = (sh >= 0 ? '+' : '') + sh.toFixed(3) + ' eV'; }
 }
 function _restoreSnapshotProvenance(tab, snap) {
   if (!tab || !snap) return;
@@ -2467,11 +2499,12 @@ function undo() {
   const t = _historyTab();
   if (!t || !t.undoStack.length) return;
   const snap = t.undoStack.pop();
-  // Mirror the averaging into the redo entry only when the undo entry
+  // Mirror the averaging (and an Auto-Fit's frame) into the redo entry only when the undo entry
   // carried one, so a redo re-applies exactly what the action did.
-  t.redoStack.push(_peaksSnapshot(snap._endpointAvg !== undefined
-    ? { endpointAvg: document.getElementById('bg-endpoint-avg')?.value } : null));
+  t.redoStack.push(_peaksSnapshot({ endpointAvg: snap._endpointAvg !== undefined ? document.getElementById('bg-endpoint-avg')?.value : undefined,
+                                    context: snap._context !== undefined }));
   state.peaks = snap;
+  _restoreSnapshotContext(t, snap);
   _restoreSnapshotEndpointAvg(t, snap);
   _restoreSnapshotProvenance(t, snap);
   renderPeakList();
@@ -2485,9 +2518,10 @@ function redo() {
   const t = _historyTab();
   if (!t || !t.redoStack.length) return;
   const snap = t.redoStack.pop();
-  t.undoStack.push(_peaksSnapshot(snap._endpointAvg !== undefined
-    ? { endpointAvg: document.getElementById('bg-endpoint-avg')?.value } : null));
+  t.undoStack.push(_peaksSnapshot({ endpointAvg: snap._endpointAvg !== undefined ? document.getElementById('bg-endpoint-avg')?.value : undefined,
+                                    context: snap._context !== undefined }));
   state.peaks = snap;
+  _restoreSnapshotContext(t, snap);
   _restoreSnapshotEndpointAvg(t, snap);
   _restoreSnapshotProvenance(t, snap);
   renderPeakList();
@@ -6344,6 +6378,8 @@ function handleChartClick(event) {
 
 // Global keyboard shortcuts
 document.addEventListener('keydown', function(e) {
+  // An Auto-Fit in progress owns the page (Q8): no shortcut — undo, save, Run Fit, the switcher — runs
+  if (_autoFitBusy) { e.preventDefault(); e.stopPropagation(); return; }
   // Ctrl+K / Ctrl+P: spectrum switcher (works even from input fields)
   if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'p')) {
     e.preventDefault();
@@ -6941,7 +6977,7 @@ function _highlightChartPeak(peakId, highlight) {
 // ═══════════════════════════════════════════════════
 // FLASK BACKEND HELPERS
 // ═══════════════════════════════════════════════════
-async function uploadToBackend(be, inten) {
+async function uploadToBackend(be, inten, signal) {
   // FULL precision (owner 2026-10-03): String(v) is the shortest text that reads back
   // as the same double (Python's float() and the parser's engine="python" read it
   // exactly), so the server fits — and computes its background on — the numbers the
@@ -6954,7 +6990,7 @@ async function uploadToBackend(be, inten) {
   const csv = be.map((e, i) => num(e) + ',' + num(inten[i])).join('\n');
   const form = new FormData();
   form.append('file', new Blob([csv], { type: 'text/plain' }), 'spectrum.csv');
-  const resp = await fetch('/api/upload', { method: 'POST', body: form });
+  const resp = await fetch('/api/upload', { method: 'POST', body: form, signal });   // Auto-Fit's cancel / timeout reach it (Q8)
   // A server-side failure (HTTP error, error body, or no session id) is not a
   // transport failure: runFit must report it, never switch engines (unit A0).
   const serverError = (msg) => { const err = new Error(msg); err.serverError = true; return err; };
@@ -7502,7 +7538,38 @@ function buildAutoFitModel(assessment) {
 
 // Capture exactly the bits of state Auto-Fit will mutate, so a failure can
 // cleanly restore the tab. Returns an opaque snapshot object.
+// Auto-Fit is ONE transaction (sealed-fit v6 Q8, Codex round 1): from the moment it starts changing the
+// tab until its final fit is committed or everything is restored, the page shows only its progress
+// line (a full-page overlay with Cancel); saves, exports and keyboard shortcuts are refused, so
+// nothing between the anchor fit and the final fit can be seen as a result, edited or written.
+let _autoFitBusy = null;   // { op, cancel }
+function _autoFitBusyBegin(op, cancel) {
+  _autoFitBusy = { op, cancel };
+  const el = document.getElementById('autofit-busy-overlay');
+  if (el) el.style.display = 'flex';
+  _autoFitBusyLabel('Auto-fitting…');
+  const b = document.getElementById('autofit-busy-cancel');
+  if (b) b.onclick = () => { if (_autoFitBusy && _autoFitBusy.op === op) _autoFitBusy.cancel(); };
+}
+function _autoFitBusyLabel(text) {
+  const l = document.getElementById('autofit-busy-label');
+  if (l) l.textContent = text;
+}
+function _autoFitBusyEnd(op) {
+  if (!_autoFitBusy || _autoFitBusy.op !== op) return;
+  _autoFitBusy = null;
+  const el = document.getElementById('autofit-busy-overlay');
+  if (el) el.style.display = 'none';
+}
+// true (with a plain message) while an Auto-Fit is in progress: the caller saves or exports nothing
+function _autoFitBlocks() {
+  if (!_autoFitBusy) return false;
+  notify('Auto-Fit is running — wait for it to finish, or cancel it, before saving or exporting.', 'amber');
+  return true;
+}
+
 function _autoFitSnapshot() {
+  const _hist = _historyTab();
   return {
     // The snapshot is taken before the auto-fit's first await, so it is the
     // natural carrier of the owning record OBJECT (async ownership rule).
@@ -7517,6 +7584,9 @@ function _autoFitSnapshot() {
     manualAnchors: JSON.parse(JSON.stringify(_getManualAnchors())),
     modelProvenance: (() => { const o = _opOwner(); return o && o.modelProvenance ? JSON.parse(JSON.stringify(o.modelProvenance)) : null; })(),
     nextId:       state.nextId,
+    // the tab's history as it stood: a rollback leaves no undo entry behind and the redo stack whole (Q8)
+    undoStack:    _hist ? (_hist.undoStack || []).slice() : null,
+    redoStack:    _hist ? (_hist.redoStack || []).slice() : null,
     ccMethodDom:  document.getElementById('cc-method')?.value || 'none',
     ccObsDom:     document.getElementById('cc-obs')?.value || '',
     ccLitDom:     document.getElementById('cc-lit')?.value || '',
@@ -7555,6 +7625,7 @@ function _autoFitRestore(snap, owner) {
     t.manualAnchors = snap.manualAnchors || [];
     t.modelProvenance = snap.modelProvenance || null;
     t.nextId = snap.nextId;
+    if (snap.undoStack) { t.undoStack = snap.undoStack.slice(); t.redoStack = snap.redoStack.slice(); }
     t.ui = { ...t.ui,
       ccMethod: snap.ccMethodDom, ccObs: snap.ccObsDom, ccLit: snap.ccLitDom,
       roiMin: snap.roiMinDom, roiMax: snap.roiMaxDom,
@@ -7565,7 +7636,8 @@ function _autoFitRestore(snap, owner) {
   state.fitResult = snap.fitResult;
   state.ccShift   = snap.ccShift;
   _setManualAnchors(snap.manualAnchors || []);
-  { const _t = _activeTab(); if (_t) _t.modelProvenance = snap.modelProvenance || null; }
+  { const _t = _activeTab(); if (_t) _t.modelProvenance = snap.modelProvenance || null;
+    if (_t && snap.undoStack) { _t.undoStack = snap.undoStack.slice(); _t.redoStack = snap.redoStack.slice(); } }
   state.nextId    = snap.nextId;
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
   set('cc-method', snap.ccMethodDom);
@@ -7588,6 +7660,7 @@ function _autoFitRestore(snap, owner) {
   }
   if (typeof renderPeakList === 'function') renderPeakList();
   if (typeof updatePlot === 'function') updatePlot();
+  if (typeof _updateUndoButtons === 'function') _updateUndoButtons();
 }
 
 // Apply a successful auto-fit result. Mutates state and DOM so the tab
@@ -8280,6 +8353,12 @@ async function runAutoFitC1sGraphite() {
   // before a refusal above, which must leave a running Run Fit alone. No
   // await since the check above, so this cannot fail; kept as the guard.
   if (!_installFitOp(afOp)) return;
+  // ONE transaction from here (Q8, Codex round 1): the page shows only Auto-Fit's progress, with Cancel,
+  // until the final fit is committed or everything is restored — no save, export, edit or shortcut
+  const ctrl = new AbortController();
+  let userCancelled = false;
+  _autoFitBusyBegin(afOp, () => { userCancelled = true; ctrl.abort(new DOMException('cancelled', 'AbortError')); });
+  try {
 
   // Step 2: provisional shift (APP CONVENTION).
   const provisionalShift = graphiteRaw - 284.50;
@@ -8288,7 +8367,7 @@ async function runAutoFitC1sGraphite() {
   const assessment = assessLowBERegion(rawBE, bgSub, provisionalShift);
 
   // Step 4: build the peak model (in corrected frame after provisional shift).
-  pushUndo();
+  pushUndo({ context: true });   // ONE entry: undo returns the model AND the frame Auto-Fit moves (Q8)
   state.peaks = [];
   state.fitResult = null;
   // Apply provisional shift via updateChargeCorrection so ROI/bg DOM fields
@@ -8314,7 +8393,6 @@ async function runAutoFitC1sGraphite() {
   const runBtn = document.querySelector('.btn-green');
   if (runBtn) runBtn.disabled = true;
 
-  const ctrl = new AbortController();
   let timer = setTimeout(() => ctrl.abort(new DOMException('timeout', 'AbortError')), 120000);
 
   try {
@@ -8327,7 +8405,7 @@ async function runAutoFitC1sGraphite() {
     const ctxAtRequest = _startsLiveKey();
     const req1 = _autoFitRequest(anchorId);
     const { be: be2, inten: inten2 } = req1;
-    const sessionId = await uploadToBackend(be2, inten2);   // after EVERY input above is captured
+    const sessionId = await uploadToBackend(be2, inten2, ctrl.signal);   // after EVERY input above is captured
     // Unit 2: started and polled, like Run Fit (the 2-minute abort still applies)
     const json = await _serverFitJob({ session_id: sessionId, ...req1.body }, {
       op: afOp,
@@ -8382,16 +8460,17 @@ async function runAutoFitC1sGraphite() {
     // The FINAL fit, in the corrected frame (sealed-fit v6 Q8, owner 2026-10-12): the same model with
     // every centre locked, the same bounds, method, restarts and anchor check, on the window and
     // background the shift selected. It is what Auto-Fit shows: until now the anchor fit's numbers
-    // were shown with the moved points, and its R-factor compared the fit with other points (on 18
-    // of 51 committed C 1s Auto-Fits R 15-17 % shown for a fit whose own R is ~2 %;
-    // docs/findings/q8-autofit-refit). Nothing is published from the anchor fit; a final fit that
+    // were shown with the moved points, and its R-factor compared the fit with other points (on 16
+    // of 51 committed C 1s Auto-Fits R 15-17 % shown for a fit whose own R is ~2 %, on 2 more
+    // 11-12 % for ~6 %; docs/findings/q8-autofit-refit). Nothing is published from the anchor fit; a final fit that
     // fails, is discarded, or whose anchor no longer passes restores everything, like a failed one.
     if (spinLabel) spinLabel.textContent = 'Auto-Fit: anchor fitted, refitting in the corrected frame…';
+    _autoFitBusyLabel('Auto-Fit: anchor fitted, refitting in the corrected frame…');
     const ctxFinal = _startsLiveKey();
     const req2 = _autoFitRequest(anchorId);
     clearTimeout(timer);
     timer = setTimeout(() => ctrl.abort(new DOMException('timeout', 'AbortError')), 120000);   // its own 2 minutes
-    const sessionId2 = await uploadToBackend(req2.be, req2.inten);
+    const sessionId2 = await uploadToBackend(req2.be, req2.inten, ctrl.signal);
     const json2 = await _serverFitJob({ session_id: sessionId2, ...req2.body }, {
       op: afOp,
       signal: ctrl.signal,
@@ -8444,6 +8523,7 @@ async function runAutoFitC1sGraphite() {
     // error/timeout after the user moved on) — same wrong-tab hazard as
     // the explicit discard branch, so it gets the same tab-aware restore.
     _autoFitRestore(snap, fittingTab);
+    if (userCancelled) { notify('Auto-fit cancelled. Nothing was changed.', 'amber'); return; }
     let msg;
     if (e && (e.name === 'AbortError' || (e.message && e.message.toLowerCase().includes('aborted')))) {
       msg = 'Auto-fit exceeded the 2-minute timeout.';
@@ -8456,6 +8536,9 @@ async function runAutoFitC1sGraphite() {
       msg = 'Auto-fit failed.';
     }
     notify(msg, 'red', true);
+  }
+  } finally {
+    _autoFitBusyEnd(afOp);
   }
 }
 
@@ -11952,6 +12035,7 @@ function confirmSave() {
 }
 
 function saveFit() {
+  if (_autoFitBlocks()) return;
   document.getElementById('save-dropdown').classList.remove('open');
   if (!tabManager.activeId) { notify('No active tab.', 'amber'); return; }
   const tab = tabManager._getTab(tabManager.activeId);
@@ -11959,6 +12043,7 @@ function saveFit() {
 }
 
 function saveSpectrum() {
+  if (_autoFitBlocks()) return;
   document.getElementById('save-dropdown').classList.remove('open');
   if (!tabManager.activeId || !state.rawBE.length) { notify('No spectrum loaded.', 'amber'); return; }
   const tab = tabManager._getTab(tabManager.activeId);
@@ -11966,6 +12051,7 @@ function saveSpectrum() {
 }
 
 function showProjectDialog() {
+  if (_autoFitBlocks()) return;
   document.getElementById('save-dropdown').classList.remove('open');
   if (!tabManager.tabs.length) { notify('No tabs to save.', 'amber'); return; }
   const ext = tabManager.tabs.length < 5 ? '.proj.json' : '.proj.zip';
@@ -11974,6 +12060,7 @@ function showProjectDialog() {
 
 // ── 1. Save Fit (v1) ────────────────────────────────
 function _doSaveFit() {
+  if (_autoFitBlocks()) return;   // Q8: nothing is written during an Auto-Fit
   tabManager._syncActiveToRecord();
   const data = {
     version: 1,
@@ -12031,6 +12118,7 @@ function _doSaveFit() {
 
 // ── 2. Save Spectrum (v2) — active tab only ──────────
 function _doSaveSpectrum() {
+  if (_autoFitBlocks()) return;   // Q8: nothing is written during an Auto-Fit
   tabManager._syncActiveToRecord();
   const tab = tabManager._getTab(tabManager.activeId);
 
@@ -12141,6 +12229,7 @@ function _doSaveSpectrum() {
 
 // ── 3. Save Project (v3) ─────────────────────────────
 async function _doSaveProject() {
+  if (_autoFitBlocks()) return;   // Q8: nothing is written during an Auto-Fit
   tabManager._syncActiveToRecord();
   const sampleName = document.getElementById('proj-sample').value.trim();
   const instrument = document.getElementById('proj-instrument').value.trim();
@@ -12807,6 +12896,7 @@ async function _loadZipProject(file) {
 // EXPORT
 // ═══════════════════════════════════════════════════
 function exportResults() {
+  if (_autoFitBlocks()) return;   // Q8: nothing is written during an Auto-Fit
   const { be, inten } = getROIData();
   if (!be.length) { notify('No data to export.', 'red'); return; }
 
@@ -12859,6 +12949,7 @@ function exportResults() {
 // EXPORT PUBLICATION FIGURE
 // ═══════════════════════════════════════════════════
 function exportFigure() {
+  if (_autoFitBlocks()) return;   // Q8: nothing is written during an Auto-Fit
   if (!state.rawBE.length) { notify('No spectrum loaded.', 'red'); return; }
   const activeTab = tabManager.tabs.find(t => t.id === tabManager.activeId);
   const baseName  = (activeTab?.name || activeTab?.label || 'spectrum')
@@ -13287,6 +13378,7 @@ function _shapeExportCols(p) {
 }
 
 function exportFitTable(fmt) {
+  if (_autoFitBlocks()) return;   // Q8: nothing is written during an Auto-Fit
   if (!state.fitResult) { notify('Run a fit first.', 'red'); return; }
   const { be } = state.fitResult;
   // F1: a stale result's chi-square and sigma belong to the previous model:

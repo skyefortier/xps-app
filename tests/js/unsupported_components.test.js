@@ -109,7 +109,7 @@ function pageEnv(fns, extraArgs = {}) {
   const src = [constLine('_SUPPORT_MIN_F'), constLine('_UNSUPPORTED_LABEL'), constLine('_UNSUPPORTED_TIP'), ...names.map(extractFn)].join('\n');
   const args = { _escAttr: esc, _escHtml: esc, document, state, getPeak: id => state.peaks.find(p => p.id === Number(id)),
     _startsLiveKey: () => 'KEY',
-    _peakArea: p => p.amplitude * p.fwhm, getROIData: () => ({ be: [280, 285, 290] }), _buildStderrMap: fr => Object.fromEntries(fr.backendResult.individual_peaks.map(ip => [ip.id, ip.params])),
+    _peakArea: p => p.amplitude * p.fwhm, getROIData: () => ({ be: [280, 285, 290] }), _autoFitBlocks: () => false, _buildStderrMap: fr => Object.fromEntries(fr.backendResult.individual_peaks.map(ip => [ip.id, ip.params])),
     _isLocalFit: () => false, _localFitCaveat: () => '', _localFitDetail: () => '', _startsPanelHtml: () => '', _certificateNoticeHtml: () => '', _validateUncertainties: () => ({ warnings: [], info: [] }),
     renderQuantify: () => {}, recalcQuantify: () => {}, _detectPeakRSF: () => ({ key: 'C 1s', rsf: 1 }), SCOFIELD_RSF: { 'C 1s': 1 }, notify: () => {},
     _clearDisallowedChargeRef: () => {}, _updateLocalModelBanner: () => {}, _updateLockAllBtn: () => {}, renderPeakForm: () => '', _highlightChartPeak: () => {},

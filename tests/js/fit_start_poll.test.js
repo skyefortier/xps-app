@@ -243,7 +243,7 @@ test('both callers claim their operation before the first await and do nothing a
   const inst = af.indexOf('if (!_installFitOp(afOp)) return;');
   // round 5: installed only AFTER the preflight refusals (installing cancels a running fit on the tab)
   assert.ok(inst > af.indexOf("notify('ROI is empty.") && inst > af.indexOf("notify('No strong peak found"), 'installed after every preflight refusal');
-  assert.ok(inst < af.indexOf('pushUndo();') && inst < af.indexOf('_showFitSpinner();') && inst < af.indexOf('await uploadToBackend('),
+  assert.ok(inst < af.indexOf('pushUndo({ context: true });') && inst < af.indexOf('_showFitSpinner();') && inst < af.indexOf('await uploadToBackend('),
     'and before anything is changed, shown or sent');
   assert.ok(!/\bawait\s+[\w(]/.test(af.slice(outdated, inst).replace(/\/\/[^\n]*/g, '')), 'no await between the check and the install');
   assert.match(af, /op: afOp,/);
