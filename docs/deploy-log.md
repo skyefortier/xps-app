@@ -6,6 +6,35 @@ own bullet even when it shipped inside a larger unit, so it can be found
 later. Procedure: [DEPLOY.md](../DEPLOY.md). The xps2 droplet is deployed by
 the owner and may lag.
 
+## 2026-10-13 — One area definition; Auto-Fit refits after its charge shift (`q5q8-integration`, c4dd878)
+
+- **Release note (areas):** every area on the page now uses the server's method on one grid, so
+  Results, the sidebar, Quantify and exports agree. Typical change: under 0.01 % of an area (on the
+  committed fits as loaded: median 0.007 %, at most 0.2 %; area % at most 0.0084 pp; no 40 % warning
+  flips). A peak centred outside the fit window gets a note in Results saying its area is poorly
+  determined (none of the committed components). A reloaded fit saved unedited keeps its own saved
+  area verbatim (also through a project save); the area Results shows now is saved beside it as
+  `displayArea`, labelled.
+- **Release note (Auto-Fit):** Auto-Fit C1s Graphite now refits after setting the charge correction and
+  shows that fit. R-factors on many earlier Auto-Fits were overstated (about 16 % where the true value
+  is about 2 %: 16 of 51 committed C 1s spectra, 2 more ~12 % → ~6 %); areas may differ by a few percent
+  of the total (median 0.6 pp, at most 3.9 pp). The page waits while Auto-Fit runs ("Auto-fitting… /
+  Cancel"); Cancel or any failure restores everything, Undo history included, and one Undo takes the
+  whole Auto-Fit back. About one second longer. Student note held for the owner:
+  `docs/superpowers/plans/2026-10-12-autofit-refit-student-note.md`.
+- Codex: Q5 GO ×2 at round 5 (rounds 1–4: one grid as well as one formula; areas following every edit;
+  a reloaded fit's own area kept verbatim — owner constraint 2026-10-13 — through spectrum and project
+  saves); Q8 GO ×2 at round 3 (the two fits as one transaction; undo of the whole frame and result;
+  exact rollback); the combination GO ×2. Plans:
+  `docs/superpowers/plans/2026-10-12-{one-area-definition,autofit-refit-after-shift}.md`,
+  `2026-10-13-q5-q8-integration.md`; findings `docs/findings/q5-area`, `docs/findings/q8-autofit-refit`.
+- Suites on the combination: pytest 1417 passed / 7 skipped; JS 647 passed (CI floor 647). Production
+  check through xps.fortierlab.org in a real browser: a fresh Run Fit shows exactly the server's area in
+  Results, the sidebar % equals Results', the outside-window note appears for a moved peak; Auto-Fit on
+  the committed 8-JT Graphite C1s Scan completes with the shown points exactly the fitted ones, R 1.83 %
+  (17.25 % before), overlay up and down, one undo entry, record commit c4dd878; no page errors.
+  LaunchAgent running, last exit 0; `/api/health` ok on :5050 and publicly. xps2 droplet: the owner's.
+
 ## 2026-10-12 — Linked peaks: link order, linked-child values, broken links refused (`q10-integration`, 432f4db)
 
 - **Release note:** a fit whose links cannot be fitted as drawn is now refused in plain
