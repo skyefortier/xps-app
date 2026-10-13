@@ -12,14 +12,15 @@ in a real browser against a local server, then builds B's request from the final
 exactly as Auto-Fit builds its own, and reports for each tab what the student would see today and
 after the change: χ²ᵣ, R, each component's FWHM, area and area % (the page's area definition, and
 the server's — Q5), the anchor's gates on B, and the 40 % graphite warning.
-Usage: venv/bin/python scripts/q8_autofit_refit.py BASE_URL. Writes docs/findings/q8-autofit-refit/results.json.
+Usage: venv/bin/python scripts/q8_autofit_refit.py BASE_URL [OUT]. Writes docs/findings/q8-autofit-refit/results.json
+(or OUT: the confirmation run on the shipped unit, scripts/q8_confirm.py).
 """
 import glob, json, os, sys, time
 from playwright.sync_api import sync_playwright
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BASE = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:5151"
-OUT = os.path.join(REPO, "docs/findings/q8-autofit-refit/results.json")
+OUT = sys.argv[2] if len(sys.argv) > 2 else os.path.join(REPO, "docs/findings/q8-autofit-refit/results.json")
 
 SETUP = """() => { window.__notes = [];
   const n = window.notify; window.notify = (m, k, ...r) => { window.__notes.push([k, String(m)]); return n(m, k, ...r); };
@@ -66,7 +67,9 @@ REFIT = """async () => {
   const sessionId = await uploadToBackend(be2, inten2);
   const r = await fetch('/api/fit', { method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ session_id: sessionId, background: bgPayload, peaks: peakSpecs, fit_method: fitMethod, n_perturb: 3, require_component: anchorId }) });
-  const json = await r.json();
+  const text = await r.text();
+  let json;
+  try { json = JSON.parse(text); } catch (_) { return { ok: false, status: r.status, error: 'unreadable reply (a NaN / Infinity token: an uncertainty the data do not determine)' }; }
   if (!r.ok || json.success !== true) return { ok: false, status: r.status, error: json.error || json.message };
   const g = state.peaks.find(p => p.name === 'Graphite') || state.peaks[0];
   const gates = { supported: _autoFitGraphiteIsSupported(g, json), required: json.required ? json.required.required : null,
@@ -83,6 +86,9 @@ REFIT = """async () => {
 
 def main():
     files = sorted(glob.glob(os.path.join(REPO, "docs/autofit/test_data/**/*.proj.*"), recursive=True))
+    only = os.environ.get("Q8_ONLY")          # a file-name substring: re-run one project (the jitter check)
+    if only:
+        files = [f for f in files if only in os.path.basename(f)]
     results = []
     with sync_playwright() as p:
         b = p.chromium.launch(headless=True)

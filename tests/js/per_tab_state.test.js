@@ -34,6 +34,7 @@ const ALLOWLIST = {
   _ssFocusIdx: 'A', _ssFiltered: 'A',
   _fpMeta: 'B', _fpModalDrag: 'A', _fpRegionsSelected: 'A', _fpExpandedElement: 'A',
   _findPeaksApplyConfirmResolver: 'A',
+  _autoFitBusy: 'A',   // Q8: the Auto-Fit transaction in progress (its operation and its Cancel) — no spectrum content
   _runningFitJobs: 'A', _fitOpByOwner: 'A', _fitOpSeq: 'A', _fitSpinnerOp: 'A',   // unit 2: in-flight job ids (pagehide beacon; the current job of each tab record, WeakMap keyed by the record) — no spectrum content       // unit 2: ids of in-flight server fit jobs, for the pagehide cancel beacon — no spectrum content
   _undoDebounce: 'A',         // burst buffer: DOES hold a peaks snapshot, but bound to its owner record at burst start and flushed onto that record only — the async-ownership exception to class A's 'no spectrum content'
   // Populated constant catalogues (read-only tables) and the chart plugin
@@ -105,10 +106,21 @@ test('async operations capture their owning record before the first await', () =
   assert.ok(ap.indexOf('_ownerActive(owner)') > ap.indexOf('await _showFindPeaksApplyConfirmModal'), 'owner must be re-validated after the confirmation await');
   // fits: owner is the record OBJECT, not an id, and EVERY request input is read before the upload await
   for (const fn of ['async function runFit(', 'async function runAutoFitC1sGraphite()']) {
-    const body = grab(fn, 7000);
+    const body = grab(fn, 12000);
     assert.doesNotMatch(body, /fittingTabId = tabManager\.activeId/);
     const up = body.indexOf('await uploadToBackend');
     assert.ok(up > 0, fn + ' upload await');
+    if (fn.includes('AutoFit')) {
+      // Auto-Fit reads its inputs in _autoFitRequest (Q8: the anchor fit and the final fit alike),
+      // each call before that fit's upload await
+      const req = grab('function _autoFitRequest(', 3000);
+      for (const input of ["getElementById('fit-method')", "getElementById('bg-endpoint-avg')", '_getManualAnchors()', 'peakToBackendSpec'])
+        assert.ok(req.indexOf(input) > 0, '_autoFitRequest: ' + input);
+      const r1 = body.indexOf('const req1 = _autoFitRequest(anchorId);'), r2 = body.indexOf('const req2 = _autoFitRequest(anchorId);');
+      assert.ok(r1 > 0 && r1 < up, 'the anchor fit\'s inputs before its upload');
+      assert.ok(r2 > 0 && r2 < body.indexOf('await uploadToBackend(req2.be, req2.inten'), 'the final fit\'s inputs before its upload');
+      continue;
+    }
     for (const input of ["getElementById('fit-method')", "getElementById('bg-endpoint-avg')", '_getManualAnchors()', 'peakToBackendSpec']) {
       const at = body.indexOf(input);
       assert.ok(at > 0 && at < up, fn + ': ' + input + ' must be read before the upload await');

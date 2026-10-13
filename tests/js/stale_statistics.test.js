@@ -112,7 +112,7 @@ test('the key is the step (b) key: F1 adds no second binding mechanism and no ne
   // every creator of a fit result stamps fitResult.startsModelKey from _startsLiveKey()
   assert.match(extractFn('runFit'), /startsModelKey: _startsLiveKey\(\)/);
   assert.match(extractFn('runFitLocal'), /startsModelKey: _startsLiveKey\(\)/, 'the local engine stamps its result');
-  assert.match(extractFn('applyAutoFitResult'), /startsModelKey: _startsLiveKey\(\)/, 'Auto-Fit stamps its result');
+  assert.match(extractFn('_autoFitPublish'), /startsModelKey: _startsLiveKey\(\)/, 'Auto-Fit stamps its (final) result');
   // Auto-Fit locks every centre and refines the charge shift AFTER applying: the re-stamp covers the statistics
   const restamp = new Function('state', '_startsLiveKey', extractFn('_restampSupport') + '\nreturn _restampSupport;');
   const st = { peaks: [{ id: 1, support: { fitKey: 'OLD' } }], fitResult: { startsModelKey: 'OLD' } };
@@ -215,6 +215,7 @@ function exportSandbox(liveKey, fr) {
     const _startsRecordKey = t => t.key;
     const document = { getElementById: () => null };
     const _areaGrid = () => (state.fitResult && state.fitResult.be) || [];   // the one area grid (Q5): tests/js/one_area.test.js
+    const _autoFitBlocks = () => false;   // Q8's Auto-Fit transaction guard: tests/test_browser_autofit_refit.py
     const notify = () => {};
     const _buildStderrMap = fr => { const o = {}; for (const ip of fr.backendResult.individual_peaks) o[ip.id] = ip.params; return o; };
     const _peakArea = p => p.amplitude;
@@ -395,7 +396,7 @@ test('Auto-Fit discards (and rolls back) a response when the model or context wa
     const out = { restored: false, applied: 0, notes: [] };
     const tabManager = { activeId: 1, _getTab: () => tab, _captureUI: () => ({ bgType: document.getElementById('bg-type').value, roiMin: '284', roiMax: '285' }), _syncActiveToRecord() {} };
     const deps = { state, document, tabManager, notify: (m, k) => out.notes.push([m, k]), _opOwner: () => tab, _ownerActive: () => true, isC1sTab: () => true,
-      _autoFitSnapshot: () => ({}), _autoFitRestore: () => { out.restored = true; }, _showAutoFitConfirmModal: async () => true,
+      _autoFitSnapshot: () => ({}), _autoFitRestore: () => { out.restored = true; }, _flushUndoDebounce() {}, _showAutoFitConfirmModal: async () => true,
       getROIData: () => ({ be: state.rawBE, inten: state.rawIntensity }), computeBackground: be => Object.assign(be.map(() => 0), { converged: true }),
       findGraphiteRawBE: () => 284.5, assessLowBERegion: () => ({}), pushUndo() {}, updateChargeCorrection() {},
       buildAutoFitModel: () => [{ id: 1, name: 'Graphite', shape: 'Gaussian', center: 284.5, fwhm: 1, amplitude: 20 }],
@@ -403,8 +404,8 @@ test('Auto-Fit discards (and rolls back) a response when the model or context wa
       peakToBackendSpec: p => ({ ...p }), _getManualAnchors: () => [],
       uploadToBackend: async () => { if (editDuringUpload) document.getElementById('bg-type').value = 'linear'; return 'sid'; },
       fetch: async () => ({ text: async () => JSON.stringify({ success: true, statistics: { reduced_chi_square: 1 }, fitted_y: [10, 20, 10], residuals: [0, 0, 0] }) }),
-      applyBackendResult: () => { out.applied++; }, applyAutoFitResult: () => true };
-    const src = constants + '\n' + ['runAutoFitC1sGraphite', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey'].map(extractFn).join('\n');
+      applyBackendResult: () => { out.applied++; }, applyAutoFitResult: () => true, _autoFitAnchorRefusal: () => null, _autoFitPublish: () => true, _autoFitBusyBegin() {}, _autoFitBusyLabel() {}, _autoFitBusyEnd() {} };
+    const src = constants + '\n' + ['runAutoFitC1sGraphite', '_autoFitRequest', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey'].map(extractFn).join('\n');
     await new Function(...Object.keys(pollify(deps)), src + '\n' + POLL_SRC + '\nreturn runAutoFitC1sGraphite;')(...Object.values(deps))();
     return out;
   };
@@ -413,7 +414,7 @@ test('Auto-Fit discards (and rolls back) a response when the model or context wa
   assert.strictEqual(edited.restored, true, 'rolled back');
   assert.ok(edited.notes.some(([m, k]) => k === 'amber' && /edited while it was running/.test(m)), JSON.stringify(edited.notes));
   const clean = await run(false);
-  assert.strictEqual(clean.applied, 1, 'an unedited run is applied as before');
+  assert.strictEqual(clean.applied, 2, 'an unedited run applies the anchor fit, then the final fit in the corrected frame (Q8)');
   assert.strictEqual(clean.restored, false);
 });
 
@@ -446,15 +447,15 @@ test('F2: Auto-Fit on a 200 reply containing NaN fails closed with the reply mes
   const out = { restored: false, applied: 0, notes: [] };
   const deps = { state, document, tabManager: { activeId: 1, _getTab: () => tab, _captureUI: () => ({ bgType: 'none' }), _syncActiveToRecord() {} },
     notify: (m, k) => out.notes.push([m, k]), _opOwner: () => tab, _ownerActive: () => true, isC1sTab: () => true,
-    _autoFitSnapshot: () => ({}), _autoFitRestore: () => { out.restored = true; }, _showAutoFitConfirmModal: async () => true,
+    _autoFitSnapshot: () => ({}), _autoFitRestore: () => { out.restored = true; }, _flushUndoDebounce() {}, _showAutoFitConfirmModal: async () => true,
     getROIData: () => ({ be: state.rawBE, inten: state.rawIntensity }), computeBackground: be => Object.assign(be.map(() => 0), { converged: true }),
     findGraphiteRawBE: () => 284.5, assessLowBERegion: () => ({}), pushUndo() {}, updateChargeCorrection() {},
     buildAutoFitModel: () => [{ id: 1, name: 'Graphite', shape: 'Gaussian', center: 284.5, fwhm: 1, amplitude: 20 }],
     renderPeakList() {}, _showFitSpinner() {}, _hideFitSpinner() {}, AbortController, setTimeout: () => 1, clearTimeout() {},
     peakToBackendSpec: p => ({ ...p }), _getManualAnchors: () => [], uploadToBackend: async () => 'sid',
     fetch: async () => ({ text: async () => '{"success": true, "statistics": {"reduced_chi_square": NaN}}' }),
-    applyBackendResult: () => { out.applied++; }, applyAutoFitResult: () => true, console: { warn() {} } };
-  const src = constants + '\n' + ['runAutoFitC1sGraphite', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey'].map(extractFn).join('\n');
+    applyBackendResult: () => { out.applied++; }, applyAutoFitResult: () => true, _autoFitAnchorRefusal: () => null, _autoFitPublish: () => true, _autoFitBusyBegin() {}, _autoFitBusyLabel() {}, _autoFitBusyEnd() {}, console: { warn() {} } };
+  const src = constants + '\n' + ['runAutoFitC1sGraphite', '_autoFitRequest', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey'].map(extractFn).join('\n');
   await new Function(...Object.keys(pollify(deps)), src + '\n' + POLL_SRC + '\nreturn runAutoFitC1sGraphite;')(...Object.values(deps))();
   assert.strictEqual(out.applied, 0);
   assert.strictEqual(out.restored, true);
@@ -473,15 +474,15 @@ for (const [label, reply, expect] of [
   const out = { restored: false, applied: 0, notes: [] };
   const deps = { state, document, tabManager: { activeId: 1, _getTab: () => tab, _captureUI: () => ({ bgType: 'none' }), _syncActiveToRecord() {} },
     notify: (m, k) => out.notes.push([m, k]), _opOwner: () => tab, _ownerActive: () => true, isC1sTab: () => true,
-    _autoFitSnapshot: () => ({}), _autoFitRestore: () => { out.restored = true; }, _showAutoFitConfirmModal: async () => true,
+    _autoFitSnapshot: () => ({}), _autoFitRestore: () => { out.restored = true; }, _flushUndoDebounce() {}, _showAutoFitConfirmModal: async () => true,
     getROIData: () => ({ be: state.rawBE, inten: state.rawIntensity }), computeBackground: be => Object.assign(be.map(() => 0), { converged: true }),
     findGraphiteRawBE: () => 284.5, assessLowBERegion: () => ({}), pushUndo() {}, updateChargeCorrection() {},
     buildAutoFitModel: () => [{ id: 1, name: 'Graphite', shape: 'Gaussian', center: 284.5, fwhm: 1, amplitude: 20 }],
     renderPeakList() {}, _showFitSpinner() {}, _hideFitSpinner() {}, AbortController, setTimeout: () => 1, clearTimeout() {},
     peakToBackendSpec: p => ({ ...p }), _getManualAnchors: () => [], uploadToBackend: async () => 'sid',
     fetch: async () => reply,
-    applyBackendResult: () => { out.applied++; }, applyAutoFitResult: () => true, console: { warn() {} } };
-  const src = constants + '\n' + ['runAutoFitC1sGraphite', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey'].map(extractFn).join('\n');
+    applyBackendResult: () => { out.applied++; }, applyAutoFitResult: () => true, _autoFitAnchorRefusal: () => null, _autoFitPublish: () => true, _autoFitBusyBegin() {}, _autoFitBusyLabel() {}, _autoFitBusyEnd() {}, console: { warn() {} } };
+  const src = constants + '\n' + ['runAutoFitC1sGraphite', '_autoFitRequest', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey'].map(extractFn).join('\n');
   await new Function(...Object.keys(pollify(deps)), src + '\n' + POLL_SRC + '\nreturn runAutoFitC1sGraphite;')(...Object.values(deps))();
   assert.strictEqual(out.applied, 0);
   assert.strictEqual(out.restored, true);

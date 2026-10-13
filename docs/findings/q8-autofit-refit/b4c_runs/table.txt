@@ -1,0 +1,12 @@
+C1s Scan     main1:G29.4% main2:— main3:G29.4% ship1:G29.4% ship2:G29.4%
+C1s Scan_0   main1:refused main2:— main3:G49.8% ship1:G49.4% ship2:refused
+C1s Scan_1   main1:G5.8% main2:G5.8% main3:G5.8% ship1:G5.8% ship2:G5.8%
+C1s Scan_2   main1:G6.5% main2:G6.5% main3:G6.5% ship1:G6.5% ship2:G6.5%
+C1s Scan_3   main1:refused main2:refused main3:refused ship1:refused ship2:refused
+C1s Scan_4   main1:G6.5% main2:G6.5% main3:G6.5% ship1:G6.5% ship2:G6.5%
+C1s Scan_5   main1:G45.6% main2:G45.6% main3:G45.6% ship1:G45.6% ship2:G45.6%
+C1s Scan_6   main1:G37.0% main2:G37.0% main3:G37.0% ship1:G37.0% ship2:G37.0%
+C1s Scan_7   main1:G23.1% main2:G23.1% main3:G23.1% ship1:G23.1% ship2:G23.1%
+C1s Scan_8   main1:refused main2:— main3:refused ship1:refused ship2:refused
+
+[exited with code 0]

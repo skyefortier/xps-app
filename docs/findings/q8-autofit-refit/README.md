@@ -15,7 +15,7 @@ committed C 1s tab — 54; Auto-Fit applied on 51 (3 refused today, unchanged by
 
 | Quantity (51 tabs) | Today (A) → proposed (B) |
 |---|---|
-| R-factor shown | median 3.50 % → 1.85 %; **18 tabs show R 14.8–17.3 % today and 1.6–2.2 % after** (two B 4C tabs 11–12 % → 6 %); none above 10 % after (max 7.5 %) |
+| R-factor shown | median 3.50 % → 1.85 %; **16 tabs show R 14.8–17.3 % today and 1.6–2.2 % after**, 2 more (B4C) 11.3 / 12.5 % → 5.6 / 6.1 % — 18 above 10 % today, none after (max 7.5 %) |
 | χ²ᵣ shown | median −3.6 %; 39 lower, 12 higher; range −35 % to +35 %; 17 tabs move > 10 % |
 | A component's area % | largest per tab: median 0.56 pp, 75th percentile 1.75 pp, max 3.85 pp; 19 tabs > 1 pp (the Graphite component the largest mover in 17 of them) |
 | A component's FWHM | largest per tab: median 1.8 %, max 37 % (excluding a zero-amplitude satellite whose width is undetermined) |

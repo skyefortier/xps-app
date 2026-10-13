@@ -1,0 +1,2232 @@
+[
+ {
+  "file": "B4C-UCl4.proj.zip",
+  "tab": "C1s Scan_4",
+  "applied": true,
+  "notes": [
+   [
+    "amber",
+    "Graphite area is only 6.5% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   ],
+   [
+    "green",
+    "Auto-fit complete. \u03c7\u00b2\u1d63 = 2.940"
+   ]
+  ],
+  "secs_A": 4.7,
+  "A": {
+   "ccShift": -6.485000000000014,
+   "n_points": 190,
+   "be_min": 280.90499999999986,
+   "be_max": 299.80499999999995,
+   "n_fitted": 190,
+   "chi2r": 2.9400292774361687,
+   "rFactor": {
+    "rPct": 5.577265877779754,
+    "level": "amber"
+   },
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.4997127878053,
+     "fwhm": 0.6575717903828243,
+     "amplitude": 2635.6475995377177,
+     "fixCenter": true,
+     "area": 1937.0777372329078,
+     "pct": 6.478343009716894,
+     "server_area": 1937.0777372302623,
+     "server_pct": 6.478934031945463
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 285.08541005113875,
+     "fwhm": 2.0159896311872005,
+     "amplitude": 9038.265934280267,
+     "fixCenter": true,
+     "area": 19395.69980441118,
+     "pct": 64.86678042460333,
+     "server_area": 19395.696802279188,
+     "server_pct": 64.87268820985096
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.905,
+     "fwhm": 1.4194132599149005,
+     "amplitude": 1295.3909853810176,
+     "fixCenter": true,
+     "area": 1957.2303368370008,
+     "pct": 6.545741158104732,
+     "server_area": 1957.2303368343305,
+     "server_pct": 6.546338329097553
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 288.505,
+     "fwhm": 2.4600016642700417,
+     "amplitude": 684.1918688629778,
+     "fixCenter": true,
+     "area": 1791.6184233340007,
+     "pct": 5.991870365236805,
+     "server_area": 1791.6184233314448,
+     "server_pct": 5.992417006340692
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.2050000000001,
+     "fwhm": 1.0000000000000002,
+     "amplitude": 34.00729770239154,
+     "fixCenter": true,
+     "area": 36.199646824224516,
+     "pct": 0.12106572929434174,
+     "server_area": 36.19964682417511,
+     "server_pct": 0.12107677417681002
+    },
+    {
+     "id": 6,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 282.8427621960158,
+     "fwhm": 0.8617166037303878,
+     "amplitude": 1186.1241138415442,
+     "fixCenter": true,
+     "area": 1087.9947392174522,
+     "pct": 3.6386784990295205,
+     "server_area": 1087.9946908924358,
+     "server_pct": 3.6390102957241615
+    },
+    {
+     "id": 7,
+     "name": "Unknown 2",
+     "shape": "GL",
+     "center": 282.1537482491918,
+     "fwhm": 1.0227786633903877,
+     "amplitude": 3398.5480177068716,
+     "fixCenter": true,
+     "area": 3695.0001598117974,
+     "pct": 12.357520814014395,
+     "server_area": 3692.275593364614,
+     "server_pct": 12.349535352864361
+    }
+   ],
+   "warn40": {
+    "fractionPct": 6.5,
+    "warning": "Graphite area is only 6.5% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   }
+  },
+  "secs_B": 1.2,
+  "B_status": {
+   "ok": true,
+   "gates": {
+    "supported": true,
+    "required": true,
+    "refit_converged": true
+   }
+  },
+  "B": {
+   "ccShift": -6.485000000000014,
+   "n_points": 190,
+   "be_min": 280.90499999999986,
+   "be_max": 299.80499999999995,
+   "n_fitted": 190,
+   "chi2r": 2.9400292776409658,
+   "rFactor": {
+    "rPct": 5.577260734173276,
+    "level": "amber"
+   },
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.4997127878053,
+     "fwhm": 0.6575708339426736,
+     "amplitude": 2635.652759075527,
+     "fixCenter": true,
+     "area": 1937.078711664027,
+     "pct": 6.478346504789698,
+     "server_area": 1937.07871166138,
+     "server_pct": 6.478937528412448
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 285.08541005113875,
+     "fwhm": 2.015989735638104,
+     "amplitude": 9038.265394896674,
+     "fixCenter": true,
+     "area": 19395.69965182706,
+     "pct": 64.8667822792934,
+     "server_area": 19395.69664969155,
+     "server_pct": 64.87269007546521
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.905,
+     "fwhm": 1.419418832149742,
+     "amplitude": 1295.376253678092,
+     "fixCenter": true,
+     "area": 1957.2157619060567,
+     "pct": 6.545692652505172,
+     "server_area": 1957.2157619033856,
+     "server_pct": 6.546289820159312
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 288.505,
+     "fwhm": 2.460057362288462,
+     "amplitude": 684.1870213630498,
+     "fixCenter": true,
+     "area": 1791.6462942778905,
+     "pct": 5.991963794999221,
+     "server_area": 1791.6462942753342,
+     "server_pct": 5.9925104456213445
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.2050000000001,
+     "fwhm": 1.0000000000004292,
+     "amplitude": 33.99320301761936,
+     "fixCenter": true,
+     "area": 36.1846434971574,
+     "pct": 0.12101555673259026,
+     "server_area": 36.184643497108055,
+     "server_pct": 0.12102659705787983
+    },
+    {
+     "id": 6,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 282.8427621960158,
+     "fwhm": 0.8617174473735726,
+     "amplitude": 1186.1236077773324,
+     "fixCenter": true,
+     "area": 1087.9953401948048,
+     "pct": 3.6386806415954203,
+     "server_area": 1087.995291868481,
+     "server_pct": 3.6390124390851284
+    },
+    {
+     "id": 7,
+     "name": "Unknown 2",
+     "shape": "GL",
+     "center": 282.1537482491918,
+     "fwhm": 1.022778944539814,
+     "amplitude": 3398.5463550557106,
+     "fixCenter": true,
+     "area": 3694.9993541416256,
+     "pct": 12.35751857008451,
+     "server_area": 3692.2747828364395,
+     "server_pct": 12.349533094198668
+    }
+   ],
+   "warn40": {
+    "fractionPct": 6.5,
+    "warning": "Graphite area is only 6.5% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   }
+  },
+  "page_errors": []
+ },
+ {
+  "file": "B4C-UCl4.proj.zip",
+  "tab": "C1s Scan_5",
+  "applied": true,
+  "notes": [
+   [
+    "green",
+    "Auto-fit complete. \u03c7\u00b2\u1d63 = 1.714"
+   ],
+   [
+    "green",
+    "Auto-fit complete. \u03c7\u00b2\u1d63 = 1.714"
+   ]
+  ],
+  "secs_A": 4.7,
+  "A": {
+   "ccShift": -6.079999999999984,
+   "n_points": 190,
+   "be_min": 280.59999999999974,
+   "be_max": 299.49999999999983,
+   "n_fitted": 190,
+   "chi2r": 1.7138897020831774,
+   "rFactor": {
+    "rPct": 5.28098809353838,
+    "level": "amber"
+   },
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.50000000000006,
+     "fwhm": 1.199999999999743,
+     "amplitude": 7845.679114103613,
+     "fixCenter": true,
+     "area": 12527.199992991376,
+     "pct": 45.61813478671054,
+     "server_area": 12527.199993002696,
+     "server_pct": 45.6273847785192
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 285.4490643192298,
+     "fwhm": 1.029404808821167,
+     "amplitude": 1899.6943128498153,
+     "fixCenter": true,
+     "area": 2081.623228368209,
+     "pct": 7.580286820676277,
+     "server_area": 2081.623228370103,
+     "server_pct": 7.581823875869976
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.3921386379559,
+     "fwhm": 1.7432015280152422,
+     "amplitude": 2141.0570502431856,
+     "fixCenter": true,
+     "area": 3972.9037863121525,
+     "pct": 14.467435701514884,
+     "server_area": 3972.9037863157578,
+     "server_pct": 14.4703692642824
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 288.59999999999997,
+     "fwhm": 2.2513697135373514,
+     "amplitude": 675.7738159855926,
+     "fixCenter": true,
+     "area": 1619.4979026339806,
+     "pct": 5.897445051606498,
+     "server_area": 1619.497902635454,
+     "server_pct": 5.898640876878095
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.30000000000007,
+     "fwhm": 1.0000000000002172,
+     "amplitude": 28.99657313498577,
+     "fixCenter": true,
+     "area": 30.865895778699283,
+     "pct": 0.11239898738209864,
+     "server_area": 30.86589577872738,
+     "server_pct": 0.11242177853122128
+    },
+    {
+     "id": 6,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 281.92743071493686,
+     "fwhm": 1.1968022755070642,
+     "amplitude": 3372.458491338814,
+     "fixCenter": true,
+     "area": 4282.111117322813,
+     "pct": 15.593422491138657,
+     "server_area": 4276.544423499495,
+     "server_pct": 15.57630899502157
+    },
+    {
+     "id": 7,
+     "name": "Unknown 2",
+     "shape": "GL",
+     "center": 283.7000000000001,
+     "fwhm": 1.4746072790690108,
+     "amplitude": 1877.3411065896598,
+     "fixCenter": true,
+     "area": 2946.806843309806,
+     "pct": 10.73087616097104,
+     "server_area": 2946.806395665636,
+     "server_pct": 10.733050430897542
+    }
+   ],
+   "warn40": null
+  },
+  "secs_B": 0.8,
+  "B_status": {
+   "ok": true,
+   "gates": {
+    "supported": true,
+    "required": true,
+    "refit_converged": true
+   }
+  },
+  "B": {
+   "ccShift": -6.079999999999984,
+   "n_points": 190,
+   "be_min": 280.59999999999974,
+   "be_max": 299.49999999999983,
+   "n_fitted": 190,
+   "chi2r": 1.7138897020708979,
+   "rFactor": {
+    "rPct": 5.280987519538622,
+    "level": "amber"
+   },
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.50000000000006,
+     "fwhm": 1.1999999999997613,
+     "amplitude": 7845.677093939894,
+     "fixCenter": true,
+     "area": 12527.196767395099,
+     "pct": 45.61812253628139,
+     "server_area": 12527.19676740641,
+     "server_pct": 45.6273725269128
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 285.4490643192298,
+     "fwhm": 1.029407267564988,
+     "amplitude": 1899.6953647539704,
+     "fixCenter": true,
+     "area": 2081.6293529914865,
+     "pct": 7.580309039851677,
+     "server_area": 2081.62935299338,
+     "server_pct": 7.5818460997679065
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.3921386379559,
+     "fwhm": 1.7432013646312778,
+     "amplitude": 2141.0541002500468,
+     "fixCenter": true,
+     "area": 3972.8979399969153,
+     "pct": 14.4674142520558,
+     "server_area": 3972.8979400005223,
+     "server_pct": 14.470347810888455
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 288.59999999999997,
+     "fwhm": 2.251378279481788,
+     "amplitude": 675.7732896391931,
+     "fixCenter": true,
+     "area": 1619.5028030527794,
+     "pct": 5.897462831413256,
+     "server_area": 1619.5028030542517,
+     "server_pct": 5.8986586604590014
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.30000000000007,
+     "fwhm": 1.0000000000001934,
+     "amplitude": 28.994643573789634,
+     "fixCenter": true,
+     "area": 30.863841824443085,
+     "pct": 0.11239150661003149,
+     "server_area": 30.86384182447118,
+     "server_pct": 0.11241429624549715
+    },
+    {
+     "id": 6,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 281.92743071493686,
+     "fwhm": 1.1968022978746706,
+     "amplitude": 3372.45857694105,
+     "fixCenter": true,
+     "area": 4282.111303854429,
+     "pct": 15.593422998004554,
+     "server_area": 4276.544609180092,
+     "server_pct": 15.576309499560876
+    },
+    {
+     "id": 7,
+     "name": "Unknown 2",
+     "shape": "GL",
+     "center": 283.7000000000001,
+     "fwhm": 1.4746068352245598,
+     "amplitude": 1877.341810462142,
+     "fixCenter": true,
+     "area": 2946.807061198654,
+     "pct": 10.730876835783297,
+     "server_area": 2946.806613557618,
+     "server_pct": 10.733051106165465
+    }
+   ],
+   "warn40": null
+  },
+  "page_errors": []
+ },
+ {
+  "file": "B4C-UCl4.proj.zip",
+  "tab": "C1s Scan_7",
+  "applied": true,
+  "notes": [
+   [
+    "amber",
+    "Graphite area is only 23.1% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   ],
+   [
+    "amber",
+    "Graphite area is only 23.1% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   ],
+   [
+    "amber",
+    "Graphite area is only 23.1% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   ],
+   [
+    "green",
+    "Auto-fit complete. \u03c7\u00b2\u1d63 = 4.089"
+   ],
+   [
+    "green",
+    "Auto-fit complete. \u03c7\u00b2\u1d63 = 4.089"
+   ],
+   [
+    "green",
+    "Auto-fit complete. \u03c7\u00b2\u1d63 = 4.089"
+   ]
+  ],
+  "secs_A": 9.7,
+  "A": {
+   "ccShift": -6.5020000000000095,
+   "n_points": 190,
+   "be_min": 280.92199999999985,
+   "be_max": 299.82199999999995,
+   "n_fitted": 190,
+   "chi2r": 4.089035553484674,
+   "rFactor": {
+    "rPct": 6.071637851180058,
+    "level": "amber"
+   },
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.49979224857987,
+     "fwhm": 0.8961080876490705,
+     "amplitude": 7910.6480813550415,
+     "fixCenter": true,
+     "area": 7923.002116344026,
+     "pct": 23.100361243090937,
+     "server_area": 7923.002116333214,
+     "server_pct": 23.102325381640025
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 285.42199999999895,
+     "fwhm": 1.3830526972009844,
+     "amplitude": 9285.581110201729,
+     "fixCenter": true,
+     "area": 13670.362344292651,
+     "pct": 39.85740554400172,
+     "server_area": 13670.362344273923,
+     "server_pct": 39.8607944722469
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.7164395241124,
+     "fwhm": 1.5462041599628398,
+     "amplitude": 2531.4908119044335,
+     "fixCenter": true,
+     "area": 4166.538536449859,
+     "pct": 12.147989349479548,
+     "server_area": 4166.538536444173,
+     "server_pct": 12.149022248226201
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 288.4219999999988,
+     "fwhm": 2.3904093510018063,
+     "amplitude": 724.8370512701731,
+     "fixCenter": true,
+     "area": 1844.3565149015396,
+     "pct": 5.377418954285665,
+     "server_area": 1844.3565148989717,
+     "server_pct": 5.377876176393498
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.12200000000115,
+     "fwhm": 1.000000000362682,
+     "amplitude": 206.82736811102325,
+     "fixCenter": true,
+     "area": 220.16091215009487,
+     "pct": 0.6419027191453509,
+     "server_area": 220.1609121497944,
+     "server_pct": 0.641957297766965
+    },
+    {
+     "id": 6,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 282.21490495764385,
+     "fwhm": 1.0856830592039217,
+     "amplitude": 2830.3617377212427,
+     "fixCenter": true,
+     "area": 3265.2215274765363,
+     "pct": 9.520103076563409,
+     "server_area": 3262.4471222674692,
+     "server_pct": 9.512822772524983
+    },
+    {
+     "id": 7,
+     "name": "Unknown 2",
+     "shape": "GL",
+     "center": 283.60533290595885,
+     "fwhm": 1.765926782642412,
+     "amplitude": 1707.100107243364,
+     "fixCenter": true,
+     "area": 3208.5321460466803,
+     "pct": 9.354819113433368,
+     "server_area": 3208.390551892186,
+     "server_pct": 9.35520165120143
+    }
+   ],
+   "warn40": {
+    "fractionPct": 23.1,
+    "warning": "Graphite area is only 23.1% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   }
+  },
+  "secs_B": 1.3,
+  "B_status": {
+   "ok": true,
+   "gates": {
+    "supported": true,
+    "required": true,
+    "refit_converged": true
+   }
+  },
+  "B": {
+   "ccShift": -6.5020000000000095,
+   "n_points": 190,
+   "be_min": 280.92199999999985,
+   "be_max": 299.82199999999995,
+   "n_fitted": 190,
+   "chi2r": 4.089035552859242,
+   "rFactor": {
+    "rPct": 6.071639537859288,
+    "level": "amber"
+   },
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.49979224857987,
+     "fwhm": 0.8961080414401723,
+     "amplitude": 7910.646736138309,
+     "fixCenter": true,
+     "area": 7923.000360458012,
+     "pct": 23.100360462621488,
+     "server_area": 7923.0003604471995,
+     "server_pct": 23.102324601549256
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 285.42199999999895,
+     "fwhm": 1.3830532526518478,
+     "amplitude": 9285.58145338844,
+     "fixCenter": true,
+     "area": 13670.368339723627,
+     "pct": 39.857430510853725,
+     "server_area": 13670.368339704888,
+     "server_pct": 39.86081944198959
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.7164395241124,
+     "fwhm": 1.5462038387785213,
+     "amplitude": 2531.5009607714987,
+     "fixCenter": true,
+     "area": 4166.554374806451,
+     "pct": 12.148037809703895,
+     "server_area": 4166.554374800767,
+     "server_pct": 12.149070712804987
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 288.4219999999988,
+     "fwhm": 2.3903384484564763,
+     "amplitude": 724.8424680930376,
+     "fixCenter": true,
+     "area": 1844.3155917312868,
+     "pct": 5.3773006484330015,
+     "server_area": 1844.3155917287183,
+     "server_pct": 5.377757860585319
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.12200000000115,
+     "fwhm": 1.0000000000023974,
+     "amplitude": 206.8412172071296,
+     "fixCenter": true,
+     "area": 220.17565397686315,
+     "pct": 0.6419458210986299,
+     "server_area": 220.17565397656273,
+     "server_pct": 0.6420004033974117
+    },
+    {
+     "id": 6,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 282.21490495764385,
+     "fwhm": 1.085683061258379,
+     "amplitude": 2830.3617981251678,
+     "fixCenter": true,
+     "area": 3265.2216032378524,
+     "pct": 9.52010508564118,
+     "server_area": 3262.447197928283,
+     "server_pct": 9.512824780144257
+    },
+    {
+     "id": 7,
+     "name": "Unknown 2",
+     "shape": "GL",
+     "center": 283.60533290595885,
+     "fwhm": 1.7659268150984737,
+     "amplitude": 1707.0998553181403,
+     "fixCenter": true,
+     "area": 3208.5317314068516,
+     "pct": 9.354819661648062,
+     "server_area": 3208.3901372399314,
+     "server_pct": 9.355202199529172
+    }
+   ],
+   "warn40": {
+    "fractionPct": 23.1,
+    "warning": "Graphite area is only 23.1% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   }
+  },
+  "page_errors": []
+ },
+ {
+  "file": "B4C-UCl4.proj.zip",
+  "tab": "C1s Scan_6",
+  "applied": true,
+  "notes": [
+   [
+    "amber",
+    "Graphite area is only 37.0% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   ],
+   [
+    "amber",
+    "Graphite area is only 37.0% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   ],
+   [
+    "amber",
+    "Graphite area is only 37.0% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   ],
+   [
+    "amber",
+    "Graphite area is only 37.0% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   ],
+   [
+    "green",
+    "Auto-fit complete. \u03c7\u00b2\u1d63 = 4.289"
+   ],
+   [
+    "green",
+    "Auto-fit complete. \u03c7\u00b2\u1d63 = 4.289"
+   ],
+   [
+    "green",
+    "Auto-fit complete. \u03c7\u00b2\u1d63 = 4.289"
+   ],
+   [
+    "green",
+    "Auto-fit complete. \u03c7\u00b2\u1d63 = 4.289"
+   ]
+  ],
+  "secs_A": 8.7,
+  "A": {
+   "ccShift": -6.180000000000007,
+   "n_points": 190,
+   "be_min": 280.69999999999976,
+   "be_max": 299.59999999999985,
+   "n_fitted": 190,
+   "chi2r": 4.289145492425765,
+   "rFactor": {
+    "rPct": 7.4605639033958076,
+    "level": "amber"
+   },
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.50000000000006,
+     "fwhm": 1.1999999999999997,
+     "amplitude": 7489.862982413839,
+     "fixCenter": true,
+     "area": 11604.254294702912,
+     "pct": 37.040472729911826,
+     "server_area": 11604.254294713153,
+     "server_pct": 37.0441749802516
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 285.1000000000001,
+     "fwhm": 2.9999999999999996,
+     "amplitude": 4605.549541056499,
+     "fixCenter": true,
+     "area": 14703.866017263445,
+     "pct": 46.934351351240146,
+     "server_area": 14703.274379919085,
+     "server_pct": 46.9371538299124
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.9778628653448,
+     "fwhm": 0.8000000000000002,
+     "amplitude": 64.17193787075169,
+     "fixCenter": true,
+     "area": 54.647129149074196,
+     "pct": 0.1744321906094591,
+     "server_area": 54.64712914912391,
+     "server_pct": 0.1744496253663488
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 288.59999999999997,
+     "fwhm": 2.1787728008220775,
+     "amplitude": 557.6730230120344,
+     "fixCenter": true,
+     "area": 1293.3730030083286,
+     "pct": 4.128412410731358,
+     "server_area": 1293.3730030095044,
+     "server_pct": 4.128825051692121
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.30000000000007,
+     "fwhm": 1.1574821687652324,
+     "amplitude": 10.049696657588093,
+     "fixCenter": true,
+     "area": 12.382247273334128,
+     "pct": 0.03952380573668736,
+     "server_area": 12.382247273345392,
+     "server_pct": 0.0395277561998557
+    },
+    {
+     "id": 6,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 281.7167252162322,
+     "fwhm": 0.7943947476509702,
+     "amplitude": 2717.780292924797,
+     "fixCenter": true,
+     "area": 2296.4443941673226,
+     "pct": 7.330189756074397,
+     "server_area": 2294.9964813148267,
+     "server_pct": 7.326300257968423
+    },
+    {
+     "id": 7,
+     "name": "Unknown 2",
+     "shape": "GL",
+     "center": 282.3326455758194,
+     "fwhm": 0.782359620405544,
+     "amplitude": 1494.9171764356227,
+     "fixCenter": true,
+     "area": 1363.6133548573412,
+     "pct": 4.3526177556961265,
+     "server_area": 1362.5218798108808,
+     "server_pct": 4.3495684986092655
+    }
+   ],
+   "warn40": {
+    "fractionPct": 37,
+    "warning": "Graphite area is only 37.0% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   }
+  },
+  "secs_B": 2.2,
+  "B_status": {
+   "ok": true,
+   "gates": {
+    "supported": true,
+    "required": true,
+    "refit_converged": true
+   }
+  },
+  "B": {
+   "ccShift": -6.180000000000007,
+   "n_points": 190,
+   "be_min": 280.69999999999976,
+   "be_max": 299.59999999999985,
+   "n_fitted": 190,
+   "chi2r": 4.289145475400478,
+   "rFactor": {
+    "rPct": 7.460517700263285,
+    "level": "amber"
+   },
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.50000000000006,
+     "fwhm": 1.199999999999999,
+     "amplitude": 7489.8680272241845,
+     "fixCenter": true,
+     "area": 11604.260267017331,
+     "pct": 37.040495402589166,
+     "server_area": 11604.260267027572,
+     "server_pct": 37.044197661686155
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 285.1000000000001,
+     "fwhm": 2.999999999999972,
+     "amplitude": 4605.543275921309,
+     "fixCenter": true,
+     "area": 14703.846014936218,
+     "pct": 46.93429207759518,
+     "server_area": 14703.254378396696,
+     "server_pct": 46.93709456095272
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.9778628653448,
+     "fwhm": 0.8000000000001505,
+     "amplitude": 64.1720969344155,
+     "fixCenter": true,
+     "area": 54.64726460353194,
+     "pct": 0.1744326399731358,
+     "server_area": 54.64726460358162,
+     "server_pct": 0.1744500748055079
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 288.59999999999997,
+     "fwhm": 2.1789194137081407,
+     "amplitude": 557.6561143746636,
+     "fixCenter": true,
+     "area": 1293.420818327332,
+     "pct": 4.128565438250103,
+     "server_area": 1293.4208183285082,
+     "server_pct": 4.1289780952296935
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.30000000000007,
+     "fwhm": 1.154029325808312,
+     "amplitude": 10.048963680083551,
+     "fixCenter": true,
+     "area": 12.344409833145939,
+     "pct": 0.03940303346797003,
+     "server_area": 12.344409833157158,
+     "server_pct": 0.039406971866675515
+    },
+    {
+     "id": 6,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 281.7167252162322,
+     "fwhm": 0.7943950852520352,
+     "amplitude": 2717.7805817831054,
+     "fixCenter": true,
+     "area": 2296.445606089869,
+     "pct": 7.330194338749647,
+     "server_area": 2294.997687494144,
+     "server_pct": 7.326304823601015
+    },
+    {
+     "id": 7,
+     "name": "Unknown 2",
+     "shape": "GL",
+     "center": 282.3326455758194,
+     "fwhm": 0.7823604607217999,
+     "amplitude": 1494.9153074172564,
+     "fixCenter": true,
+     "area": 1363.6130069728083,
+     "pct": 4.352617069374773,
+     "server_area": 1362.5215316808415,
+     "server_pct": 4.349567811858226
+    }
+   ],
+   "warn40": {
+    "fractionPct": 37,
+    "warning": "Graphite area is only 37.0% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   }
+  },
+  "page_errors": []
+ },
+ {
+  "file": "B4C-UCl4.proj.zip",
+  "tab": "C1s Scan_2",
+  "applied": true,
+  "notes": [
+   [
+    "amber",
+    "Graphite area is only 6.5% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   ],
+   [
+    "amber",
+    "Graphite area is only 6.5% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   ],
+   [
+    "amber",
+    "Graphite area is only 6.5% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   ],
+   [
+    "amber",
+    "Graphite area is only 6.5% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   ],
+   [
+    "amber",
+    "Graphite area is only 6.5% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   ],
+   [
+    "green",
+    "Auto-fit complete. \u03c7\u00b2\u1d63 = 3.394"
+   ],
+   [
+    "green",
+    "Auto-fit complete. \u03c7\u00b2\u1d63 = 3.394"
+   ],
+   [
+    "green",
+    "Auto-fit complete. \u03c7\u00b2\u1d63 = 3.394"
+   ],
+   [
+    "green",
+    "Auto-fit complete. \u03c7\u00b2\u1d63 = 3.394"
+   ],
+   [
+    "green",
+    "Auto-fit complete. \u03c7\u00b2\u1d63 = 3.394"
+   ]
+  ],
+  "secs_A": 10.3,
+  "A": {
+   "ccShift": -6.480000000000018,
+   "n_points": 190,
+   "be_min": 280.9999999999998,
+   "be_max": 299.89999999999986,
+   "n_fitted": 190,
+   "chi2r": 3.3940458530873703,
+   "rFactor": {
+    "rPct": 6.228936546415776,
+    "level": "amber"
+   },
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.50000000000006,
+     "fwhm": 0.7004793405123267,
+     "amplitude": 2481.7498875222586,
+     "fixCenter": true,
+     "area": 1943.0091738316935,
+     "pct": 6.453185457986518,
+     "server_area": 1943.009173833458,
+     "server_pct": 6.454013084673287
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 285.100553671465,
+     "fwhm": 2.025104275053723,
+     "amplitude": 9638.664148681532,
+     "fixCenter": true,
+     "area": 20777.63681107736,
+     "pct": 69.00736523860806,
+     "server_area": 20777.63123894903,
+     "server_pct": 69.01619698486692
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.99999999999994,
+     "fwhm": 1.3469215586292325,
+     "amplitude": 1195.772731641743,
+     "fixCenter": true,
+     "area": 1714.4434311752516,
+     "pct": 5.6940654566147675,
+     "server_area": 1714.4434311768102,
+     "server_pct": 5.694795725496518
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 288.5999999999997,
+     "fwhm": 2.4961544426209397,
+     "amplitude": 594.3995466571388,
+     "fixCenter": true,
+     "area": 1579.3636283329931,
+     "pct": 5.245434008493332,
+     "server_area": 1579.3636283342246,
+     "server_pct": 5.246106739998265
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.30000000001144,
+     "fwhm": 1.2460744255194796,
+     "amplitude": 14.663803790832349,
+     "fixCenter": true,
+     "area": 19.450144569383177,
+     "pct": 0.06459845469661755,
+     "server_area": 19.450144569400862,
+     "server_pct": 0.06460673950500863
+    },
+    {
+     "id": 6,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 282.07826628224205,
+     "fwhm": 0.9370013166587088,
+     "amplitude": 3031.581512977239,
+     "fixCenter": true,
+     "area": 3016.963272840813,
+     "pct": 10.020036848916176,
+     "server_area": 3013.107803529092,
+     "server_pct": 10.008515374706505
+    },
+    {
+     "id": 7,
+     "name": "Unknown 2",
+     "shape": "GL",
+     "center": 282.79704340845774,
+     "fwhm": 0.7492613060066197,
+     "amplitude": 1327.0869561829968,
+     "fixCenter": true,
+     "area": 1058.4367107166706,
+     "pct": 3.5153145346845145,
+     "server_area": 1058.4367028604568,
+     "server_pct": 3.5157653507534916
+    }
+   ],
+   "warn40": {
+    "fractionPct": 6.5,
+    "warning": "Graphite area is only 6.5% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   }
+  },
+  "secs_B": 1.9,
+  "B_status": {
+   "ok": true,
+   "gates": {
+    "supported": true,
+    "required": true,
+    "refit_converged": true
+   }
+  },
+  "B": {
+   "ccShift": -6.480000000000018,
+   "n_points": 190,
+   "be_min": 280.9999999999998,
+   "be_max": 299.89999999999986,
+   "n_fitted": 190,
+   "chi2r": 3.394045843900225,
+   "rFactor": {
+    "rPct": 6.228937804001418,
+    "level": "amber"
+   },
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.50000000000006,
+     "fwhm": 0.7004775618274779,
+     "amplitude": 2481.7498895719687,
+     "fixCenter": true,
+     "area": 1943.0042417051927,
+     "pct": 6.453171224357323,
+     "server_area": 1943.0042417069221,
+     "server_pct": 6.453998850293741
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 285.100553671465,
+     "fwhm": 2.0251060800056706,
+     "amplitude": 9638.664150942897,
+     "fixCenter": true,
+     "area": 20777.655334518477,
+     "pct": 69.00744971954259,
+     "server_area": 20777.649762277208,
+     "server_pct": 69.01628148775305
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.99999999999994,
+     "fwhm": 1.3469314303776991,
+     "amplitude": 1195.7727442914195,
+     "fixCenter": true,
+     "area": 1714.4560146803426,
+     "pct": 5.6941091439162115,
+     "server_area": 1714.4560146818915,
+     "server_pct": 5.69483941934963
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 288.5999999999997,
+     "fwhm": 2.496070697215514,
+     "amplitude": 594.3998489628046,
+     "fixCenter": true,
+     "area": 1579.3114442720205,
+     "pct": 5.245262438300301,
+     "server_area": 1579.3114442732474,
+     "server_pct": 5.245935148675168
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.30000000001144,
+     "fwhm": 1.247356451361247,
+     "amplitude": 14.663808304226412,
+     "fixCenter": true,
+     "area": 19.47016187784041,
+     "pct": 0.06466495834995833,
+     "server_area": 19.47016187785764,
+     "server_pct": 0.06467325169827423
+    },
+    {
+     "id": 6,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 282.07826628224205,
+     "fwhm": 0.9370014355298483,
+     "amplitude": 3031.5815341474604,
+     "fixCenter": true,
+     "area": 3016.963668973341,
+     "pct": 10.020041498449924,
+     "server_area": 3013.1081960427737,
+     "server_pct": 10.008520010222389
+    },
+    {
+     "id": 7,
+     "name": "Unknown 2",
+     "shape": "GL",
+     "center": 282.79704340845774,
+     "fwhm": 0.7492583565214502,
+     "amplitude": 1327.0866356185795,
+     "fixCenter": true,
+     "area": 1058.4322884977257,
+     "pct": 3.515301017083692,
+     "server_area": 1058.4322806424163,
+     "server_pct": 3.515751832007748
+    }
+   ],
+   "warn40": {
+    "fractionPct": 6.5,
+    "warning": "Graphite area is only 6.5% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   }
+  },
+  "page_errors": []
+ },
+ {
+  "file": "B4C-UCl4.proj.zip",
+  "tab": "C1s Scan_3",
+  "applied": false,
+  "notes": [
+   [
+    "red",
+    "Auto-fit exceeded the 2-minute timeout."
+   ],
+   [
+    "red",
+    "Auto-fit exceeded the 2-minute timeout."
+   ],
+   [
+    "red",
+    "Auto-fit exceeded the 2-minute timeout."
+   ],
+   [
+    "red",
+    "Auto-fit exceeded the 2-minute timeout."
+   ],
+   [
+    "red",
+    "Auto-fit exceeded the 2-minute timeout."
+   ],
+   [
+    "red",
+    "Auto-fit exceeded the 2-minute timeout."
+   ]
+  ],
+  "secs_A": 120.2,
+  "page_errors": []
+ },
+ {
+  "file": "B4C-UCl4.proj.zip",
+  "tab": "C1s Scan_1",
+  "applied": true,
+  "notes": [
+   [
+    "amber",
+    "Graphite area is only 5.8% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   ],
+   [
+    "amber",
+    "Graphite area is only 5.8% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   ],
+   [
+    "amber",
+    "Graphite area is only 5.8% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   ],
+   [
+    "amber",
+    "Graphite area is only 5.8% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   ],
+   [
+    "amber",
+    "Graphite area is only 5.8% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   ],
+   [
+    "amber",
+    "Graphite area is only 5.8% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   ],
+   [
+    "amber",
+    "Graphite area is only 5.8% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   ],
+   [
+    "green",
+    "Auto-fit complete. \u03c7\u00b2\u1d63 = 3.706"
+   ],
+   [
+    "green",
+    "Auto-fit complete. \u03c7\u00b2\u1d63 = 3.706"
+   ],
+   [
+    "green",
+    "Auto-fit complete. \u03c7\u00b2\u1d63 = 3.706"
+   ],
+   [
+    "green",
+    "Auto-fit complete. \u03c7\u00b2\u1d63 = 3.706"
+   ],
+   [
+    "green",
+    "Auto-fit complete. \u03c7\u00b2\u1d63 = 3.706"
+   ],
+   [
+    "green",
+    "Auto-fit complete. \u03c7\u00b2\u1d63 = 3.706"
+   ],
+   [
+    "green",
+    "Auto-fit complete. \u03c7\u00b2\u1d63 = 3.706"
+   ]
+  ],
+  "secs_A": 6.7,
+  "A": {
+   "ccShift": -6.560999999999979,
+   "n_points": 190,
+   "be_min": 281.08099999999973,
+   "be_max": 299.9809999999998,
+   "n_fitted": 190,
+   "chi2r": 3.7062921963248447,
+   "rFactor": {
+    "rPct": 6.472563493808842,
+    "level": "amber"
+   },
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.4996307202224,
+     "fwhm": 0.6533570224311087,
+     "amplitude": 2397.9083690262914,
+     "fixCenter": true,
+     "area": 1751.118234247264,
+     "pct": 5.793040519315097,
+     "server_area": 1751.118234248855,
+     "server_pct": 5.7937778795308885
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 285.1870290098676,
+     "fwhm": 1.953342447112764,
+     "amplitude": 9751.835494273355,
+     "fixCenter": true,
+     "area": 20276.68003298428,
+     "pct": 67.07921071860592,
+     "server_area": 20276.677702227385,
+     "server_pct": 67.08774110386375
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.98099999999994,
+     "fwhm": 1.506102488574369,
+     "amplitude": 1456.4239554564572,
+     "fixCenter": true,
+     "area": 2334.933681540686,
+     "pct": 7.724415840426226,
+     "server_area": 2334.9336815428087,
+     "server_pct": 7.725399033433764
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 288.58099999999996,
+     "fwhm": 2.382871356685942,
+     "amplitude": 593.4495133866694,
+     "fixCenter": true,
+     "area": 1505.2775519453514,
+     "pct": 4.979751612822018,
+     "server_area": 1505.2775519466857,
+     "server_pct": 4.980385454534488
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.28100000000006,
+     "fwhm": 1.0000000000005496,
+     "amplitude": 108.09817498216611,
+     "fixCenter": true,
+     "area": 115.06694212920496,
+     "pct": 0.38066387817308595,
+     "server_area": 115.06694212930951,
+     "server_pct": 0.380712330518347
+    },
+    {
+     "id": 6,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 282.10631117673864,
+     "fwhm": 0.9127734830101185,
+     "amplitude": 2177.166178378875,
+     "fixCenter": true,
+     "area": 2109.6554257170797,
+     "pct": 6.979151449602399,
+     "server_area": 2106.3629614143024,
+     "server_pct": 6.969146282312683
+    },
+    {
+     "id": 7,
+     "name": "Unknown 2",
+     "shape": "GL",
+     "center": 282.66250091405817,
+     "fwhm": 1.1726301979533837,
+     "amplitude": 1711.4962635810414,
+     "fixCenter": true,
+     "area": 2135.232676284443,
+     "pct": 7.063765981055271,
+     "server_area": 2134.680430813072,
+     "server_pct": 7.062837915806099
+    }
+   ],
+   "warn40": {
+    "fractionPct": 5.8,
+    "warning": "Graphite area is only 5.8% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   }
+  },
+  "secs_B": 1.5,
+  "B_status": {
+   "ok": true,
+   "gates": {
+    "supported": true,
+    "required": true,
+    "refit_converged": true
+   }
+  },
+  "B": {
+   "ccShift": -6.560999999999979,
+   "n_points": 190,
+   "be_min": 281.08099999999973,
+   "be_max": 299.9809999999998,
+   "n_fitted": 190,
+   "chi2r": 3.706292194666889,
+   "rFactor": {
+    "rPct": 6.47256315343962,
+    "level": "amber"
+   },
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.4996307202224,
+     "fwhm": 0.6533564431565952,
+     "amplitude": 2397.9063865507055,
+     "fixCenter": true,
+     "area": 1751.11523406479,
+     "pct": 5.793034951608601,
+     "server_area": 1751.1152340663784,
+     "server_pct": 5.793772311327719
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 285.1870290098676,
+     "fwhm": 1.95334365416458,
+     "amplitude": 9751.835511393754,
+     "fixCenter": true,
+     "area": 20276.692598298225,
+     "pct": 67.07930274371593,
+     "server_area": 20276.69026750605,
+     "server_pct": 67.08783314301952
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.98099999999994,
+     "fwhm": 1.5060947560588633,
+     "amplitude": 1456.4455742281875,
+     "fixCenter": true,
+     "area": 2334.9563526633124,
+     "pct": 7.724496651234453,
+     "server_area": 2334.9563526654365,
+     "server_pct": 7.725479854810607
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 288.58099999999996,
+     "fwhm": 2.3827218410775197,
+     "amplitude": 593.4604626678818,
+     "fixCenter": true,
+     "area": 1505.2108728011915,
+     "pct": 4.979534770785945,
+     "server_area": 1505.2108728025253,
+     "server_pct": 4.980168585080178
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.28100000000006,
+     "fwhm": 1.0000000000032938,
+     "amplitude": 108.11163720922892,
+     "fixCenter": true,
+     "area": 115.08127222631023,
+     "pct": 0.38071157129681676,
+     "server_area": 115.08127222641482,
+     "server_pct": 0.3807600297265734
+    },
+    {
+     "id": 6,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 282.10631117673864,
+     "fwhm": 0.912773745226614,
+     "amplitude": 2177.166185546471,
+     "fixCenter": true,
+     "area": 2109.6560245582677,
+     "pct": 6.979158680362161,
+     "server_area": 2106.3635536267675,
+     "server_pct": 6.969153484121892
+    },
+    {
+     "id": 7,
+     "name": "Unknown 2",
+     "shape": "GL",
+     "center": 282.66250091405817,
+     "fwhm": 1.1726284188542695,
+     "amplitude": 1711.496260942181,
+     "fixCenter": true,
+     "area": 2135.2294529639616,
+     "pct": 7.063760630996076,
+     "server_area": 2134.677215944302,
+     "server_pct": 7.062832591913492
+    }
+   ],
+   "warn40": {
+    "fractionPct": 5.8,
+    "warning": "Graphite area is only 5.8% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   }
+  },
+  "page_errors": []
+ },
+ {
+  "file": "B4C-UCl4.proj.zip",
+  "tab": "C1s Scan_0",
+  "applied": true,
+  "notes": [
+   [
+    "green",
+    "Auto-fit complete. \u03c7\u00b2\u1d63 = 2.372"
+   ],
+   [
+    "green",
+    "Auto-fit complete. \u03c7\u00b2\u1d63 = 2.372"
+   ],
+   [
+    "green",
+    "Auto-fit complete. \u03c7\u00b2\u1d63 = 2.372"
+   ],
+   [
+    "green",
+    "Auto-fit complete. \u03c7\u00b2\u1d63 = 2.372"
+   ],
+   [
+    "green",
+    "Auto-fit complete. \u03c7\u00b2\u1d63 = 2.372"
+   ],
+   [
+    "green",
+    "Auto-fit complete. \u03c7\u00b2\u1d63 = 2.372"
+   ],
+   [
+    "green",
+    "Auto-fit complete. \u03c7\u00b2\u1d63 = 2.372"
+   ],
+   [
+    "green",
+    "Auto-fit complete. \u03c7\u00b2\u1d63 = 2.372"
+   ]
+  ],
+  "secs_A": 74.0,
+  "A": {
+   "ccShift": -6.3489999999999895,
+   "n_points": 190,
+   "be_min": 280.86899999999974,
+   "be_max": 299.76899999999983,
+   "n_fitted": 190,
+   "chi2r": 2.3724953734399112,
+   "rFactor": {
+    "rPct": 5.3220417613996025,
+    "level": "amber"
+   },
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.5004474875401,
+     "fwhm": 1.1453846939821455,
+     "amplitude": 9901.707629155457,
+     "fixCenter": true,
+     "area": 15090.65811761531,
+     "pct": 49.37745056647711,
+     "server_area": 15090.65811762863,
+     "server_pct": 49.38814815188865
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 285.5533820666436,
+     "fwhm": 1.3161607807967814,
+     "amplitude": 4122.788012739718,
+     "fixCenter": true,
+     "area": 5776.0661759278355,
+     "pct": 18.899601319418586,
+     "server_area": 5776.066175933089,
+     "server_pct": 18.903695903020296
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.74276996847937,
+     "fwhm": 1.4289571987799479,
+     "amplitude": 1878.8936154750334,
+     "fixCenter": true,
+     "area": 2857.943386373698,
+     "pct": 9.351345526656031,
+     "server_area": 2857.943386376297,
+     "server_pct": 9.353371488230573
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 288.56899999999996,
+     "fwhm": 2.2046389404022655,
+     "amplitude": 606.7630318011171,
+     "fixCenter": true,
+     "area": 1423.930514398791,
+     "pct": 4.659177753338124,
+     "server_area": 1423.9305144000857,
+     "server_pct": 4.660187160494592
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 292.26899997079994,
+     "fwhm": 1.0016139080637871,
+     "amplitude": 3.2824460109578334e-13,
+     "fixCenter": true,
+     "area": 3.500492923469744e-13,
+     "pct": 1.1453802408071781e-15,
+     "server_area": 3.5004923614741755e-13,
+     "server_pct": 1.14562820259696e-15
+    },
+    {
+     "id": 6,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 281.93965452009246,
+     "fwhm": 0.9983648948516559,
+     "amplitude": 2915.419144850114,
+     "fixCenter": true,
+     "area": 3085.8016339122273,
+     "pct": 10.096910051828361,
+     "server_area": 3079.791806103075,
+     "server_pct": 10.07942879701879
+    },
+    {
+     "id": 7,
+     "name": "Unknown 2",
+     "shape": "GL",
+     "center": 282.954861183871,
+     "fwhm": 1.5985937413109665,
+     "amplitude": 1368.8764513052784,
+     "fixCenter": true,
+     "area": 2327.441547723054,
+     "pct": 7.615514782281788,
+     "server_area": 2326.8316110651244,
+     "server_pct": 7.615168499347098
+    }
+   ],
+   "warn40": null
+  },
+  "secs_B": 23.0,
+  "B_status": {
+   "ok": true,
+   "gates": {
+    "supported": true,
+    "required": true,
+    "refit_converged": true
+   }
+  },
+  "B": {
+   "ccShift": -6.3489999999999895,
+   "n_points": 190,
+   "be_min": 280.86899999999974,
+   "be_max": 299.76899999999983,
+   "n_fitted": 190,
+   "chi2r": 2.372495373181085,
+   "rFactor": {
+    "rPct": 5.322028174625162,
+    "level": "amber"
+   },
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.5004474875401,
+     "fwhm": 1.1453782675185882,
+     "amplitude": 9901.706824203447,
+     "fixCenter": true,
+     "area": 15090.572223607338,
+     "pct": 49.377160870545524,
+     "server_area": 15090.572223620675,
+     "server_pct": 49.38785847862619
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 285.5533820666436,
+     "fwhm": 1.3161528611931133,
+     "amplitude": 4122.834466496926,
+     "fixCenter": true,
+     "area": 5776.096501952934,
+     "pct": 18.89969723842239,
+     "server_area": 5776.096501958182,
+     "server_pct": 18.90379187550477
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.74276996847937,
+     "fwhm": 1.4289534332398774,
+     "amplitude": 1878.9071289106275,
+     "fixCenter": true,
+     "area": 2857.9564101500814,
+     "pct": 9.35138650370236,
+     "server_area": 2857.9564101526785,
+     "server_pct": 9.35341249033414
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 288.56899999999996,
+     "fwhm": 2.204633319549041,
+     "amplitude": 606.763591545804,
+     "fixCenter": true,
+     "area": 1423.9281975925692,
+     "pct": 4.659169356788447,
+     "server_area": 1423.9281975938638,
+     "server_pct": 4.660178770187022
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 292.26899997079994,
+     "fwhm": 1.0016138996522117,
+     "amplitude": 3.1878342459452957e-13,
+     "fixCenter": true,
+     "area": 3.399596919397602e-13,
+     "pct": 1.1123663271132044e-15,
+     "server_area": 3.3995963731243053e-13,
+     "server_pct": 1.1126071435350128e-15
+    },
+    {
+     "id": 6,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 281.93965452009246,
+     "fwhm": 0.9983627088277902,
+     "amplitude": 2915.3789107889697,
+     "fixCenter": true,
+     "area": 3085.7525073420843,
+     "pct": 10.096747539060313,
+     "server_area": 3079.742846389276,
+     "server_pct": 10.079266816002901
+    },
+    {
+     "id": 7,
+     "name": "Unknown 2",
+     "shape": "GL",
+     "center": 282.954861183871,
+     "fwhm": 1.5986541672593317,
+     "amplitude": 1368.8835920774209,
+     "fixCenter": true,
+     "area": 2327.5408867742085,
+     "pct": 7.615838491480966,
+     "server_area": 2326.9307292461394,
+     "server_pct": 7.6154915693449805
+    }
+   ],
+   "warn40": null
+  },
+  "page_errors": []
+ },
+ {
+  "file": "B4C-UCl4.proj.zip",
+  "tab": "C1s Scan",
+  "applied": true,
+  "notes": [
+   [
+    "amber",
+    "Graphite area is only 29.4% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   ],
+   [
+    "amber",
+    "Graphite area is only 29.4% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   ],
+   [
+    "amber",
+    "Graphite area is only 29.4% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   ],
+   [
+    "amber",
+    "Graphite area is only 29.4% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   ],
+   [
+    "amber",
+    "Graphite area is only 29.4% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   ],
+   [
+    "amber",
+    "Graphite area is only 29.4% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   ],
+   [
+    "amber",
+    "Graphite area is only 29.4% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   ],
+   [
+    "amber",
+    "Graphite area is only 29.4% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   ],
+   [
+    "amber",
+    "Graphite area is only 29.4% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   ],
+   [
+    "green",
+    "Auto-fit complete. \u03c7\u00b2\u1d63 = 3.132"
+   ],
+   [
+    "green",
+    "Auto-fit complete. \u03c7\u00b2\u1d63 = 3.132"
+   ],
+   [
+    "green",
+    "Auto-fit complete. \u03c7\u00b2\u1d63 = 3.132"
+   ],
+   [
+    "green",
+    "Auto-fit complete. \u03c7\u00b2\u1d63 = 3.132"
+   ],
+   [
+    "green",
+    "Auto-fit complete. \u03c7\u00b2\u1d63 = 3.132"
+   ],
+   [
+    "green",
+    "Auto-fit complete. \u03c7\u00b2\u1d63 = 3.132"
+   ],
+   [
+    "green",
+    "Auto-fit complete. \u03c7\u00b2\u1d63 = 3.132"
+   ],
+   [
+    "green",
+    "Auto-fit complete. \u03c7\u00b2\u1d63 = 3.132"
+   ],
+   [
+    "green",
+    "Auto-fit complete. \u03c7\u00b2\u1d63 = 3.132"
+   ]
+  ],
+  "secs_A": 15.3,
+  "A": {
+   "ccShift": -6.180000000000007,
+   "n_points": 190,
+   "be_min": 280.69999999999976,
+   "be_max": 299.59999999999985,
+   "n_fitted": 190,
+   "chi2r": 3.132473579013335,
+   "rFactor": {
+    "rPct": 6.654644860817974,
+    "level": "amber"
+   },
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.50000000000006,
+     "fwhm": 1.1999999999999997,
+     "amplitude": 5410.460789403555,
+     "fixCenter": true,
+     "area": 8450.681265527626,
+     "pct": 29.424441935604612,
+     "server_area": 8450.681265535086,
+     "server_pct": 29.430120986862605
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 285.1000000000001,
+     "fwhm": 2.9999999999999996,
+     "amplitude": 4818.174567144386,
+     "fixCenter": true,
+     "area": 15382.701380479675,
+     "pct": 53.56105494465232,
+     "server_area": 15382.082428934338,
+     "server_pct": 53.569236927641576
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.99999999999994,
+     "fwhm": 0.8000000000000002,
+     "amplitude": 68.64914852690619,
+     "fixCenter": true,
+     "area": 58.459803615088745,
+     "pct": 0.20355129284734994,
+     "server_area": 58.459803615141915,
+     "server_pct": 0.20359057917360893
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 288.59999999999997,
+     "fwhm": 2.2542883723084897,
+     "amplitude": 520.6711325080377,
+     "fixCenter": true,
+     "area": 1249.4105848483728,
+     "pct": 4.350324909018492,
+     "server_area": 1249.4105848495085,
+     "server_pct": 4.351164541532327
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.30000000000007,
+     "fwhm": 1.0000000000000264,
+     "amplitude": 25.221204452478965,
+     "fixCenter": true,
+     "area": 26.847140329972152,
+     "pct": 0.09347910505141653,
+     "server_area": 26.847140329996563,
+     "server_pct": 0.0934971469442882
+    },
+    {
+     "id": 6,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 282.43866554574134,
+     "fwhm": 0.7043321982183689,
+     "amplitude": 1081.5019900913246,
+     "fixCenter": true,
+     "area": 918.8655314719458,
+     "pct": 3.1993995073173145,
+     "server_area": 918.0998795598599,
+     "server_pct": 3.197350566713133
+    },
+    {
+     "id": 7,
+     "name": "Unknown 2",
+     "shape": "GL",
+     "center": 281.7658233099429,
+     "fwhm": 0.9568889988679471,
+     "amplitude": 2592.6091552953653,
+     "fixCenter": true,
+     "area": 2632.9715622809194,
+     "pct": 9.167748305508471,
+     "server_area": 2628.8141567382363,
+     "server_pct": 9.155039251132465
+    }
+   ],
+   "warn40": {
+    "fractionPct": 29.4,
+    "warning": "Graphite area is only 29.4% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   }
+  },
+  "secs_B": 1.3,
+  "B_status": {
+   "ok": true,
+   "gates": {
+    "supported": true,
+    "required": true,
+    "refit_converged": true
+   }
+  },
+  "B": {
+   "ccShift": -6.180000000000007,
+   "n_points": 190,
+   "be_min": 280.69999999999976,
+   "be_max": 299.59999999999985,
+   "n_fitted": 190,
+   "chi2r": 3.1324735791101546,
+   "rFactor": {
+    "rPct": 6.654646326686501,
+    "level": "amber"
+   },
+   "peaks": [
+    {
+     "id": 1,
+     "name": "Graphite",
+     "shape": "asym-GL",
+     "center": 284.50000000000006,
+     "fwhm": 1.1999999999999982,
+     "amplitude": 5410.466490439936,
+     "fixCenter": true,
+     "area": 8450.696280458744,
+     "pct": 29.424484515937777,
+     "server_area": 8450.696280466207,
+     "server_pct": 29.430163633869785
+    },
+    {
+     "id": 2,
+     "name": "Adventitious 1",
+     "shape": "GL",
+     "center": 285.1000000000001,
+     "fwhm": 2.9999999999999956,
+     "amplitude": 4818.167358233352,
+     "fixCenter": true,
+     "area": 15382.678365015163,
+     "pct": 53.56095714996741,
+     "server_area": 15382.059414395895,
+     "server_pct": 53.56913922441952
+    },
+    {
+     "id": 3,
+     "name": "Adventitious 2",
+     "shape": "GL",
+     "center": 286.99999999999994,
+     "fwhm": 0.8000000000000017,
+     "amplitude": 68.66740896723016,
+     "fixCenter": true,
+     "area": 58.47535372427702,
+     "pct": 0.20360536967855278,
+     "server_area": 58.47535372433021,
+     "server_pct": 0.20364466684637667
+    },
+    {
+     "id": 4,
+     "name": "Adventitious 3",
+     "shape": "GL",
+     "center": 288.59999999999997,
+     "fwhm": 2.2542238628381006,
+     "amplitude": 520.6759715005617,
+     "fixCenter": true,
+     "area": 1249.386442686784,
+     "pct": 4.350239414268029,
+     "server_area": 1249.3864426879197,
+     "server_pct": 4.3510790389233405
+    },
+    {
+     "id": 5,
+     "name": "\u03c0\u2192\u03c0* satellite",
+     "shape": "GL",
+     "center": 290.30000000000007,
+     "fwhm": 1.0000000000000293,
+     "amplitude": 25.2391469919886,
+     "fixCenter": true,
+     "area": 26.866239571525075,
+     "pct": 0.0935455758955404,
+     "server_area": 26.866239571549514,
+     "server_pct": 0.09356363080342887
+    },
+    {
+     "id": 6,
+     "name": "Unknown 1",
+     "shape": "GL",
+     "center": 282.43866554574134,
+     "fwhm": 0.7043330317156781,
+     "amplitude": 1081.5030958604996,
+     "fixCenter": true,
+     "area": 918.8764870466562,
+     "pct": 3.199436598814306,
+     "server_area": 918.1107690858026,
+     "server_pct": 3.197387442579177
+    },
+    {
+     "id": 7,
+     "name": "Unknown 2",
+     "shape": "GL",
+     "center": 281.7658233099429,
+     "fwhm": 0.9568890006368136,
+     "amplitude": 2592.6052175417844,
+     "fixCenter": true,
+     "area": 2632.9675679687266,
+     "pct": 9.167731375438391,
+     "server_area": 2628.8101686875984,
+     "server_pct": 9.155022362558356
+    }
+   ],
+   "warn40": {
+    "fractionPct": 29.4,
+    "warning": "Graphite area is only 29.4% of the total C1s signal. This is below the typical 40% expected for a graphite-dominated sample. Review the fit and consider manual adjustment."
+   }
+  },
+  "page_errors": []
+ },
+ {
+  "file": "B4C-UCl4.proj.zip",
+  "tab": "C1s Scan_8",
+  "applied": false,
+  "notes": [
+   [
+    "red",
+    "Auto-fit failed: The server's reply contains a non-finite number (NaN or Infinity), usually an uncertainty that could not be computed because these data do not determine the model. The fit is treated as failed."
+   ],
+   [
+    "red",
+    "Auto-fit failed: The server's reply contains a non-finite number (NaN or Infinity), usually an uncertainty that could not be computed because these data do not determine the model. The fit is treated as failed."
+   ],
+   [
+    "red",
+    "Auto-fit failed: The server's reply contains a non-finite number (NaN or Infinity), usually an uncertainty that could not be computed because these data do not determine the model. The fit is treated as failed."
+   ],
+   [
+    "red",
+    "Auto-fit failed: The server's reply contains a non-finite number (NaN or Infinity), usually an uncertainty that could not be computed because these data do not determine the model. The fit is treated as failed."
+   ],
+   [
+    "red",
+    "Auto-fit failed: The server's reply contains a non-finite number (NaN or Infinity), usually an uncertainty that could not be computed because these data do not determine the model. The fit is treated as failed."
+   ],
+   [
+    "red",
+    "Auto-fit failed: The server's reply contains a non-finite number (NaN or Infinity), usually an uncertainty that could not be computed because these data do not determine the model. The fit is treated as failed."
+   ],
+   [
+    "red",
+    "Auto-fit failed: The server's reply contains a non-finite number (NaN or Infinity), usually an uncertainty that could not be computed because these data do not determine the model. The fit is treated as failed."
+   ],
+   [
+    "red",
+    "Auto-fit failed: The server's reply contains a non-finite number (NaN or Infinity), usually an uncertainty that could not be computed because these data do not determine the model. The fit is treated as failed."
+   ],
+   [
+    "red",
+    "Auto-fit failed: The server's reply contains a non-finite number (NaN or Infinity), usually an uncertainty that could not be computed because these data do not determine the model. The fit is treated as failed."
+   ],
+   [
+    "red",
+    "Auto-fit failed: The server's reply contains a non-finite number (NaN or Infinity), usually an uncertainty that could not be computed because these data do not determine the model. The fit is treated as failed."
+   ]
+  ],
+  "secs_A": 79.6,
+  "page_errors": []
+ }
+]

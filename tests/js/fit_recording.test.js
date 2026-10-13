@@ -29,7 +29,7 @@ const SERVER = { fit_method: 'leastsq', random_seed: 0, seed_source: 'caller',
 
 test('every producer writes the record: Run Fit, Auto-Fit, the local engine', () => {
   assert.match(extractFn('runFit'), /record: _fitRecordFrom\(backendResult\)/);
-  assert.match(extractFn('applyAutoFitResult'), /record: _fitRecordFrom\(json\)/);
+  assert.match(extractFn('_autoFitPublish'), /record: _fitRecordFrom\(json\)/);   // Q8: Auto-Fit publishes its final fit
   assert.match(extractFn('runFitLocal'), /record: _localFitRecord\(certifyRestarts, /);
   assert.match(extractFn('_doSaveFit'), /record: _isFitRecord\(state\.fitResult\.record\) \? state\.fitResult\.record : null/);
   assert.match(extractFn('_doPublicationExport'), /_pngWithText\(blob, 'XPS-Fit-Record', JSON\.stringify\(rec\)\)/);

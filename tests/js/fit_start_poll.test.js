@@ -243,7 +243,7 @@ test('both callers claim their operation before the first await and do nothing a
   const inst = af.indexOf('if (!_installFitOp(afOp)) return;');
   // round 5: installed only AFTER the preflight refusals (installing cancels a running fit on the tab)
   assert.ok(inst > af.indexOf("notify('ROI is empty.") && inst > af.indexOf("notify('No strong peak found"), 'installed after every preflight refusal');
-  assert.ok(inst < af.indexOf('pushUndo();') && inst < af.indexOf('_showFitSpinner();') && inst < af.indexOf('await uploadToBackend('),
+  assert.ok(inst < af.indexOf('pushUndo({ context: true });') && inst < af.indexOf('_showFitSpinner();') && inst < af.indexOf('await uploadToBackend('),
     'and before anything is changed, shown or sent');
   assert.ok(!/\bawait\s+[\w(]/.test(af.slice(outdated, inst).replace(/\/\/[^\n]*/g, '')), 'no await between the check and the install');
   assert.match(af, /op: afOp,/);
@@ -324,7 +324,7 @@ test('an Auto-Fit REFUSED by its preflight leaves a running Run Fit alone: not c
       // the averaging field holds a number; the last refusal is a value outside 1-50 (owner 2026-10-11)
       document: { getElementById: id => ({ value: id === 'bg-endpoint-avg' ? (refusal === 'averaging out of range' ? '1e21' : '1') : '', style: {}, setAttribute() {}, classList: { add() {}, remove() {} } }), querySelector: () => ({}) },
       notify: (m) => out.notes.push(m), _opOwner: () => tab, _ownerActive: () => true, isC1sTab: () => true,
-      _showAutoFitConfirmModal: async () => true, _autoFitSnapshot: () => { out.snapshots++; return {}; }, _autoFitRestore() {},
+      _showAutoFitConfirmModal: async () => true, _autoFitSnapshot: () => { out.snapshots++; return {}; }, _autoFitRestore() {}, _flushUndoDebounce() {},
       fetch: async (u) => {
         if (u.startsWith('/api/fit/cancel/')) { out.cancels.push(u); return ok({}); }
         if (u === '/api/fit/start') return ok({ job_id: 'RUN1' }, 202);

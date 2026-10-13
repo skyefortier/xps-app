@@ -110,7 +110,7 @@ function pageEnv(fns, extraArgs = {}) {
     ...[...names, '_centredOutsideWindow', '_outsideWindowNoteHtml', '_areaGrid', '_areaSignature', '_arrMin', '_arrMax'].map(extractFn)].join('\n');
   const args = { _escAttr: esc, _escHtml: esc, document, state, getPeak: id => state.peaks.find(p => p.id === Number(id)),
     _startsLiveKey: () => 'KEY',
-    _peakArea: p => p.amplitude * p.fwhm, getROIData: () => ({ be: [280, 285, 290] }), _buildStderrMap: fr => Object.fromEntries(fr.backendResult.individual_peaks.map(ip => [ip.id, ip.params])),
+    _peakArea: p => p.amplitude * p.fwhm, getROIData: () => ({ be: [280, 285, 290] }), _autoFitBlocks: () => false, _buildStderrMap: fr => Object.fromEntries(fr.backendResult.individual_peaks.map(ip => [ip.id, ip.params])),
     _isLocalFit: () => false, _localFitCaveat: () => '', _localFitDetail: () => '', _startsPanelHtml: () => '', _certificateNoticeHtml: () => '', _validateUncertainties: () => ({ warnings: [], info: [] }),
     renderQuantify: () => {}, recalcQuantify: () => {}, _detectPeakRSF: () => ({ key: 'C 1s', rsf: 1 }), SCOFIELD_RSF: { 'C 1s': 1 }, notify: () => {},
     _clearDisallowedChargeRef: () => {}, _updateLocalModelBanner: () => {}, _updateLockAllBtn: () => {}, renderPeakForm: () => '', _highlightChartPeak: () => {},
@@ -296,9 +296,14 @@ test('exports: a stale or keyless verdict is "not established", never "supported
 });
 
 test('Auto-Fit finalisation (locks, charge shift) keeps its own verdicts: _restampSupport, called after the locks', () => {
-  const src = extractFn('applyAutoFitResult');
-  assert.ok(src.indexOf('for (const p of state.peaks) p.fixCenter = true;') < src.indexOf('_restampSupport()'), 're-stamped after the lock');
-  assert.ok(src.indexOf('_restampSupport()') < src.indexOf('renderPeakList()'), 'and before anything renders');
+  // Q8: the anchor fit's finalisation locks the centres and shifts the frame; the FINAL fit is made with
+  // them, and its publication re-stamps the verdicts before anything renders
+  assert.ok(extractFn('applyAutoFitResult').indexOf('for (const p of state.peaks) p.fixCenter = true;') > 0, 'the locks');
+  const run = extractFn('runAutoFitC1sGraphite');
+  assert.ok(run.indexOf('applyAutoFitResult(json,') < run.indexOf('const req2 = _autoFitRequest(anchorId);') &&
+            run.indexOf('applyBackendResult(json2);') < run.indexOf('_autoFitPublish(json2)'), 'locks, then the final fit, then its publication');
+  const src = extractFn('_autoFitPublish');
+  assert.ok(src.indexOf('_restampSupport()') > 0 && src.indexOf('_restampSupport()') < src.indexOf('renderPeakList()'), 're-stamped before anything renders');
   const c = core();
   const peaks = [{ id: 1, support: { supported: false, fitKey: 'BEFORE THE LOCKS' } }, { id: 2, support: null }];
   const api = new Function('_startsLiveKey', 'state', extractFn('_restampSupport') + '\nreturn _restampSupport;')(() => 'AFTER', { peaks });

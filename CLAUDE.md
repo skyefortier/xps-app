@@ -1012,8 +1012,8 @@ six fits on basin boundaries moved 1.0–29 pp (area or atomic %), four flagged 
 scattered-starts line — NOT 1-GTA C1s Scan_0 (10.8 pp, χ²ᵣ 3.82 → 4.62, all three
 starts reach the returned fit) nor 8-JT C1s Scan_6 (2.7 pp, level); two presses of the
 branch ≤ 0.003 pp (main 0.019 pp). Auto-Fit's result after its charge
-shift pairs the re-selected samples with the pre-shift envelope (pre-existing; logged
-for its own unit); Tougaard near cancellation is ill-conditioned (a small high-edge
+shift paired the re-selected samples with the pre-shift envelope (closed 2026-10-12: Auto-Fit
+refits after its shift, "Charge Correction"); Tougaard near cancellation is ill-conditioned (a small high-edge
 sum: tiny data changes move the background far) — the statement's property.
 Featureless windows (a drift, a peakless step) mostly have no converged Shirley
 background and are refused (F13; owner 2026-10-03: kept, and the message ends " — for a
@@ -1148,11 +1148,23 @@ derives a charge correction from it; a rejected Auto-Fit (any reason)
 leaves its `pushUndo()` entry and a cleared redo stack behind. The spike
 case shares a root with the false rejection above — gross single-channel
 artefacts are unhandled generally — so if this becomes a despike /
-outlier-flag unit, those three are one piece of work. Also logged (background math,
-Codex impl round 9): after its charge shift Auto-Fit assembles the result from the
-re-selected window (the shift rounds the ROI and background bounds to 0.1 eV) with the
-server's `fitted_y` for the original samples, so its R and stored envelope can describe
-other points (move the bounds by exactly the shift, freeze the fitted samples, or refit).
+outlier-flag unit, those three are one piece of work. CLOSED 2026-10-12 (sealed-fit v6
+Q8, owner: switch): after its charge shift Auto-Fit used to assemble its result from the
+re-selected window with the anchor fit's `fitted_y` for the original samples, so its R and
+stored envelope described other points (R shown 15-17 % for fits whose own R is ~2 % on 16
+of 51 committed C 1s Auto-Fits, 11-12 % for ~6 % on 2 more). Its two fits are ONE transaction:
+a full-page overlay with Cancel from the first change to the commit (saves, exports and
+shortcuts refused — `_autoFitBlocks`), one undo entry that also restores the charge
+correction, ROI / background fields and manual anchors (`_peaksSnapshot({ context })`), a
+rollback that restores the tab's undo and redo stacks too, and both uploads under the
+operation's abort signal. Auto-Fit now REFITS after the shift: the anchor fit
+(`applyAutoFitResult`: the gates `_autoFitAnchorRefusal`, the shift, the centre locks) is
+never published; the FINAL fit — the same model with every centre locked, the same bounds,
+method, restarts and anchor check (`_autoFitRequest`), on the window and background the
+shift selected, its own 2-minute limit — is held to the same gates and published by
+`_autoFitPublish`. A final fit that fails, is discarded or whose anchor no longer passes
+restores everything. Measured: `docs/findings/q8-autofit-refit` (median +0.9 s per
+Auto-Fit; area % median 0.56 pp, max 3.85 pp; every committed anchor still passes).
 
 Adventitious carbon referencing (284.8 eV) is the default for
 convenience but has known criticisms in the XPS literature — the C 1s
@@ -1246,7 +1258,8 @@ invariants worth knowing before touching the code:
 - **`+ Stack` / `+ Add Spectrum ▾`** (chart toolbar): create a new
   empty stack and add open spectrum tabs to the active stack.
 - **Auto-Fit C1s Graphite** (Actions menu): one-click C1s peak model
-  + charge correction. Enabled only when the midpoint of the DATA the fit
+  + charge correction — two fits: the anchor fit sets the shift, the final fit in the
+  corrected frame is what is shown (2026-10-12). Enabled only when the midpoint of the DATA the fit
   would use is in 270–315 eV — for the active tab the live selection
   `getROIData()` returns, never the tab record's stale window or a typed
   window reaching past the data (`isC1sTab`, unit F3 2026-09-27, sweep M5).

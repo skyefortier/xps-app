@@ -23,7 +23,7 @@ READERS = """() => {
   return { results: q && q._areas ? Array.from(q._areas) : null, resultsPct: rows.map(r => r[4]), sidebarPct: sidebar,
            server: state.peaks.map(p => { const x = ip.find(i => String(i.id) === String(p.id)); return x ? x.params.area.value : null; }),
            live: state.peaks.map(p => _peakArea(p, getROIData().be)), stats: _statsLiveState(),
-           note: ((document.querySelector('#results-area .outside-window-note') || {}).textContent || '').replace(/\s+/g, ' ').trim() || null };
+           note: ((document.querySelector('#results-area .outside-window-note') || {}).textContent || '').replace(/\\s+/g, ' ').trim() || null };
 }"""
 
 

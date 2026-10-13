@@ -25,7 +25,7 @@ function env(peaks) {
   const dom = {}; const el = id => (dom[id] ||= { value: '', textContent: '', setAttribute() {} });
   const calls = { notify: [], cc: 0 };
   const state = { peaks, ccShift: 0.4, fitResult: { marker: 'previous' } };
-  const src = [constLine('_AUTOFIT_ANCHOR_MIN_F'), extractFn('_autoFitGraphiteIsSupported'), extractFn('applyAutoFitResult')].join('\n');
+  const src = [constLine('_AUTOFIT_ANCHOR_MIN_F'), extractFn('_autoFitGraphiteIsSupported'), extractFn('_autoFitAnchorRefusal'), extractFn('applyAutoFitResult')].join('\n');
   const f = new Function('document', 'state', 'notify', 'updateChargeCorrection', 'getROIData', '_escAttr', src + '\nreturn applyAutoFitResult;')(
     { getElementById: el }, state, (m, k) => calls.notify.push([k, m]), () => { calls.cc++; }, () => { throw PAST; }, s => s);
   return { f, calls, dom };
@@ -58,10 +58,16 @@ test('the request asks for the Graphite anchor by id, and the gate precedes the 
   const run = extractFn('runAutoFitC1sGraphite');
   const captured = run.indexOf("const anchorId = String((state.peaks.find(p => p.name === 'Graphite') || state.peaks[0]).id);");
   assert.ok(captured > 0 && captured < run.indexOf('await uploadToBackend('), 'the anchor id is captured before the first await');
-  assert.match(run, /require_component: anchorId,/);
+  assert.match(run, /const req1 = _autoFitRequest\(anchorId\);/);
+  assert.match(extractFn('_autoFitRequest'), /require_component: anchorId,/);
+  const gates = extractFn('_autoFitAnchorRefusal');
+  assert.ok(gates.indexOf('req.required === false') > 0 && gates.indexOf('req.required === false') < gates.indexOf('_autoFitGraphiteIsSupported(gPeak, json)'));
   const apply = extractFn('applyAutoFitResult');
-  const gate = apply.indexOf('req.required === false');
-  assert.ok(gate > 0 && gate < apply.indexOf('_autoFitGraphiteIsSupported(gPeak, json)'));
+  const gate = apply.indexOf('const refusal = _autoFitAnchorRefusal(json);');
+  assert.ok(gate > 0);
+  // Q8: the final fit's anchor is held to the same gates before anything is published
+  assert.ok(run.indexOf('const refusal2 = _autoFitAnchorRefusal(json2);') > 0 &&
+            run.indexOf('const refusal2 = _autoFitAnchorRefusal(json2);') < run.indexOf('_autoFitPublish(json2)'));
   for (const m of ["getElementById('cc-method')", "getElementById('cc-obs')", 'updateChargeCorrection()']) assert.ok(apply.indexOf(m) > gate, m);
 });
 
