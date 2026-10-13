@@ -1,0 +1,125 @@
+# Q5 — one area definition, the server's, for every reader (owner, 2026-10-12)
+
+Owner: "Q5: SWITCH to the server's area everywhere. Also: any component centred outside the fit
+window gets a plain note in Results ('centred outside the window — its area is poorly determined
+by the data'). Measure how many saved components get the note." Its own unit, Codex ×2, stop for
+deploy approval. Measurement before the decision: `docs/findings/q5-area/README.md`.
+
+## The change
+
+- `_peakArea(p, be)` = `_trapezoidArea(evalPeakArray(be, p), be)`: |trapezoid(y, x)| in numpy's
+  order (d = diff(x); the terms d · (y[1:] + y[:-1]) / 2; their pairwise sum, `_npPairwiseSum`), so
+  the page's number IS the server's `individual_peaks[].params.area`. It was a rectangle sum × the
+  first step. Every reader goes through it: Results, the sidebar and its support patching, Quantify
+  (which takes Results' areas), the CSV/XLSX export, Auto-Fit's 40 % graphite warning.
+- The spectrum save's per-peak `area` uses the same `_trapezoidArea` (it had its own sequential
+  trapezoid with |dx|: equal on every committed grid, different on a non-monotonic one).
+- Results: a component whose centre lies outside the grid the fit was made on (`fitResult.be`, else
+  the ROI grid — the grid Results integrates on) is named in a plain note beneath the table:
+  "<name> is centred outside the window — its area is poorly determined by the data." A centre on
+  the window's edge is inside.
+
+## Measured
+
+`scripts/q5_areas_on_load.py` (every committed project loaded into the page in a real browser) →
+`docs/findings/q5-area/on_load.json`: a component's area moves by a median 0.007 % (max 0.20 %); area %
+by at most 0.0084 pp (measured maximum 0.00832); no 40 % warning flips; **no saved component gets the note** after loading. The
+pre-decision "8 B-O components centred outside, 17–19 %" (raw records, `scripts/q5_area_definitions.js`)
+was an artefact: those B 1s saves hold their fit grid in the uncorrected frame (README).
+
+## Tests
+
+- `tests/js/one_area.test.js`: `_trapezoidArea` equals scipy's `abs(trapezoid(y, x))` BIT FOR BIT
+  on 31 grids (2 to 1 001 points; ascending, descending, irregular; the design memo's non-monotonic
+  [0, 2, 1] → 1); every reader goes through `_peakArea`; the save's own trapezoid is gone.
+- `tests/js/lineshape_roundtrip.test.js`: for every lineshape, the page's trapezoid of the server's
+  curve is the server's area exactly, and the page's area of its own drawn curve is within 1e-6.
+- `tests/js/unsupported_components.test.js`: the Results note (one outside; two named in one note;
+  a centre on the edge gets none).
+- `tests/test_browser_export_prefix.py`: the earlier page (52e5b4a) is given today's area function
+  before it exports, so its CSV / TSV are still an exact prefix of today's and both XLSX sheets agree
+  row for row — every line, row and column other than the area values is unchanged (without the
+  override the comparison fails on the area cells, which is this unit's change).
+
+## Codex round 1 (NO-GO ×2, the same findings) — fixed
+
+- **One grid, not only one formula.** Results integrated on the frozen `fitResult.be`, the sidebar,
+  its support patching and the spectrum save on the live ROI grid: after a charge correction they
+  showed different areas (1 284 vs 9 361 in the reviewers' reproduction) and Results flagged a
+  component inside its window. Every reader now integrates on `_areaGrid()`: the fit's own energies
+  while it is current (a restored fit's `_modelBe` — the energies the old server integrated on — else
+  `fitResult.be`), otherwise the live ROI grid. The spectrum save integrates the fit's own components
+  on the energies they were evaluated on (`_modelBe`), and otherwise writes what Results shows.
+- **The note follows edits.** `_refreshStartsEvidence` (every `updatePlot`) compares the note's
+  `data-peak-ids` with the components now outside and re-renders Results when they differ: it had
+  stayed as it was while Results was already stale. It is also shown with no fit (a saved fit the
+  load cannot reconstruct, a model not yet fitted), judged on the live window.
+- **The count** was of raw records and of a wrongly framed grid: measured again through the page's
+  own load (above) — 0.
+- **Tests** prove behaviour: `tests/test_browser_one_area.py` (after a Run Fit the server's area,
+  Results/Quantify, the spectrum save, the CSV and the sidebar % agree exactly; after a charge
+  correction they agree on the live grid; the note appears and disappears as a centre moves while
+  stale; the note with no fit — both fail on 5319bf5); `tests/js/one_area.test.js` the grid rule incl.
+  `_modelBe`.
+- MINOR: `scripts/q5_area_definitions.js` froze its rectangle baseline explicitly (it called the
+  page's `_peakArea`, now the trapezoid) and runs again; marked superseded.
+
+## Codex round 2 (NO-GO ×2, the same findings) — fixed
+
+- **Shown areas follow every edit.** Results, Quantify and the sidebar's area % were refreshed when a
+  verdict, the statistics state or the note's members changed — not on a further edit of a result
+  already stale (amplitude 2 000 → 3 000 left Results at the first edit's value) or an ROI change.
+  Each now records the signature of what it shows (`_areaSignature`: every component's area on the one
+  grid, and the note's text); `_refreshStartsEvidence`, run from every `updatePlot`, re-renders Results
+  (and Quantify) or patches the sidebar in place when its signature is not current. The note's text is
+  in the signature, so a renamed component is named as it is called now.
+- **A reloaded fit saved unedited keeps its own record** (owner 2026-10-13: "do NOT overwrite the fit's
+  own historical area in the saved record … save the area Results currently shows alongside it,
+  labelled as the current display value"): `peakCurves[].area` is the fit's own area — its components
+  as fitted, the server's trapezoid on the energies the server integrated them on (equal to the area the
+  server reported for that fit, `_backendParams.area`, to 1e-9 on the committed case) — and
+  `displayArea` + `displayAreaNote` carry what Results shows now. Every other save writes Results' area
+  as `area`.
+- MINOR: the measured bound (0.00832 pp) is written as a bound (≤ 0.0084 pp).
+- Tests (`tests/test_browser_one_area.py`, both fail on b0c4355): successive edits of a stale result
+  and an ROI change keep the server-method areas in Results / Quantify, the save, the CSV and the
+  sidebar % equal; a renamed component's note; the committed `4-GTA UCl4-BN` B1s Scan_4 restored fit
+  saved unedited keeps the server's area and adds the display value.
+- `tests/test_browser_find_peaks_full_window.py::test_checkbox_off_preserves_todays_cropped_behavior`
+  pinned Results and Quantify byte-for-byte unchanged after an (archived) Find Peaks apply with the
+  full-window option off — they had kept the empty table rendered before the peaks were applied. They
+  now show the applied peaks' areas (this unit's behaviour); the test keeps the status bar byte-for-byte
+  and requires Results to list the applied peaks under the stale result's own note.
+
+## Codex round 3 (NO-GO ×2, the same finding) — fixed
+
+- **The record's own area, verbatim.** Round 2 kept a reloaded fit's own area by RECOMPUTING it, and the
+  spectrum loader dropped the file's `peakCurves[].area`, so an unedited reload → save still rewrote
+  the saved number (40119.7714413772 → 40119.771441377176 on the committed case; 656.25 → 406.25 on a
+  non-monotonic grid). The loader now keeps the file's per-component areas (runtime
+  `fitResult._savedPeakAreas`, never read for display) and `_ownFitArea` writes them back unchanged;
+  a fit restored from a project, whose save holds no per-component areas, writes the area the server
+  reported for that fit (`_backendParams.area`); only when neither exists is it computed (the server's
+  formula on the energies the server integrated on). `displayArea` + `displayAreaNote` beside it, as before.
+- **The test proves it.** `tests/test_browser_one_area.py`: the committed project fit saved unedited
+  writes the server's number exactly; that file, its areas replaced by values nothing could recompute,
+  reloaded and saved unedited writes those exact values back, with Results' areas as `displayArea`
+  (fails on de35d7e); `tests/js/one_area.test.js` pins `_ownFitArea`'s order.
+- MINOR: the bound is written as ≤ 0.0084 pp (measured maximum 0.00832).
+
+## Codex round 4 (NO-GO ×2, the same finding) — fixed
+
+- **Verbatim through a project save too.** The kept areas (`_savedPeakAreas`) were not written by the
+  project serializer, so spectrum → project → reload → spectrum save fell back to the server's reported
+  number (40119.7714413772 → 40119.771441377176). The project save now carries them
+  (`fitResult.savedPeakAreas`) and `_ownFitArea` reads either name. The round-trip test continues through
+  a project save and reload and requires the marked values back exactly (fails on 5aabcec).
+- MINOR: the helper's comments no longer describe a rectangle rule or quote the superseded figures.
+
+## Codex round 5 (GO ×2)
+
+Both runs: no BLOCKER or MAJOR. Marked historical areas survive spectrum → project → reload → spectrum
+cycles exactly (JSON and ZIP share the serializer); no reader left on another formula or grid; the
+measurements (121 tabs, 530 components, median 0.006892 %, max 0.198027 %, ≤ 0.0084 pp, 0 notes, no
+flips) reproduce. MINOR (run A): the generator's usage line named the old script — corrected. READY for
+the owner's deploy approval.

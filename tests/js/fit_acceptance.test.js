@@ -352,7 +352,7 @@ test('history preview glow is keyed on the dataset flag, not the label text', ()
 // ── Codex round-10: spectrum reload re-renders Results; Save Fit carries the designation; clear-state asserts all four ──
 test('spectrum load renders the Results panel after restoring a saved result, and Save Fit carries the designation', () => {
   const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
-  const load = grab('function _loadSpectrumFile(', 7000);
+  const load = grab('function _loadSpectrumFile(', 9000);
   const tail = load.slice(load.indexOf("notify('Spectrum loaded as new tab") - 200, load.indexOf("notify('Spectrum loaded as new tab"));
   assert.match(tail, /renderResults\(\)/, 'Results (and the statistic display) must be rendered after the restored result is installed');
   const save = grab('function _doSaveFit()', 3000);

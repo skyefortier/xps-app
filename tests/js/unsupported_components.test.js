@@ -106,7 +106,8 @@ function pageEnv(fns, extraArgs = {}) {
       center: { value: p.center, stderr: 0.01, vary: true, min: null, max: null }, fwhm: { value: p.fwhm, stderr: 0.02, vary: true, min: 0.1, max: 15 },
       amplitude: { value: p.amplitude, stderr: 3, vary: true, min: 0, max: null } } })) } } };
   const names = [...CORE, ...fns];
-  const src = [constLine('_SUPPORT_MIN_F'), constLine('_UNSUPPORTED_LABEL'), constLine('_UNSUPPORTED_TIP'), ...names.map(extractFn)].join('\n');
+  const src = [constLine('_SUPPORT_MIN_F'), constLine('_UNSUPPORTED_LABEL'), constLine('_UNSUPPORTED_TIP'), constLine('_OUTSIDE_WINDOW_NOTE'),
+    ...[...names, '_centredOutsideWindow', '_outsideWindowNoteHtml', '_areaGrid', '_areaSignature', '_arrMin', '_arrMax'].map(extractFn)].join('\n');
   const args = { _escAttr: esc, _escHtml: esc, document, state, getPeak: id => state.peaks.find(p => p.id === Number(id)),
     _startsLiveKey: () => 'KEY',
     _peakArea: p => p.amplitude * p.fwhm, getROIData: () => ({ be: [280, 285, 290] }), _buildStderrMap: fr => Object.fromEntries(fr.backendResult.individual_peaks.map(ip => [ip.id, ip.params])),
@@ -151,6 +152,22 @@ test('results table: greyed row, no centre / width / sigma, area kept, percentag
   assert.match(h, /excluded from the percentages and from Quantify/);
   const gRow = h.slice(h.indexOf('Graphite'), h.indexOf('</tr>', h.indexOf('Graphite')));
   assert.match(gRow, new RegExp((86000 * 0.64 / (86000 * 0.64 + 2600 * 3.5) * 100).toFixed(1) + '%'), 'percentages over supported area only');
+});
+
+test('results: a component centred outside the fit window gets a plain note (owner 2026-10-12, Q5)', () => {
+  const fns = ['renderResults', 'fmtVal'].filter(n => lines.some(l => new RegExp('^function ' + n + '\\(').test(l)));
+  const html = env => { env.renderResults(); return env.els['results-area'].innerHTML; };
+  // the fixture's grid is 280-290 eV: "sat" (291.10) is outside, the others inside
+  let h = html(pageEnv(fns));
+  assert.match(h, /<b>sat<\/b> is centred outside the window — its area is poorly determined by the data\./);
+  assert.strictEqual((h.match(/outside-window-note/g) || []).length, 1);
+  // two outside: one note naming both
+  const env2 = pageEnv(fns); env2.state.peaks[0].center = 279.5;
+  h = html(env2);
+  assert.match(h, /<b>Graphite<\/b>, <b>sat<\/b> are centred outside the window — their areas are poorly determined by the data\./);
+  // none outside (a centre ON the window's edge is inside): no note
+  const env3 = pageEnv(fns); env3.state.peaks[2].center = 290;
+  assert.doesNotMatch(html(env3), /outside-window-note/);
 });
 
 test('uncertainty panel: one rule-0 warning for the component, no per-parameter alarms and no "locked" note for it', () => {
@@ -311,9 +328,9 @@ test('a key change re-renders every consumer of the verdict — each compared wi
   const calls = [];
   const state = { peaks: [{ id: 2, support: { supported: false, fitKey: 'OLD' } }], fitResult: {}, chart: { data: { datasets: [{ _peakId: 2, _unsupported: true }] } } };
   const document = { querySelectorAll: sel => sel.includes('peak-list') ? [] : [{ getAttribute: () => '2' }], querySelector: () => null };
-  const fn = new Function('state', 'document', '_startsLiveKey', '_isUnsupported', '_historyPreview', '_dropStaleAltPreview', '_patchPeakCardsForSupport', 'renderResults', 'updatePlot', '_startsPanelHtml', '_refreshStatsState',
-    src + '\nreturn _refreshStartsEvidence;')(state, document, () => 'NEW', (p, k) => p.support.supported === false && p.support.fitKey === k, null, () => {},
-    () => calls.push('sidebar'), () => calls.push('results'), () => calls.push('plot'), () => '', () => {});   // F1's refresh: stale_statistics.test.js
+  const fn = new Function('state', 'document', '_startsLiveKey', '_isUnsupported', '_historyPreview', '_dropStaleAltPreview', '_patchPeakCardsForSupport', 'renderResults', 'updatePlot', '_startsPanelHtml', '_refreshStatsState', '_areaSignature',
+    src + '\nreturn _refreshStartsEvidence;')(state, { ...document, getElementById: () => null }, () => 'NEW', (p, k) => p.support.supported === false && p.support.fitKey === k, null, () => {},
+    () => calls.push('sidebar'), () => calls.push('results'), () => calls.push('plot'), () => '', () => {}, () => 'SIG');   // F1's refresh: stale_statistics.test.js; the area signature: tests/test_browser_one_area.py
   fn(false);
   assert.deepStrictEqual(calls, ['results', 'plot'], 'sidebar already clean; Results and the chart still stale');
   for (const fn of ['toggleLock', 'toggleAllLocks']) assert.match(extractFn(fn), /_refreshStartsEvidence\(true\);/, fn);
@@ -357,9 +374,10 @@ test('the sidebar is patched in place (header, summary, badge) — the centre in
   const other = { info: mk(), vals: [mk(), mk(), mk()], name: { badge: null, querySelector() { return null; }, insertAdjacentHTML() {} }, querySelector(sel) { return sel === '.peak-info' ? this.info : this.name; }, querySelectorAll() { return this.vals; } };
   state.peaks.push({ id: 1, center: 284.4, fwhm: 0.64, support: { supported: true, fitKey: 'KEY' } });
   state.rawBE = [1, 2, 3];
-  const fn = new Function('state', 'document', '_startsLiveKey', '_isUnsupported', '_unsupportedBadge', 'getROIData', '_peakArea',
+  const fn = new Function('state', 'document', '_startsLiveKey', '_isUnsupported', '_unsupportedBadge', 'getROIData', '_peakArea', '_areaGrid', '_areaSignature',
     extractFn('_patchPeakCardsForSupport') + '\nreturn _patchPeakCardsForSupport;')(
-    state, { getElementById: id => id === 'peak-item-2' ? card : other }, () => 'KEY', c._isUnsupported, c._unsupportedBadge, () => ({ be: [280, 285, 290] }), p => p.id === 2 ? 10 : 90);
+    state, { getElementById: id => id === 'peak-item-2' ? card : (id === 'peak-list' ? { setAttribute() {} } : other) }, () => 'KEY', c._isUnsupported, c._unsupportedBadge, () => ({ be: [280, 285, 290] }), p => p.id === 2 ? 10 : 90,
+    () => [280, 285, 290], () => 'SIG');
   fn();
   assert.deepStrictEqual([card.info.textContent, card.vals[0].textContent, card.vals[1].textContent, card.vals[2].textContent], ['—', '—', '—', '—']);
   assert.strictEqual(other.vals[2].textContent, '100.0%', 'the supported component is 100 % of the SUPPORTED area');

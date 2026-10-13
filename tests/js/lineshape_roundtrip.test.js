@@ -42,9 +42,9 @@ function extractFn(name) {
 }
 const NAMES = ['_arrMin', '_arrMax', 'gaussian', 'lorentzian', 'pseudoVoigt', 'asymmGL', 'doniachSunjic',
   'laCasaXPSCore', 'laCasaXPS', 'laTrueCasaXPS', '_laKernelHalf', 'laTrueCasaXPS_array', 'evalPeak', '_dsgAlpha', 'dsgDeltaKernel_array', '_fftRadix2', '_circularConvolve', 'dsgConvolved_array',
-  'evalPeakArray', 'getPeak', 'peakToBackendSpec', '_applyBackendParams'];
+  'evalPeakArray', 'getPeak', 'peakToBackendSpec', '_applyBackendParams', '_npPairwiseSum', '_trapezoidArea', '_peakArea'];
 const state = { peaks: [] };
-const env = new Function('state', NAMES.map(extractFn).join('\n\n') + '\nreturn { evalPeakArray, peakToBackendSpec, _applyBackendParams };')(state);
+const env = new Function('state', NAMES.map(extractFn).join('\n\n') + '\nreturn { evalPeakArray, peakToBackendSpec, _applyBackendParams, _trapezoidArea, _peakArea };')(state);
 
 function findPython() {
   for (const c of [process.env.XPS_PYTHON, path.join(REPO_ROOT, 'venv/bin/python3'), '/Users/skyefortier/xps-app/venv/bin/python3']) {
@@ -123,6 +123,18 @@ for (const [shape, c] of Object.entries(CASES)) {
     const drawn = env.evalPeakArray(res.energy, peaks[0]);
     const rel = maxRelDiff(drawn, ip.y, peaks[0].amplitude);
     assert.ok(rel < TIGHT_TOL, `${shape}: drawn vs fitted curve differ by ${(rel * 100).toExponential(3)} % of amplitude`);
+  });
+}
+
+for (const [shape, c] of Object.entries(CASES)) {
+  test(`one area definition (Q5): the page's area IS the server's — ${shape}`, () => {
+    const { res, peaks } = roundTrip(shape, c);
+    const ip = res.individual_peaks[0], server = ip.params.area.value;
+    // the formula: the server's own curve integrated by the page gives the server's number exactly
+    assert.strictEqual(env._trapezoidArea(ip.y, res.energy), server, `${shape}: the page's trapezoid of the server's curve`);
+    // what every page reader shows: the page's drawn curve, integrated the same way
+    const rel = Math.abs(env._peakArea(peaks[0], res.energy) - server) / server;
+    assert.ok(rel < TIGHT_TOL, `${shape}: the page's area differs from the server's by ${rel.toExponential(3)}`);
   });
 }
 

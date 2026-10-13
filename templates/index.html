@@ -6650,7 +6650,8 @@ function renderPeakList() {
   _updateLockAllBtn();
 
   // Compute total area for percentage (using ROI data if available)
-  const { be: _roiBE } = (typeof getROIData === 'function' && state.rawBE.length) ? getROIData() : { be: [] };
+  const _roiBE = _areaGrid();   // the one area grid (Q5)
+  { const pl = document.getElementById('peak-list'); if (pl) pl.setAttribute('data-area-sig', _areaSignature()); }
   const _peakAreas = {};
   let totalArea = 0;
   if (_roiBE.length) {
@@ -7628,7 +7629,7 @@ function _autoFitDecideAreaWarning(peakAreas, graphiteId) {
 // guarantees the warning fires iff the AREA column shows the same number
 // crossing the threshold (no more frontend/backend disagreement on areas).
 function _autoFitCheckGraphiteFraction(graphiteId) {
-  const be = state.fitResult && state.fitResult.be;
+  const be = state.fitResult ? _areaGrid() : null;   // the one area grid (Q5)
   if (!Array.isArray(be) || be.length < 2) return null;
   const peakAreas = state.peaks.map(p => ({ id: p.id, area: _peakArea(p, be) }));
   return _autoFitDecideAreaWarning(peakAreas, graphiteId);
@@ -7769,7 +7770,8 @@ function _restampSupport() {
 function _patchPeakCardsForSupport() {
   const key = _startsLiveKey();
   // area % over the components the CURRENT verdicts support (as renderPeakList computes it)
-  const { be: roiBE } = (typeof getROIData === 'function' && state.rawBE && state.rawBE.length) ? getROIData() : { be: [] };
+  const roiBE = _areaGrid();   // the one area grid (Q5)
+  { const pl = document.getElementById('peak-list'); if (pl) pl.setAttribute('data-area-sig', _areaSignature()); }
   const areas = {};
   let total = 0;
   if (roiBE.length) for (const p of state.peaks) { areas[p.id] = _peakArea(p, roiBE); if (!_isUnsupported(p, key)) total += areas[p.id]; }
@@ -8587,6 +8589,13 @@ function _refreshStartsEvidence(repaint, fromPlot) {
   let rendered = false;
   if (shownIn('#peak-list .unsupported-badge') !== flaggedNow) { _patchPeakCardsForSupport(); rendered = true; }
   if (state.fitResult && shownIn('.results-table .unsupported-row') !== flaggedNow && typeof renderResults === 'function') { renderResults(); rendered = true; }   // renders Quantify and the starts panel too
+  // the areas every reader shows, and the outside-the-window note, follow every edit of the model or
+  // its grid — a parameter, the ROI, the charge correction, a rename — stale or not (Q5, Codex rounds 1-2)
+  { const sig = _areaSignature();
+    const ra = document.getElementById('results-area');
+    if (!rendered && ra && typeof renderResults === 'function' && ra.getAttribute('data-area-sig') !== sig) { renderResults(); rendered = true; }
+    const pl = document.getElementById('peak-list');
+    if (pl && pl.getAttribute('data-area-sig') !== sig && typeof _patchPeakCardsForSupport === 'function') _patchPeakCardsForSupport(); }
   if (!fromPlot && state.chart && state.chart.data && typeof updatePlot === 'function') {
     const chartFlagged = (state.chart.data.datasets || []).filter(d => d._unsupported).map(d => String(d._peakId)).sort().join(',');
     if (chartFlagged !== flaggedNow) { updatePlot(); return; }
@@ -9720,14 +9729,79 @@ function _buildStderrMap(fitResult) {
   return m;
 }
 
-// Rectangular-rule area for one peak over a BE grid
+// One peak's area over a BE grid: the server's trapezoid (_trapezoidArea), on the grid the caller passes
 function _peakArea(p, be) {
-  const step = be.length > 1 ? Math.abs(be[1] - be[0]) : 1;
   // evalPeakArray(), not a per-point evalPeak map: for LACX with caM > 0,
   // only the array evaluator applies the shape's Gaussian convolution —
   // evalPeak silently returns the unconvolved base regardless of caM.
-  // Feeds the Results panel/sidebar Area+% and the CSV/XLSX export.
-  return evalPeakArray(be, p).reduce((s, y) => s + y, 0) * step;
+  // Feeds the Results panel/sidebar Area+%, Quantify, the CSV/XLSX export,
+  // Auto-Fit's 40 % graphite warning and the spectrum save.
+  return _trapezoidArea(evalPeakArray(be, p), be);
+}
+
+// ONE area definition (sealed-fit v6 Q5, owner 2026-10-12): the server's, |trapezoid(y, x)| on the
+// fit grid (fitting.py individual_peaks[].params.area), in numpy's order — d = diff(x), the terms
+// d * (y[1:] + y[:-1]) / 2, their pairwise sum — so every reader shows the area the server reports.
+// Until then the page summed rectangles × the first step (and the spectrum save a sequential
+// trapezoid with |dx|): on the committed fits as loaded a median 0.007 % apart (max 0.20 %), ≤ 0.0084 pp
+// in any area % (docs/findings/q5-area; an earlier "17-19 %" was a measurement artefact of saved grids
+// held in the uncorrected frame).
+function _trapezoidArea(y, x) {
+  const n = Math.min(y.length, x.length) - 1;
+  if (n < 1) return 0;
+  const t = new Array(n);
+  for (let i = 0; i < n; i++) t[i] = (x[i + 1] - x[i]) * (y[i + 1] + y[i]) / 2;
+  return Math.abs(_npPairwiseSum(t, 0, n));
+}
+
+// A restored fit saved unedited writes ITS OWN area, never a recomputed one (owner 2026-10-13; Codex Q5
+// round 3): the area the file it was loaded from holds, verbatim; else (a fit restored from a project,
+// whose save holds no per-component areas) the area the server reported for that fit, as stored with
+// the peak; only when neither exists, the server's formula on the energies the server integrated on.
+function _ownFitArea(fr, p, yArr) {
+  const store = fr && (fr._savedPeakAreas || fr.savedPeakAreas);   // from a spectrum file, or carried by a project save
+  const kept = store ? store[String(p.id)] : undefined;
+  if (typeof kept === 'number' && Number.isFinite(kept)) return kept;
+  const bp = p && p._backendParams && p._backendParams.area;
+  if (bp && typeof bp.value === 'number' && Number.isFinite(bp.value)) return Math.abs(bp.value);
+  return _trapezoidArea(yArr, fr._modelBe);
+}
+
+// ONE grid as well as one formula (Q5, Codex round 1): every area reader integrates on the same
+// energies. While the fit is CURRENT they are the fit's own — the energies the server evaluated and
+// integrated its components on (a restored fit's `_modelBe`, the old upload's rounded energies; else
+// `fitResult.be`). Otherwise (no fit, a stale or unconfirmed one) the live ROI grid the current model
+// is drawn on: after a charge correction or an ROI change the fit's grid is in another frame or holds
+// other points, and Results (frozen grid) and the sidebar (live grid) used to show different areas.
+function _areaGrid() {
+  const fr = state.fitResult;
+  if (fr && _statsLiveState() === 'current') {
+    const g = Array.isArray(fr._modelBe) && fr._modelBe.length > 1 ? fr._modelBe : fr.be;
+    if (Array.isArray(g) && g.length > 1) return g;
+  }
+  return (typeof getROIData === 'function' && state.rawBE && state.rawBE.length) ? getROIData().be : [];
+}
+
+// A component centred outside the grid the areas are integrated on (_areaGrid): only its tail is in
+// the window, so its area (and its width) rest on the data's edge (owner 2026-10-12: a plain note in
+// Results — with or without a fit).
+function _centredOutsideWindow(p, be) {
+  return Array.isArray(be) && be.length > 1 && Number.isFinite(p.center) && (p.center < _arrMin(be) || p.center > _arrMax(be));
+}
+const _OUTSIDE_WINDOW_NOTE = 'centred outside the window — its area is poorly determined by the data';
+// What the area readers show, as one string: every component's area on the one grid and the note.
+// Results and the sidebar record the signature they rendered; _refreshStartsEvidence re-renders a
+// reader whose signature is no longer current (Q5 Codex round 2: a stale Results kept the areas of an
+// earlier edit, and a renamed component's note its old name).
+function _areaSignature() {
+  const g = _areaGrid();
+  return state.peaks.map(p => p.id + ':' + _peakArea(p, g)).join(',') + '|' + _outsideWindowNoteHtml(g);
+}
+function _outsideWindowNoteHtml(be) {
+  const outside = state.peaks.filter(p => _centredOutsideWindow(p, be));
+  if (!outside.length) return '';
+  return `<div class="outside-window-note" data-peak-ids="${outside.map(q => q.id).sort().join(',')}" style="font-size:11px;line-height:1.5;color:var(--text2);margin-top:6px">
+      ${outside.map(q => '<b>' + _escHtml(q.name) + '</b>').join(', ')} ${outside.length === 1 ? 'is' : 'are'} ${_OUTSIDE_WINDOW_NOTE.replace('its area is', outside.length === 1 ? 'its area is' : 'their areas are')}.</div>`;
 }
 
 function renderResults() {
@@ -9740,6 +9814,8 @@ function renderResults() {
     el.innerHTML = _isLocalModel()
       ? '<p style="color:var(--amber,#f59e0b);font-size:11px;text-align:center;padding:20px 0">&#9888; This model was imported from a local fit: a starting point, not a reportable result. Run Fit to obtain results.</p>'
       : '<p style="color:var(--text3);font-size:11px;text-align:center;padding:20px 0">Run the fit to see results.</p>';
+    el.innerHTML += _outsideWindowNoteHtml(_areaGrid());   // the note needs no fit (a saved fit dropped on load, a model not yet fitted)
+    el.setAttribute('data-area-sig', _areaSignature());
     // Quantify (#quantify-area) is populated by renderQuantify(), called
     // only from the non-null path below — without this it kept showing
     // a PRIOR fit's area/RSF/At% table after state.fitResult was cleared
@@ -9802,15 +9878,9 @@ function renderResults() {
       <tbody>
   `;
 
-  // Fit grid for area integration. Current-format fits carry fitResult.be; older
-  // saves omit it, and without a guard _peakArea(p, be) throws on be.length —
-  // leaving the panel stale and aborting the tab switch. Fall back to the live ROI
-  // grid, exactly as renderPeakList already does for its area/percentage column.
-  let be = state.fitResult.be;
-  if ((!be || !be.length) && typeof getROIData === 'function' && state.rawBE.length) {
-    be = getROIData().be;
-  }
-  if (!be) be = [];
+  // The one area grid (Q5): the fit's own while it is current, else the live ROI grid (an older save
+  // without fitResult.be falls back to the ROI grid, as before).
+  const be = _areaGrid();
   const areas = state.peaks.map(p => _peakArea(p, be));
   // percentages are over the components the fit DID determine
   const totalArea = areas.reduce((s, v, i) => s + (_isUnsupported(state.peaks[i]) ? 0 : v), 0);
@@ -9843,6 +9913,7 @@ function renderResults() {
   });
 
   html += '</tbody></table>';
+  html += _outsideWindowNoteHtml(be);
   if (unsupportedPeaks.length) {
     html += `<div class="unsupported-note" style="font-size:11px;line-height:1.5;color:var(--text2);margin-top:6px" title="${_escAttr(_UNSUPPORTED_TIP)}">
       ${unsupportedPeaks.length === 1 ? 'One component is' : unsupportedPeaks.length + ' components are'} <b>${_UNSUPPORTED_LABEL}</b> (${unsupportedPeaks.map(q => _escHtml(q.name)).join(', ')}): with the other components held as fitted, removing ${unsupportedPeaks.length === 1 ? 'it' : 'any one of them'} does not make the fit significantly worse, so this fit did not determine ${unsupportedPeaks.length === 1 ? 'its' : 'their'} position or width. ${unsupportedPeaks.length === 1 ? 'Its' : 'Their'} area is excluded from the percentages and from Quantify.</div>`;
@@ -9868,6 +9939,7 @@ function renderResults() {
   }
 
   el.innerHTML = html;
+  el.setAttribute('data-area-sig', _areaSignature());
 
   renderQuantify(areas, totalArea);
 }
@@ -11998,11 +12070,13 @@ function _doSaveSpectrum() {
     return {
       id: p.id, name: p.name,
       y: yArr,
-      area: yArr.reduce((sum, y, i) => {
-        if (i === 0) return 0;
-        const dx = Math.abs(be[i] - be[i - 1]);
-        return sum + 0.5 * (yArr[i - 1] + y) * dx;
-      }, 0)
+      // A restored fit saved unedited keeps ITS OWN RECORD unchanged (owner 2026-10-13: a saved fit record
+      // is never silently rewritten — the sealed fit depends on it): `area` is its components as fitted,
+      // on the energies the server integrated them on (the server's own number for that fit). Beside it,
+      // labelled, the area Results shows now. Any other save: `area` IS what Results shows (Q5).
+      area: own ? _ownFitArea(own, p, yArr) : _peakArea(p, _areaGrid()),
+      ...(own ? { displayArea: _peakArea(p, _areaGrid()),
+                  displayAreaNote: 'the area Results shows now: the current model, the server\'s trapezoid on the current window' } : {})
     };
   });
 
@@ -12130,6 +12204,8 @@ async function _doSaveProject() {
         beShift: typeof t.fitResult.beShift === 'number' ? t.fitResult.beShift : null,   // the frame of `be` after a restore
         uploadFull: t.fitResult.uploadFull === true || null,
         record: _isFitRecord(t.fitResult.record) ? t.fitResult.record : null,   // recording only (owner 2026-10-10)
+        // a reloaded fit's own saved per-component areas travel with it, verbatim (owner 2026-10-13; Codex Q5 round 4)
+        savedPeakAreas: t.fitResult._savedPeakAreas || t.fitResult.savedPeakAreas || null,
         iterations: t.fitResult.iterations ?? null,
         reportable: _isLocalFit(t.fitResult) ? false : (t.fitResult.reportable ?? null),
         caveat: _localFitCaveat(t.fitResult) || t.fitResult.caveat || null,
@@ -12366,6 +12442,13 @@ function _loadSpectrumFile(data, sessionFile) {
     if (typeof data.statistics.beShift === 'number') fr.beShift = data.statistics.beShift;
     if (data.statistics.uploadFull === true) fr.uploadFull = true;
     if (_isFitRecord(data.statistics.record)) fr.record = data.statistics.record;   // explicit: a seed of 0 is a seed
+    // the file's own per-component areas, kept VERBATIM for a save of this fit unedited (owner 2026-10-13:
+    // a saved fit record is never silently rewritten; runtime only — never read for display)
+    if (Array.isArray(data.peakCurves)) {
+      const kept = {};
+      for (const c of data.peakCurves) if (c && c.id != null && typeof c.area === 'number' && Number.isFinite(c.area)) kept[String(c.id)] = c.area;
+      if (Object.keys(kept).length) fr._savedPeakAreas = kept;
+    }
     if (data.statistics.reportable !== undefined && data.statistics.reportable !== null) fr.reportable = data.statistics.reportable;
     // F1: a stale save's fittedY is the EDITED model's curve (written for the
     // file's readers); it is never installed under the original fit's key
@@ -13218,7 +13301,7 @@ function exportFitTable(fmt) {
   // neither is written; a WARNING line says why
   const _stats = _statsLiveState();
   const stderrMap = _stats === 'stale' ? {} : _buildStderrMap(state.fitResult);
-  const areas = state.peaks.map(p => _peakArea(p, be));
+  const areas = state.peaks.map(p => _peakArea(p, _areaGrid()));   // the one area grid (Q5): what Results shows
   const totalArea = areas.reduce((s,v)=>s+v,0);
   const rsfVals = state.peaks.map(p => {
     const el = document.getElementById('rsf-' + p.id);
