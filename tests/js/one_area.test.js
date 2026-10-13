@@ -63,7 +63,8 @@ test('every area reader integrates on the one grid (behaviour: tests/test_browse
   for (const fn of ['renderResults', 'renderPeakList', '_patchPeakCardsForSupport', '_autoFitCheckGraphiteFraction', 'exportFitTable'])
     assert.match(extractFn(fn), /_areaGrid\(\)/, fn);
   assert.match(extractFn('renderResults'), /renderQuantify\(areas, totalArea\)/, 'Quantify takes Results\' areas');
-  // the spectrum save: what Results shows, or the fit's own components on the energies they were evaluated on
-  assert.match(html, /area: own \? _trapezoidArea\(yArr, own\._modelBe\) : _peakArea\(p, _areaGrid\(\)\)/);
+  // the spectrum save: what Results shows; a restored fit saved unedited keeps its own record's area
+  // (its components on the energies the server integrated them on) and adds the display value, labelled
+  assert.match(html, /area: own \? _trapezoidArea\(yArr, own\._modelBe\) : _peakArea\(p, _areaGrid\(\)\),\n\s+\.\.\.\(own \? \{ displayArea: _peakArea\(p, _areaGrid\(\)\),/);
   assert.doesNotMatch(html, /0\.5 \* \(yArr\[i - 1\] \+ y\) \* dx/, 'the save\'s own trapezoid is gone');
 });

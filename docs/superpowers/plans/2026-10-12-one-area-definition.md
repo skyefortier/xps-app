@@ -63,3 +63,30 @@ was an artefact: those B 1s saves hold their fit grid in the uncorrected frame (
   `_modelBe`.
 - MINOR: `scripts/q5_area_definitions.js` froze its rectangle baseline explicitly (it called the
   page's `_peakArea`, now the trapezoid) and runs again; marked superseded.
+
+## Codex round 2 (NO-GO ×2, the same findings) — fixed
+
+- **Shown areas follow every edit.** Results, Quantify and the sidebar's area % were refreshed when a
+  verdict, the statistics state or the note's members changed — not on a further edit of a result
+  already stale (amplitude 2 000 → 3 000 left Results at the first edit's value) or an ROI change.
+  Each now records the signature of what it shows (`_areaSignature`: every component's area on the one
+  grid, and the note's text); `_refreshStartsEvidence`, run from every `updatePlot`, re-renders Results
+  (and Quantify) or patches the sidebar in place when its signature is not current. The note's text is
+  in the signature, so a renamed component is named as it is called now.
+- **A reloaded fit saved unedited keeps its own record** (owner 2026-10-13: "do NOT overwrite the fit's
+  own historical area in the saved record … save the area Results currently shows alongside it,
+  labelled as the current display value"): `peakCurves[].area` is the fit's own area — its components
+  as fitted, the server's trapezoid on the energies the server integrated them on (equal to the area the
+  server reported for that fit, `_backendParams.area`, to 1e-9 on the committed case) — and
+  `displayArea` + `displayAreaNote` carry what Results shows now. Every other save writes Results' area
+  as `area`.
+- MINOR: the measured bound is 0.0083 pp, written so.
+- Tests (`tests/test_browser_one_area.py`, both fail on b0c4355): successive edits of a stale result
+  and an ROI change keep the server-method areas in Results / Quantify, the save, the CSV and the
+  sidebar % equal; a renamed component's note; the committed `4-GTA UCl4-BN` B1s Scan_4 restored fit
+  saved unedited keeps the server's area and adds the display value.
+- `tests/test_browser_find_peaks_full_window.py::test_checkbox_off_preserves_todays_cropped_behavior`
+  pinned Results and Quantify byte-for-byte unchanged after an (archived) Find Peaks apply with the
+  full-window option off — they had kept the empty table rendered before the peaks were applied. They
+  now show the applied peaks' areas (this unit's behaviour); the test keeps the status bar byte-for-byte
+  and requires Results to list the applied peaks under the stale result's own note.

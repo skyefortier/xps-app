@@ -107,7 +107,7 @@ function pageEnv(fns, extraArgs = {}) {
       amplitude: { value: p.amplitude, stderr: 3, vary: true, min: 0, max: null } } })) } } };
   const names = [...CORE, ...fns];
   const src = [constLine('_SUPPORT_MIN_F'), constLine('_UNSUPPORTED_LABEL'), constLine('_UNSUPPORTED_TIP'), constLine('_OUTSIDE_WINDOW_NOTE'),
-    ...[...names, '_centredOutsideWindow', '_outsideWindowNoteHtml', '_areaGrid', '_arrMin', '_arrMax'].map(extractFn)].join('\n');
+    ...[...names, '_centredOutsideWindow', '_outsideWindowNoteHtml', '_areaGrid', '_areaSignature', '_arrMin', '_arrMax'].map(extractFn)].join('\n');
   const args = { _escAttr: esc, _escHtml: esc, document, state, getPeak: id => state.peaks.find(p => p.id === Number(id)),
     _startsLiveKey: () => 'KEY',
     _peakArea: p => p.amplitude * p.fwhm, getROIData: () => ({ be: [280, 285, 290] }), _buildStderrMap: fr => Object.fromEntries(fr.backendResult.individual_peaks.map(ip => [ip.id, ip.params])),
@@ -328,9 +328,9 @@ test('a key change re-renders every consumer of the verdict — each compared wi
   const calls = [];
   const state = { peaks: [{ id: 2, support: { supported: false, fitKey: 'OLD' } }], fitResult: {}, chart: { data: { datasets: [{ _peakId: 2, _unsupported: true }] } } };
   const document = { querySelectorAll: sel => sel.includes('peak-list') ? [] : [{ getAttribute: () => '2' }], querySelector: () => null };
-  const fn = new Function('state', 'document', '_startsLiveKey', '_isUnsupported', '_historyPreview', '_dropStaleAltPreview', '_patchPeakCardsForSupport', 'renderResults', 'updatePlot', '_startsPanelHtml', '_refreshStatsState',
-    src + '\nreturn _refreshStartsEvidence;')(state, document, () => 'NEW', (p, k) => p.support.supported === false && p.support.fitKey === k, null, () => {},
-    () => calls.push('sidebar'), () => calls.push('results'), () => calls.push('plot'), () => '', () => {});   // F1's refresh: stale_statistics.test.js
+  const fn = new Function('state', 'document', '_startsLiveKey', '_isUnsupported', '_historyPreview', '_dropStaleAltPreview', '_patchPeakCardsForSupport', 'renderResults', 'updatePlot', '_startsPanelHtml', '_refreshStatsState', '_areaSignature',
+    src + '\nreturn _refreshStartsEvidence;')(state, { ...document, getElementById: () => null }, () => 'NEW', (p, k) => p.support.supported === false && p.support.fitKey === k, null, () => {},
+    () => calls.push('sidebar'), () => calls.push('results'), () => calls.push('plot'), () => '', () => {}, () => 'SIG');   // F1's refresh: stale_statistics.test.js; the area signature: tests/test_browser_one_area.py
   fn(false);
   assert.deepStrictEqual(calls, ['results', 'plot'], 'sidebar already clean; Results and the chart still stale');
   for (const fn of ['toggleLock', 'toggleAllLocks']) assert.match(extractFn(fn), /_refreshStartsEvidence\(true\);/, fn);
@@ -374,10 +374,10 @@ test('the sidebar is patched in place (header, summary, badge) — the centre in
   const other = { info: mk(), vals: [mk(), mk(), mk()], name: { badge: null, querySelector() { return null; }, insertAdjacentHTML() {} }, querySelector(sel) { return sel === '.peak-info' ? this.info : this.name; }, querySelectorAll() { return this.vals; } };
   state.peaks.push({ id: 1, center: 284.4, fwhm: 0.64, support: { supported: true, fitKey: 'KEY' } });
   state.rawBE = [1, 2, 3];
-  const fn = new Function('state', 'document', '_startsLiveKey', '_isUnsupported', '_unsupportedBadge', 'getROIData', '_peakArea', '_areaGrid',
+  const fn = new Function('state', 'document', '_startsLiveKey', '_isUnsupported', '_unsupportedBadge', 'getROIData', '_peakArea', '_areaGrid', '_areaSignature',
     extractFn('_patchPeakCardsForSupport') + '\nreturn _patchPeakCardsForSupport;')(
-    state, { getElementById: id => id === 'peak-item-2' ? card : other }, () => 'KEY', c._isUnsupported, c._unsupportedBadge, () => ({ be: [280, 285, 290] }), p => p.id === 2 ? 10 : 90,
-    () => [280, 285, 290]);
+    state, { getElementById: id => id === 'peak-item-2' ? card : (id === 'peak-list' ? { setAttribute() {} } : other) }, () => 'KEY', c._isUnsupported, c._unsupportedBadge, () => ({ be: [280, 285, 290] }), p => p.id === 2 ? 10 : 90,
+    () => [280, 285, 290], () => 'SIG');
   fn();
   assert.deepStrictEqual([card.info.textContent, card.vals[0].textContent, card.vals[1].textContent, card.vals[2].textContent], ['—', '—', '—', '—']);
   assert.strictEqual(other.vals[2].textContent, '100.0%', 'the supported component is 100 % of the SUPPORTED area');

@@ -246,9 +246,17 @@ def test_checkbox_off_preserves_todays_cropped_behavior(browser, server):
         assert not fit_result_is_null, (
             "unchecked must NOT touch state.fitResult at all")
         status_after = _status_bar_snapshot(pg)
-        assert status_after == status_before, (
+        # the status bar (χ²ᵣ, R-factor, "ROI: ...") stays exactly as stale as it always was. The Results
+        # and Quantify panels are the exception since the one area definition (Q5, owner 2026-10-12):
+        # the areas they show follow the model on the tab, so after the apply they list the applied
+        # peaks (they showed the empty table rendered before) — tests/test_browser_one_area.py
+        bar = ("sbRoi", "sbChi", "fitQuality", "sbRuns")
+        assert {k: status_after[k] for k in bar} == {k: status_before[k] for k in bar}, (
             f"unchecked must not touch the status bar either: "
             f"{status_before} -> {status_after}")
+        assert "stats-unverified-note" in status_after["resultsArea"], "the stale result's own note is kept"
+        names = pg.evaluate("() => state.peaks.map(p => p.name)")
+        assert names and all(n in status_after["resultsArea"] for n in names), "Results lists the applied peaks"
     finally:
         pg.close()
 

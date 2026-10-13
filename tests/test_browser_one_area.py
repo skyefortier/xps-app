@@ -90,3 +90,57 @@ def test_the_note_needs_no_fit(browser, server):
         assert note == "far is centred outside the window — its area is poorly determined by the data.", note
     finally:
         pg.close()
+
+
+# ── Codex Q5 round 2 ───────────────────────────────────────────────────────────
+
+def test_shown_areas_follow_every_edit_while_the_result_is_stale(browser, server):
+    pg = _new_page(browser, server)
+    try:
+        pg.evaluate(PEAK_TAB)
+        pg.evaluate("() => { document.getElementById('fit-method').value = 'least_squares'; }")
+        assert pg.evaluate("async () => { await runFit(); return !!state.fitResult; }")
+        pid = pg.evaluate("() => state.peaks[0].id")
+        # successive edits of an already stale result, then an ROI change: every reader follows each one
+        for edit in ["(id) => { updatePeakParam(id, 'amplitude', 6000); updatePlot(); }",
+                     "(id) => { updatePeakParam(id, 'amplitude', 7000); updatePlot(); }",
+                     "(id) => { document.getElementById('roi-min').value = 282; updatePlot(); }"]:
+            pg.evaluate(edit, pid)
+            got = pg.evaluate(READERS)
+            assert got["stats"] == "stale"
+            assert got["results"] == got["live"], (edit, got)   # Results / Quantify show the current areas
+            _agree(got, *_save_and_csv(pg))
+        # a renamed component outside the window: the note names it as it is called now
+        pg.evaluate("(id) => { updatePeakParam(id, 'center', 299); updatePlot(); }", pid)
+        pg.evaluate("(id) => { const p = getPeak(id); p.name = 'renamed'; renderPeakList(); updatePlot(); }", pid)
+        assert pg.evaluate(READERS)["note"].startswith("renamed is centred outside the window")
+    finally:
+        pg.close()
+
+
+def test_a_reloaded_fit_saved_unedited_keeps_its_own_area_and_adds_the_display_value(browser, server):
+    # Codex round 2's case: a committed restored fit whose own grid and the live window differ.
+    # Owner 2026-10-13: the fit's own record is never rewritten; the display value goes beside it, labelled.
+    import os
+    from test_browser_find_peaks_full_window import REPO_ROOT
+    pg = _new_page(browser, server)
+    try:
+        pg.set_input_files("#load-session-input", os.path.join(REPO_ROOT, "docs/autofit/test_data/4-GTA UCl4-BN.proj.zip"))
+        pg.wait_for_function("() => tabManager.tabs.some(t => t.name === 'B1s Scan_4')", timeout=60000)
+        pg.evaluate("() => tabManager.activateTab(tabManager.tabs.find(t => t.name === 'B1s Scan_4').id)")
+        server_area = pg.evaluate("""() => state.peaks.map(p => p._backendParams && p._backendParams.area ? Math.abs(p._backendParams.area.value) : null)""")
+        shown = pg.evaluate(READERS)["results"]
+        pg.evaluate(CAPTURE)
+        pg.evaluate("() => _doSaveSpectrum()")
+        pg.wait_for_function("() => window.__dl && window.__dl.length > 0", timeout=20000)
+        curves = json.loads(pg.evaluate("() => window.__dl[0].text"))["peakCurves"]
+    finally:
+        pg.close()
+    assert all("displayArea" in c for c in curves), "an unedited restored fit: its own components are saved"
+    assert [c["displayArea"] for c in curves] == shown, "the display value is exactly what Results shows"
+    assert all(c["displayAreaNote"].startswith("the area Results shows now") for c in curves)
+    # its own area is the server's number for that fit, unchanged
+    for c, sa in zip(curves, server_area):
+        if sa:
+            assert abs(c["area"] - sa) <= 1e-9 * sa, (c["name"], c["area"], sa)
+    assert any(c["area"] != c["displayArea"] for c in curves), "the case differs: both are kept"

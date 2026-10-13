@@ -6651,6 +6651,7 @@ function renderPeakList() {
 
   // Compute total area for percentage (using ROI data if available)
   const _roiBE = _areaGrid();   // the one area grid (Q5)
+  { const pl = document.getElementById('peak-list'); if (pl) pl.setAttribute('data-area-sig', _areaSignature()); }
   const _peakAreas = {};
   let totalArea = 0;
   if (_roiBE.length) {
@@ -7770,6 +7771,7 @@ function _patchPeakCardsForSupport() {
   const key = _startsLiveKey();
   // area % over the components the CURRENT verdicts support (as renderPeakList computes it)
   const roiBE = _areaGrid();   // the one area grid (Q5)
+  { const pl = document.getElementById('peak-list'); if (pl) pl.setAttribute('data-area-sig', _areaSignature()); }
   const areas = {};
   let total = 0;
   if (roiBE.length) for (const p of state.peaks) { areas[p.id] = _peakArea(p, roiBE); if (!_isUnsupported(p, key)) total += areas[p.id]; }
@@ -8587,13 +8589,13 @@ function _refreshStartsEvidence(repaint, fromPlot) {
   let rendered = false;
   if (shownIn('#peak-list .unsupported-badge') !== flaggedNow) { _patchPeakCardsForSupport(); rendered = true; }
   if (state.fitResult && shownIn('.results-table .unsupported-row') !== flaggedNow && typeof renderResults === 'function') { renderResults(); rendered = true; }   // renders Quantify and the starts panel too
-  // the outside-the-window note follows a moved centre, an ROI or a charge change (Q5, Codex round 1)
-  if (!rendered && typeof renderResults === 'function' && document.getElementById('results-area')) {
-    const g = _areaGrid();
-    const outsideNow = state.peaks.filter(p => _centredOutsideWindow(p, g)).map(p => String(p.id)).sort().join(',');
-    const noteEl = document.querySelector('#results-area .outside-window-note');
-    if ((noteEl ? noteEl.getAttribute('data-peak-ids') : '') !== outsideNow) { renderResults(); rendered = true; }
-  }
+  // the areas every reader shows, and the outside-the-window note, follow every edit of the model or
+  // its grid — a parameter, the ROI, the charge correction, a rename — stale or not (Q5, Codex rounds 1-2)
+  { const sig = _areaSignature();
+    const ra = document.getElementById('results-area');
+    if (!rendered && ra && typeof renderResults === 'function' && ra.getAttribute('data-area-sig') !== sig) { renderResults(); rendered = true; }
+    const pl = document.getElementById('peak-list');
+    if (pl && pl.getAttribute('data-area-sig') !== sig && typeof _patchPeakCardsForSupport === 'function') _patchPeakCardsForSupport(); }
   if (!fromPlot && state.chart && state.chart.data && typeof updatePlot === 'function') {
     const chartFlagged = (state.chart.data.datasets || []).filter(d => d._unsupported).map(d => String(d._peakId)).sort().join(',');
     if (chartFlagged !== flaggedNow) { updatePlot(); return; }
@@ -9773,6 +9775,14 @@ function _centredOutsideWindow(p, be) {
   return Array.isArray(be) && be.length > 1 && Number.isFinite(p.center) && (p.center < _arrMin(be) || p.center > _arrMax(be));
 }
 const _OUTSIDE_WINDOW_NOTE = 'centred outside the window — its area is poorly determined by the data';
+// What the area readers show, as one string: every component's area on the one grid and the note.
+// Results and the sidebar record the signature they rendered; _refreshStartsEvidence re-renders a
+// reader whose signature is no longer current (Q5 Codex round 2: a stale Results kept the areas of an
+// earlier edit, and a renamed component's note its old name).
+function _areaSignature() {
+  const g = _areaGrid();
+  return state.peaks.map(p => p.id + ':' + _peakArea(p, g)).join(',') + '|' + _outsideWindowNoteHtml(g);
+}
 function _outsideWindowNoteHtml(be) {
   const outside = state.peaks.filter(p => _centredOutsideWindow(p, be));
   if (!outside.length) return '';
@@ -9791,6 +9801,7 @@ function renderResults() {
       ? '<p style="color:var(--amber,#f59e0b);font-size:11px;text-align:center;padding:20px 0">&#9888; This model was imported from a local fit: a starting point, not a reportable result. Run Fit to obtain results.</p>'
       : '<p style="color:var(--text3);font-size:11px;text-align:center;padding:20px 0">Run the fit to see results.</p>';
     el.innerHTML += _outsideWindowNoteHtml(_areaGrid());   // the note needs no fit (a saved fit dropped on load, a model not yet fitted)
+    el.setAttribute('data-area-sig', _areaSignature());
     // Quantify (#quantify-area) is populated by renderQuantify(), called
     // only from the non-null path below — without this it kept showing
     // a PRIOR fit's area/RSF/At% table after state.fitResult was cleared
@@ -9914,6 +9925,7 @@ function renderResults() {
   }
 
   el.innerHTML = html;
+  el.setAttribute('data-area-sig', _areaSignature());
 
   renderQuantify(areas, totalArea);
 }
@@ -12044,9 +12056,13 @@ function _doSaveSpectrum() {
     return {
       id: p.id, name: p.name,
       y: yArr,
-      // the area Results shows (the one formula on the one grid, Q5); the fit's own components (a
-      // restored-stale fit saved unedited) are integrated on the energies they were evaluated on
-      area: own ? _trapezoidArea(yArr, own._modelBe) : _peakArea(p, _areaGrid())
+      // A restored fit saved unedited keeps ITS OWN RECORD unchanged (owner 2026-10-13: a saved fit record
+      // is never silently rewritten — the sealed fit depends on it): `area` is its components as fitted,
+      // on the energies the server integrated them on (the server's own number for that fit). Beside it,
+      // labelled, the area Results shows now. Any other save: `area` IS what Results shows (Q5).
+      area: own ? _trapezoidArea(yArr, own._modelBe) : _peakArea(p, _areaGrid()),
+      ...(own ? { displayArea: _peakArea(p, _areaGrid()),
+                  displayAreaNote: 'the area Results shows now: the current model, the server\'s trapezoid on the current window' } : {})
     };
   });
 

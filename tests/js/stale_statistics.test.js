@@ -49,7 +49,7 @@ function sandbox({ liveKey = 'K1' } = {}) {
   const doc = makeDoc();
   const env = { key: liveKey, quantified: null };
   const fns = [...STATE_FNS, '_fitStatLabel', '_isUnweightedLocal', '_fitStatusText', '_applyStatCaption', '_applyStatDisplay',
-    '_updateRFactorUI', '_renderRFactorPanel', 'renderResults', '_validateUncertainties', '_centredOutsideWindow', '_outsideWindowNoteHtml', '_areaGrid', '_arrMin', '_arrMax'];
+    '_updateRFactorUI', '_renderRFactorPanel', 'renderResults', '_validateUncertainties', '_centredOutsideWindow', '_outsideWindowNoteHtml', '_areaGrid', '_areaSignature', '_arrMin', '_arrMax'];
   const src = [...STATE_CONSTS.map(constLine), constLine('_RFACTOR_TOOLTIP'), constLine('_LOCALFIT_TOOLTIP'), constLine('_CHISQ_TOOLTIP'), constLine('_OUTSIDE_WINDOW_NOTE'),
     ...fns.map(extractFn)].join('\n');
   const state = { peaks: [], fitResult: null, rawBE: [1] };

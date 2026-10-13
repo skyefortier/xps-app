@@ -1051,7 +1051,7 @@ fit's own energies while it is current (a restored fit's `_modelBe`, else
 `fitResult.be`), otherwise the live ROI grid (sealed-fit v6 Q5, owner
 2026-10-12; until then the page summed rectangles × the first step, and Results
 and the sidebar integrated on different grids: on the committed fits as loaded a
-median 0.007 % apart, ≤ 0.008 pp in any area %, `docs/findings/q5-area`). A
+median 0.007 % apart, ≤ 0.0083 pp in any area %, `docs/findings/q5-area`). A
 component centred outside that grid gets a note in Results, with or without a
 fit ("centred outside the window — its area is poorly determined by the data";
 none of the committed components as loaded). RSF
