@@ -26,9 +26,9 @@ function extractConst(name) {
   return lines.slice(start, i + 1).join('\n');
 }
 const S = new Function(
-  ['_PARAM_FIELDS', '_MODEL_EVIDENCE_FIELDS', '_CC_REFERENCE'].map(extractConst).join('\n') + '\n' +
-  ['_applyBackendParams', 'project', '_applyProjected', '_sameModel', '_ccShiftOf', '_ccMoveField'].map(extractFn).join('\n') +
-  '\nreturn { _applyBackendParams, project, _applyProjected, _sameModel, _ccShiftOf, _ccMoveField };')();
+  ['_MODEL_EVIDENCE_FIELDS', '_CC_REFERENCE'].map(extractConst).join('\n') + '\n' +
+  ['_applyBackendParams', 'project', '_sameModel', '_ccShiftOf', '_ccMoveField'].map(extractFn).join('\n') +
+  '\nreturn { _applyBackendParams, project, _sameModel, _ccShiftOf, _ccMoveField };')();
 
 // The live application as it was before step 2 (applyBackendResult's loop): on the live peaks, by id.
 function applyLikeBefore(live, O) {
@@ -74,25 +74,24 @@ function reply(model) {
   return { individual_peaks: ip };
 }
 
-test('project applied in place is EXACTLY the live application it replaced, for every lineshape and lock (Run Fit)', () => {
+// The live path is the old application itself (applyBackendResult: _applyBackendParams on the live peaks; Codex
+// step 2 rounds 1-3 found three edges where a re-implemented write set drifted). `project` is the SAME rules on the
+// snapshot: it must equal the old application to a copy of that snapshot, exactly, in every case.
+test('project is EXACTLY the old application to a copy of the snapshot, for every lineshape and lock pattern', () => {
   for (const model of models()) {
     const O = reply(model);
     const before = structuredClone(model); applyLikeBefore(before, O);
-    const live = structuredClone(model); S._applyProjected(live, S.project(model, O), O);
-    assert.deepStrictEqual(live, before, model[0].shape + ' ' + JSON.stringify(Object.keys(model[0]).filter(k => k.startsWith('fix'))));
+    assert.deepStrictEqual(S.project(model, O), before, model[0].shape + ' ' + JSON.stringify(Object.keys(model[0]).filter(k => k.startsWith('fix'))));
   }
 });
 
-test('"Use this solution": the projection of the adopted start onto the live model is the old live application', () => {
+test('"Use this solution": the projection of the adopted start is the old application to that start', () => {
   for (const model of models()) {
-    // the start differs from the live model in FREE fields only (_altPeaks applies the alternative's values
-    // through the same lock rules); presentation fields are the live model's
     const start = structuredClone(model);
     S._applyBackendParams(start[0], reply(model).individual_peaks[0].params);
     const O = reply(start);
-    const before = structuredClone(model); applyLikeBefore(before, O);
-    const live = structuredClone(model); S._applyProjected(live, S.project(start, O), O);
-    assert.deepStrictEqual(live, before, model[0].shape);
+    const before = structuredClone(start); applyLikeBefore(before, O);
+    assert.deepStrictEqual(S.project(start, O), before, model[0].shape);
   }
 });
 
@@ -105,13 +104,11 @@ test('project is PURE: the snapshot is not touched, and the result shares no mut
   assert.strictEqual(JSON.stringify(model), frozen);
 });
 
-test('_applyProjected never writes presentation fields (name, colour, visibility) — a live rename survives', () => {
+test('project never changes presentation fields (name, colour, visibility): the snapshot\'s are kept', () => {
   const model = models()[0];
-  const live = structuredClone(model); live[0].name = 'renamed while the fit ran'; live[0].color = '#123456'; live[0].visible = false;
-  S._applyProjected(live, S.project(model, reply(model)), reply(model));
-  assert.strictEqual(live[0].name, 'renamed while the fit ran');
-  assert.strictEqual(live[0].color, '#123456');
-  assert.strictEqual(live[0].visible, false);
+  model[0].name = 'C-C'; model[0].color = '#123456'; model[0].visible = false;
+  const out = S.project(model, reply(model));
+  assert.strictEqual(out[0].name, 'C-C'); assert.strictEqual(out[0].color, '#123456'); assert.strictEqual(out[0].visible, false);
 });
 
 // updateChargeCorrection before step 2, its arithmetic written out (the branch per method)
@@ -161,24 +158,26 @@ test('a peak the reply does not name, and a parameter it does not report, are le
     // the reply names only the first peak, and omits its fwhm
     const O = { individual_peaks: [{ id: full.individual_peaks[0].id, params: { ...full.individual_peaks[0].params } }] };
     delete O.individual_peaks[0].params.fwhm;
-    const before = structuredClone(model); applyLikeBefore(before, O);
-    const live = structuredClone(model); S._applyProjected(live, S.project(start, O), O);
-    assert.deepStrictEqual(live, before, model[0].shape);
+    const before = structuredClone(start); applyLikeBefore(before, O);
+    assert.deepStrictEqual(S.project(start, O), before, model[0].shape);
   }
 });
 
 test('the reply, the projection and the live peaks share no parameter object (Codex step 2 round 1)', () => {
   const model = models()[4], O = reply(model);
   const projected = S.project(model, O);
-  const live = structuredClone(model); S._applyProjected(live, projected, O);
   assert.notStrictEqual(projected[0]._backendParams, O.individual_peaks[0].params);
-  assert.notStrictEqual(live[0]._backendParams, projected[0]._backendParams);
-  assert.notStrictEqual(live[0]._backendParams, O.individual_peaks[0].params);
   const was = O.individual_peaks[0].params.center.value;
-  projected[0]._backendParams.center.value = -1; live[0]._backendParams.amplitude.value = -1;
+  projected[0]._backendParams.center.value = -1;
   assert.strictEqual(O.individual_peaks[0].params.center.value, was);
-  assert.notStrictEqual(O.individual_peaks[0].params.amplitude.value, -1);
-  assert.deepStrictEqual(live[0]._backendParams.center, O.individual_peaks[0].params.center);   // equal values, own copies
+  // the live application (applyBackendResult) gives each live peak its own copy too
+  const state = { peaks: structuredClone(model) };
+  const live = new Function('state', 'getPeak', '_applySupport', '_startsLiveKey',
+    extractFn('_applyBackendParams') + '\n' + extractFn('applyBackendResult') + '\nreturn applyBackendResult;')(
+    state, id => state.peaks.find(q => q.id === id), () => {}, () => 'K');
+  live(O);
+  assert.notStrictEqual(state.peaks[0]._backendParams, O.individual_peaks[0].params);
+  assert.deepStrictEqual(state.peaks[0]._backendParams, O.individual_peaks[0].params);   // equal values, own copies
 });
 
 test('_ccShiftOf: an inherited property name is no method (shift 0, as the old branches)', () => {
@@ -202,8 +201,21 @@ test('a signed-zero change is applied exactly as the old application (Codex step
     const model = [{ id: 1, shape: 'Gaussian', center: start, fwhm: 1, amplitude: 10 }];
     const O = { individual_peaks: [{ id: '1', params: { center: par(fitted), amplitude: par(10), fwhm: par(1) } }] };
     const before = structuredClone(model); applyLikeBefore(before, O);
-    const live = structuredClone(model); S._applyProjected(live, S.project(model, O), O);
-    assert.ok(Object.is(live[0].center, before[0].center) && Object.is(live[0].center, fitted), `${start} -> ${fitted}`);
-    assert.ok(S._sameModel(live, before));
+    const out = S.project(model, O);
+    assert.ok(Object.is(out[0].center, before[0].center) && Object.is(out[0].center, fitted), `${start} -> ${fitted}`);
+    assert.ok(S._sameModel(out, before));
+  }
+});
+
+
+test('a locked field keeps the SNAPSHOT\'s value, signed zero included (Codex step 2 round 3: -0 / +0 under a lock)', () => {
+  for (const held of [-0, 0]) {
+    const model = [{ id: 1, shape: 'DS', center: 284.8, fwhm: 1, amplitude: 10, dsAlpha: 0.1, dsGamma: held, fixDsGamma: true }];
+    const O = { individual_peaks: [{ id: '1', params: { center: par(284.9), amplitude: par(11), fwhm: par(1.1),
+                                                        alpha: par(0.12), gamma_asym: par(held === 0 ? -0 : 0) } }] };
+    const before = structuredClone(model); applyLikeBefore(before, O);
+    const out = S.project(model, O);
+    assert.ok(Object.is(out[0].dsGamma, held) && Object.is(before[0].dsGamma, held), String(held));
+    assert.ok(S._sameModel(out, before));
   }
 });
