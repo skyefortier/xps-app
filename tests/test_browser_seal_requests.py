@@ -172,3 +172,28 @@ def test_auto_fits_final_request_is_derived_exactly_from_its_anchor_fit(browser,
     assert got["model"] and got["ctx"] and got["energies"] and got["body"], got
     assert got["anchorsMoved"] == anchors, got
     assert errors == [], errors
+
+
+
+@pytest.mark.parametrize("name,anchors", [("autofit_anchor_plain", False), ("autofit_anchor_with_anchors", True)])
+def test_auto_fits_anchor_request_is_exactly_what_the_page_sent_before(browser, server, name, anchors):  # noqa: F811
+    # Codex step 2 round 1: the in-run derivation pin compares today's builder with itself; this pins Auto-Fit's
+    # first request against the bodies recorded from the page BEFORE the refactor (34ce8ba, by
+    # scripts/seal_1c_record_autofit_anchor.py) — the final request then follows by the pinned derivation
+    pg = browser.new_page(viewport={"width": 1200, "height": 900})
+    try:
+        pg.goto(server + "/", wait_until="load")
+        pg.set_input_files("#load-session-input", AUTOFIT_PROJECT)
+        pg.wait_for_function("() => tabManager.tabs.some(t => t.name === 'C1s Scan')", timeout=60000)
+        pg.evaluate("() => tabManager.activateTab(tabManager.tabs.find(t => t.name === 'C1s Scan').id)")
+        pg.evaluate("""(anchors) => { window._showAutoFitConfirmModal = () => Promise.resolve(true);
+            if (anchors) { _setManualAnchors([{ x: 283.0, y: 1500 }, { x: 292.0, y: 1200 }]); updatePlot(); } }""", anchors)
+        with pg.expect_request("**/api/fit/start", timeout=60000) as info:
+            pg.evaluate("() => { window.__af = runAutoFitC1sGraphite(); }")
+        body = _body(info.value)
+        pg.evaluate("async () => { try { await window.__af; } catch (e) {} }")
+    finally:
+        pg.close()
+    with open(FIXTURE) as f:
+        before = json.load(f)
+    assert json.dumps(body, sort_keys=True) == json.dumps(before[name], sort_keys=True)

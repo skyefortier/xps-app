@@ -45,7 +45,7 @@ const ALLOWLIST = {
   TAB_COLORS: 'B', SHAPE_PARAM_SCHEMA: 'B', PLACE_MODE_BUTTONS: 'B', LOCK_ALL_KEYS: 'B',
   _BG_SUB_DEPENDENT_CONTROL_IDS: 'B', xpsRefLinesPlugin: 'B',
   _STARTS_MODEL_FIELDS: 'B', _STARTS_UI_FIELDS: 'B',   // constant tables: what the scattered-starts evidence is bound to
-  _PROJECTED_FIELDS: 'B', _MODEL_EVIDENCE_FIELDS: 'B', _CC_REFERENCE: 'B',   // seal 1c step 2: constant tables (projection, model equality, charge references)
+  _PARAM_FIELDS: 'B', _MODEL_EVIDENCE_FIELDS: 'B', _CC_REFERENCE: 'B',   // seal 1c step 2: constant tables (projection, model equality, charge references)
   BG_LABELS: 'B',            // constant table: background methods' display names (background math, 2026-10-01)
   FP_TIER_META: 'B', FP_STRINGS: 'B', FP_MODEL_LABELS: 'B', FP_ROLE_LABELS: 'B', FP_SHAPE_LABELS: 'B', FP_TIER_RANK: 'B',
   REF_PT_LAYOUT: 'B',        // periodic-table layout table (built by a call at load; read-only)

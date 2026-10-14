@@ -26,7 +26,7 @@ function extractConst(name) {
   return lines.slice(start, i + 1).join('\n');
 }
 const S = new Function(
-  ['_PROJECTED_FIELDS', '_MODEL_EVIDENCE_FIELDS', '_CC_REFERENCE'].map(extractConst).join('\n') + '\n' +
+  ['_PARAM_FIELDS', '_MODEL_EVIDENCE_FIELDS', '_CC_REFERENCE'].map(extractConst).join('\n') + '\n' +
   ['_applyBackendParams', 'project', '_applyProjected', '_sameModel', '_ccShiftOf', '_ccMoveField'].map(extractFn).join('\n') +
   '\nreturn { _applyBackendParams, project, _applyProjected, _sameModel, _ccShiftOf, _ccMoveField };')();
 
@@ -78,7 +78,7 @@ test('project applied in place is EXACTLY the live application it replaced, for 
   for (const model of models()) {
     const O = reply(model);
     const before = structuredClone(model); applyLikeBefore(before, O);
-    const live = structuredClone(model); S._applyProjected(live, S.project(model, O));
+    const live = structuredClone(model); S._applyProjected(live, S.project(model, O), O);
     assert.deepStrictEqual(live, before, model[0].shape + ' ' + JSON.stringify(Object.keys(model[0]).filter(k => k.startsWith('fix'))));
   }
 });
@@ -91,7 +91,7 @@ test('"Use this solution": the projection of the adopted start onto the live mod
     S._applyBackendParams(start[0], reply(model).individual_peaks[0].params);
     const O = reply(start);
     const before = structuredClone(model); applyLikeBefore(before, O);
-    const live = structuredClone(model); S._applyProjected(live, S.project(start, O));
+    const live = structuredClone(model); S._applyProjected(live, S.project(start, O), O);
     assert.deepStrictEqual(live, before, model[0].shape);
   }
 });
@@ -108,7 +108,7 @@ test('project is PURE: the snapshot is not touched, and the result shares no mut
 test('_applyProjected never writes presentation fields (name, colour, visibility) — a live rename survives', () => {
   const model = models()[0];
   const live = structuredClone(model); live[0].name = 'renamed while the fit ran'; live[0].color = '#123456'; live[0].visible = false;
-  S._applyProjected(live, S.project(model, reply(model)));
+  S._applyProjected(live, S.project(model, reply(model)), reply(model));
   assert.strictEqual(live[0].name, 'renamed while the fit ran');
   assert.strictEqual(live[0].color, '#123456');
   assert.strictEqual(live[0].visible, false);
@@ -150,4 +150,48 @@ test('_sameModel: equal models, the fit evidence (support) aside; any other fiel
   assert.ok(!S._sameModel(a, a.slice(0, 1)));
   const c = structuredClone(a); c[0].shape = 'Lorentzian';
   assert.ok(!S._sameModel(a, c));
+});
+
+
+test('a peak the reply does not name, and a parameter it does not report, are left exactly as they were (Codex step 2 round 1)', () => {
+  for (const model of models()) {
+    const start = structuredClone(model);
+    start[1].center += 1; start[0].fwhm *= 1.3;            // an adopted start differing from the live model
+    const full = reply(start);
+    // the reply names only the first peak, and omits its fwhm
+    const O = { individual_peaks: [{ id: full.individual_peaks[0].id, params: { ...full.individual_peaks[0].params } }] };
+    delete O.individual_peaks[0].params.fwhm;
+    const before = structuredClone(model); applyLikeBefore(before, O);
+    const live = structuredClone(model); S._applyProjected(live, S.project(start, O), O);
+    assert.deepStrictEqual(live, before, model[0].shape);
+  }
+});
+
+test('the reply, the projection and the live peaks share no parameter object (Codex step 2 round 1)', () => {
+  const model = models()[4], O = reply(model);
+  const projected = S.project(model, O);
+  const live = structuredClone(model); S._applyProjected(live, projected, O);
+  assert.notStrictEqual(projected[0]._backendParams, O.individual_peaks[0].params);
+  assert.notStrictEqual(live[0]._backendParams, projected[0]._backendParams);
+  assert.notStrictEqual(live[0]._backendParams, O.individual_peaks[0].params);
+  const was = O.individual_peaks[0].params.center.value;
+  projected[0]._backendParams.center.value = -1; live[0]._backendParams.amplitude.value = -1;
+  assert.strictEqual(O.individual_peaks[0].params.center.value, was);
+  assert.notStrictEqual(O.individual_peaks[0].params.amplitude.value, -1);
+  assert.deepStrictEqual(live[0]._backendParams.center, O.individual_peaks[0].params.center);   // equal values, own copies
+});
+
+test('_ccShiftOf: an inherited property name is no method (shift 0, as the old branches)', () => {
+  for (const m of ['toString', 'constructor', '__proto__', 'hasOwnProperty', 'valueOf']) {
+    assert.ok(Object.is(S._ccShiftOf(m, '285', '284.5').shift, 0), m);
+  }
+});
+
+test('_sameModel compares fields, not JSON text: NaN is not null, key order does not matter, -0 is not 0', () => {
+  const a = [{ id: 1, center: NaN, x: 1, y: 2 }], b = [{ id: 1, center: null, x: 1, y: 2 }];
+  assert.ok(!S._sameModel(a, b));
+  assert.ok(S._sameModel(a, [{ y: 2, x: 1, center: NaN, id: 1 }]));
+  assert.ok(!S._sameModel([{ id: 1, c: 0 }], [{ id: 1, c: -0 }]));
+  assert.ok(!S._sameModel([{ id: 1, c: [1, 2] }], [{ id: 1, c: { 0: 1, 1: 2 } }]));
+  assert.ok(!S._sameModel([{ id: 1 }], [{ id: 1, extra: undefined }]));
 });
