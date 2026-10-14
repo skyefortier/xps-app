@@ -1,0 +1,13 @@
+CORRECTNESS REVIEW of unit 1b of the "sealed fit record" — a MEASUREMENT unit — in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software.
+
+REPO: this checkout, branch seal-1b-measure (HEAD); it adds only measurement scripts and findings on top of unit 1a′ (seal-1a-server, 828f264, reviewed GO). THE FINDINGS: docs/findings/seal-1b/README.md and the JSONL beside it. THE GENERATORS: scripts/seal_1b_measure.py, scripts/seal_1b_background_twin.js, scripts/seal_1b_summarise.py. THE DESIGN: docs/superpowers/plans/2026-09-02-background-architecture-sealed-fit-record.md V6.11 1b ("measure and prove: evaluator bit-stability per lineshape (Q7); V5.4.4's background bit-identity; the seal's size; the replay reproduction fraction"), V6.5, V6.22 (option (b)). Unit 1c's plan (on branch seal-1c-page) relies on these numbers.
+
+ANSWER EACH (cite file:line, and check claims against the JSONL):
+1. Do the generators measure what the README says? Record: is each record exactly the page's request through the real route (full-precision upload, the request fields the page sends)? Verify: are the four settings what they claim (a fresh process; shaken memory; a 4-worker gunicorn so a DIFFERENT process verifies)? Is the "one clean commit" condition real (software pins commit + cleanliness)? Replay: is the comparison the repo's same-fit standard, and is the seed handling right?
+2. Are the README's numbers exactly what `python scripts/seal_1b_summarise.py docs/findings/seal-1b` and the JSONL give (counts per setting, per lineshape, the background twin per method, sizes, replay outcomes and the classification of the 11 differences)?
+3. Are the conclusions supported: Q7's set = {la_casaxps} only (is DS+G's evidence enough? are any lineshapes untested?); "no record reads mismatch"; the background binding can be exact (does the twin script feed the page the request the way the page's own form would, incl. the whole-window and manual cases?); the replay recommendation for 1d?
+4. Anything overstated, missing or misleading?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

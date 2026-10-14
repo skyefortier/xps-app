@@ -1,0 +1,328 @@
+{"id": "fba7b6facc1a", "tab": "C1s Scan", "n": 191, "n_peaks": 6, "R_bytes": 9454, "O_bytes": 51098, "R_gzip": 3176, "O_gzip": 23489}
+{"id": "adb8e03c67d1", "tab": "C1s Scan_0", "n": 187, "n_peaks": 6, "R_bytes": 9270, "O_bytes": 50120, "R_gzip": 3118, "O_gzip": 23163}
+{"id": "b30fc7be6a95", "tab": "C1s Scan_1", "n": 187, "n_peaks": 6, "R_bytes": 9184, "O_bytes": 50528, "R_gzip": 3078, "O_gzip": 23380}
+{"id": "bf7efe5e7e31", "tab": "C1s Scan_2", "n": 187, "n_peaks": 6, "R_bytes": 9254, "O_bytes": 50852, "R_gzip": 3111, "O_gzip": 23683}
+{"id": "e6c2d756b9b4", "tab": "C1s Scan_3", "n": 186, "n_peaks": 6, "R_bytes": 9213, "O_bytes": 50461, "R_gzip": 3096, "O_gzip": 23364}
+{"id": "14b636ea6af7", "tab": "C1s Scan_4", "n": 187, "n_peaks": 6, "R_bytes": 9190, "O_bytes": 50551, "R_gzip": 3088, "O_gzip": 23335}
+{"id": "0c8b2b8ec1ae", "tab": "C1s Scan_5", "n": 187, "n_peaks": 6, "R_bytes": 9233, "O_bytes": 50560, "R_gzip": 3112, "O_gzip": 23470}
+{"id": "db30d31c76cf", "tab": "C1s Scan_6", "n": 190, "n_peaks": 6, "R_bytes": 9352, "O_bytes": 51441, "R_gzip": 3131, "O_gzip": 23633}
+{"id": "4aef465f2a09", "tab": "C1s Scan_7", "n": 187, "n_peaks": 6, "R_bytes": 9235, "O_bytes": 50597, "R_gzip": 3090, "O_gzip": 23402}
+{"id": "ebab8ea0cf54", "tab": "C1s Scan_8", "n": 189, "n_peaks": 6, "R_bytes": 9338, "O_bytes": 50594, "R_gzip": 3111, "O_gzip": 23505}
+{"id": "9616e6eead49", "tab": "C1s Scan_0", "n": 191, "n_peaks": 6, "R_bytes": 9452, "O_bytes": 51765, "R_gzip": 3169, "O_gzip": 23738}
+{"id": "119243a6dd9f", "tab": "C1s Scan_1", "n": 191, "n_peaks": 6, "R_bytes": 9436, "O_bytes": 51281, "R_gzip": 3148, "O_gzip": 23660}
+{"id": "32bb986646e4", "tab": "C1s Scan_2", "n": 191, "n_peaks": 6, "R_bytes": 9437, "O_bytes": 51268, "R_gzip": 3148, "O_gzip": 23759}
+{"id": "3f25fe088609", "tab": "C1s Scan_3", "n": 191, "n_peaks": 6, "R_bytes": 9442, "O_bytes": 51231, "R_gzip": 3164, "O_gzip": 23722}
+{"id": "1f8ceab0cf5a", "tab": "C1s Scan_4", "n": 191, "n_peaks": 6, "R_bytes": 9438, "O_bytes": 51764, "R_gzip": 3164, "O_gzip": 23625}
+{"id": "f4f7d7860730", "tab": "C1s Scan_5", "n": 191, "n_peaks": 6, "R_bytes": 9448, "O_bytes": 51773, "R_gzip": 3162, "O_gzip": 23865}
+{"id": "067d67d90990", "tab": "C1s Scan_6", "n": 191, "n_peaks": 6, "R_bytes": 9442, "O_bytes": 51893, "R_gzip": 3162, "O_gzip": 23850}
+{"id": "7551166d1898", "tab": "C1s Scan_7", "n": 191, "n_peaks": 6, "R_bytes": 9446, "O_bytes": 51814, "R_gzip": 3157, "O_gzip": 23716}
+{"id": "ffce09b4eedf", "tab": "C1s Scan_8", "n": 191, "n_peaks": 6, "R_bytes": 9433, "O_bytes": 51760, "R_gzip": 3161, "O_gzip": 23785}
+{"id": "a82157575b35", "tab": "U4f Scan", "n": 350, "n_peaks": 4, "R_bytes": 15345, "O_bytes": 75119, "R_gzip": 5114, "O_gzip": 34156}
+{"id": "30654f15d336", "tab": "U4f Scan_0", "n": 350, "n_peaks": 4, "R_bytes": 15323, "O_bytes": 75105, "R_gzip": 5083, "O_gzip": 34105}
+{"id": "9e78edb03b78", "tab": "U4f Scan_1", "n": 349, "n_peaks": 4, "R_bytes": 15264, "O_bytes": 74826, "R_gzip": 5097, "O_gzip": 33846}
+{"id": "3d08b3c83d6f", "tab": "U4f Scan_2", "n": 350, "n_peaks": 4, "R_bytes": 15367, "O_bytes": 74201, "R_gzip": 5118, "O_gzip": 34067}
+{"id": "ece56c57d41b", "tab": "U4f Scan_3", "n": 350, "n_peaks": 4, "R_bytes": 15326, "O_bytes": 74075, "R_gzip": 5100, "O_gzip": 33967}
+{"id": "bb349b2da79a", "tab": "U4f Scan_4", "n": 350, "n_peaks": 4, "R_bytes": 15244, "O_bytes": 75264, "R_gzip": 5087, "O_gzip": 33977}
+{"id": "4e42e3755e13", "tab": "U4f Scan_5", "n": 350, "n_peaks": 4, "R_bytes": 15354, "O_bytes": 75220, "R_gzip": 5114, "O_gzip": 33855}
+{"id": "fa2967db4c0f", "tab": "U4f Scan_6", "n": 350, "n_peaks": 4, "R_bytes": 15281, "O_bytes": 75143, "R_gzip": 5102, "O_gzip": 34189}
+{"id": "934817a18099", "tab": "U4f Scan_7", "n": 349, "n_peaks": 4, "R_bytes": 15310, "O_bytes": 75141, "R_gzip": 5120, "O_gzip": 33795}
+{"id": "7753200be036", "tab": "U4f Scan_8", "n": 350, "n_peaks": 4, "R_bytes": 15347, "O_bytes": 75033, "R_gzip": 5118, "O_gzip": 33934}
+{"id": "6798d9f6aaf8", "tab": "U4f Scan_0", "n": 350, "n_peaks": 4, "R_bytes": 15323, "O_bytes": 75098, "R_gzip": 5086, "O_gzip": 34121}
+{"id": "74de9f209fc9", "tab": "U4f Scan_1", "n": 350, "n_peaks": 4, "R_bytes": 15375, "O_bytes": 75175, "R_gzip": 5113, "O_gzip": 33835}
+{"id": "fbb6c81085dc", "tab": "U4f Scan_2", "n": 350, "n_peaks": 4, "R_bytes": 15366, "O_bytes": 74143, "R_gzip": 5112, "O_gzip": 33996}
+{"id": "05207257c560", "tab": "U4f Scan_3", "n": 350, "n_peaks": 4, "R_bytes": 15324, "O_bytes": 74057, "R_gzip": 5097, "O_gzip": 34030}
+{"id": "ef7760dcf9c4", "tab": "U4f Scan_4", "n": 350, "n_peaks": 4, "R_bytes": 15319, "O_bytes": 75284, "R_gzip": 5089, "O_gzip": 33940}
+{"id": "533111c6e029", "tab": "U4f Scan_5", "n": 350, "n_peaks": 4, "R_bytes": 15364, "O_bytes": 75204, "R_gzip": 5119, "O_gzip": 33933}
+{"id": "02b3907459f1", "tab": "U4f Scan_6", "n": 350, "n_peaks": 4, "R_bytes": 15355, "O_bytes": 74703, "R_gzip": 5108, "O_gzip": 34137}
+{"id": "8706e3d72827", "tab": "U4f Scan_7", "n": 350, "n_peaks": 4, "R_bytes": 15346, "O_bytes": 74354, "R_gzip": 5126, "O_gzip": 33859}
+{"id": "058f36221969", "tab": "U4f Scan_8", "n": 350, "n_peaks": 4, "R_bytes": 15346, "O_bytes": 75160, "R_gzip": 5114, "O_gzip": 33998}
+{"id": "191cff0c5ccc", "tab": "B1s Scan", "n": 115, "n_peaks": 1, "R_bytes": 5079, "O_bytes": 17953, "R_gzip": 1867, "O_gzip": 6791}
+{"id": "e8a846e40672", "tab": "B1s Scan_0", "n": 115, "n_peaks": 1, "R_bytes": 5065, "O_bytes": 17925, "R_gzip": 1878, "O_gzip": 6845}
+{"id": "6d3625db5511", "tab": "B1s Scan_1", "n": 114, "n_peaks": 1, "R_bytes": 5050, "O_bytes": 17771, "R_gzip": 1864, "O_gzip": 7058}
+{"id": "ba1fcd9fbb20", "tab": "B1s Scan_2", "n": 114, "n_peaks": 1, "R_bytes": 4993, "O_bytes": 17730, "R_gzip": 1859, "O_gzip": 6867}
+{"id": "50136a41c115", "tab": "B1s Scan_3", "n": 114, "n_peaks": 1, "R_bytes": 4994, "O_bytes": 17741, "R_gzip": 1860, "O_gzip": 6804}
+{"id": "4e1b5ec3751b", "tab": "B1s Scan_4", "n": 114, "n_peaks": 1, "R_bytes": 4995, "O_bytes": 17714, "R_gzip": 1864, "O_gzip": 7019}
+{"id": "b47229eb5c16", "tab": "B1s Scan_5", "n": 114, "n_peaks": 1, "R_bytes": 4990, "O_bytes": 17721, "R_gzip": 1843, "O_gzip": 7009}
+{"id": "013425f02bb2", "tab": "B1s Scan_6", "n": 114, "n_peaks": 1, "R_bytes": 4993, "O_bytes": 17724, "R_gzip": 1847, "O_gzip": 7031}
+{"id": "e4a060ba1a10", "tab": "B1s Scan_7", "n": 114, "n_peaks": 1, "R_bytes": 4992, "O_bytes": 17759, "R_gzip": 1858, "O_gzip": 7014}
+{"id": "add2dd9c10e2", "tab": "B1s Scan_8", "n": 114, "n_peaks": 1, "R_bytes": 5006, "O_bytes": 17721, "R_gzip": 1864, "O_gzip": 6980}
+{"id": "983d227ac586", "tab": "B1s Scan_0", "n": 115, "n_peaks": 1, "R_bytes": 5088, "O_bytes": 17948, "R_gzip": 1878, "O_gzip": 6828}
+{"id": "ab8df83103b9", "tab": "B1s Scan_1", "n": 115, "n_peaks": 1, "R_bytes": 5096, "O_bytes": 17956, "R_gzip": 1878, "O_gzip": 6737}
+{"id": "40a6ce3d594a", "tab": "B1s Scan_2", "n": 115, "n_peaks": 1, "R_bytes": 5088, "O_bytes": 17935, "R_gzip": 1869, "O_gzip": 6516}
+{"id": "b2a427892189", "tab": "B1s Scan_3", "n": 115, "n_peaks": 1, "R_bytes": 5090, "O_bytes": 17955, "R_gzip": 1867, "O_gzip": 6752}
+{"id": "6a35439c6f5c", "tab": "B1s Scan_4", "n": 115, "n_peaks": 1, "R_bytes": 5082, "O_bytes": 17924, "R_gzip": 1873, "O_gzip": 6851}
+{"id": "26751ca6ce9f", "tab": "B1s Scan_5", "n": 115, "n_peaks": 1, "R_bytes": 5086, "O_bytes": 17908, "R_gzip": 1865, "O_gzip": 6860}
+{"id": "59fda88b67a7", "tab": "B1s Scan_6", "n": 115, "n_peaks": 1, "R_bytes": 5090, "O_bytes": 17932, "R_gzip": 1866, "O_gzip": 6972}
+{"id": "7a59e718dafe", "tab": "B1s Scan_7", "n": 115, "n_peaks": 1, "R_bytes": 5085, "O_bytes": 17932, "R_gzip": 1868, "O_gzip": 6824}
+{"id": "4934afe6c826", "tab": "B1s Scan_8", "n": 115, "n_peaks": 1, "R_bytes": 5096, "O_bytes": 17953, "R_gzip": 1869, "O_gzip": 6773}
+{"id": "a1f2948fbe8c", "tab": "U4f Scan", "n": 326, "n_peaks": 5, "R_bytes": 14496, "O_bytes": 76112, "R_gzip": 4858, "O_gzip": 35066}
+{"id": "1d442b088b30", "tab": "U4f Scan_0", "n": 326, "n_peaks": 5, "R_bytes": 14614, "O_bytes": 76156, "R_gzip": 4883, "O_gzip": 34933}
+{"id": "d583ff3bb0e1", "tab": "U4f Scan_1", "n": 326, "n_peaks": 5, "R_bytes": 14547, "O_bytes": 76046, "R_gzip": 4894, "O_gzip": 34848}
+{"id": "5be067b828b7", "tab": "U4f Scan_2", "n": 327, "n_peaks": 5, "R_bytes": 14676, "O_bytes": 76524, "R_gzip": 4934, "O_gzip": 34959}
+{"id": "4ce40477decb", "tab": "U4f Scan_3", "n": 327, "n_peaks": 5, "R_bytes": 14685, "O_bytes": 76740, "R_gzip": 4898, "O_gzip": 35042}
+{"id": "3af110ca6326", "tab": "U4f Scan_4", "n": 327, "n_peaks": 5, "R_bytes": 14542, "O_bytes": 75964, "R_gzip": 4873, "O_gzip": 34839}
+{"id": "58f9fb6149f1", "tab": "U4f Scan_5", "n": 327, "n_peaks": 5, "R_bytes": 14664, "O_bytes": 76411, "R_gzip": 4909, "O_gzip": 35112}
+{"id": "94c15777091f", "tab": "U4f Scan_6", "n": 327, "n_peaks": 5, "R_bytes": 14673, "O_bytes": 76514, "R_gzip": 4904, "O_gzip": 34998}
+{"id": "dd39419af345", "tab": "U4f Scan_7", "n": 327, "n_peaks": 5, "R_bytes": 14665, "O_bytes": 76487, "R_gzip": 4893, "O_gzip": 35131}
+{"id": "6ed92bd8eb4f", "tab": "U4f Scan_8", "n": 327, "n_peaks": 5, "R_bytes": 14663, "O_bytes": 76442, "R_gzip": 4910, "O_gzip": 35069}
+{"id": "1a85feb02b09", "tab": "U4f Scan_0", "n": 326, "n_peaks": 5, "R_bytes": 14515, "O_bytes": 76205, "R_gzip": 4856, "O_gzip": 34981}
+{"id": "63984b13bba4", "tab": "U4f Scan_1", "n": 326, "n_peaks": 5, "R_bytes": 14515, "O_bytes": 76160, "R_gzip": 4860, "O_gzip": 34909}
+{"id": "4c32598bc286", "tab": "U4f Scan_2", "n": 326, "n_peaks": 5, "R_bytes": 14506, "O_bytes": 76166, "R_gzip": 4872, "O_gzip": 34822}
+{"id": "ef8d225dd347", "tab": "U4f Scan_3", "n": 326, "n_peaks": 5, "R_bytes": 14520, "O_bytes": 76161, "R_gzip": 4863, "O_gzip": 35047}
+{"id": "582497203122", "tab": "U4f Scan_4", "n": 326, "n_peaks": 5, "R_bytes": 14503, "O_bytes": 76107, "R_gzip": 4868, "O_gzip": 35128}
+{"id": "59589938b10a", "tab": "U4f Scan_5", "n": 326, "n_peaks": 5, "R_bytes": 14495, "O_bytes": 76143, "R_gzip": 4862, "O_gzip": 35026}
+{"id": "ab09bb277429", "tab": "U4f Scan_6", "n": 326, "n_peaks": 5, "R_bytes": 14498, "O_bytes": 76153, "R_gzip": 4849, "O_gzip": 34958}
+{"id": "ed9bbcb96c49", "tab": "U4f Scan_7", "n": 326, "n_peaks": 5, "R_bytes": 14495, "O_bytes": 76143, "R_gzip": 4844, "O_gzip": 35013}
+{"id": "c270a276c09a", "tab": "U4f Scan_8", "n": 326, "n_peaks": 5, "R_bytes": 14498, "O_bytes": 76102, "R_gzip": 4856, "O_gzip": 35075}
+{"id": "39b5aab657b0", "tab": "C1s Scan", "n": 160, "n_peaks": 5, "R_bytes": 8033, "O_bytes": 40871, "R_gzip": 2777, "O_gzip": 18710}
+{"id": "0e8d6d5af1f4", "tab": "C1s Scan_0", "n": 160, "n_peaks": 5, "R_bytes": 8027, "O_bytes": 41012, "R_gzip": 2774, "O_gzip": 18598}
+{"id": "2b8621534c92", "tab": "C1s Scan_1", "n": 160, "n_peaks": 5, "R_bytes": 8025, "O_bytes": 40921, "R_gzip": 2751, "O_gzip": 18526}
+{"id": "e03b73836d1c", "tab": "C1s Scan_2", "n": 160, "n_peaks": 5, "R_bytes": 8024, "O_bytes": 41278, "R_gzip": 2792, "O_gzip": 19135}
+{"id": "0d834f3da091", "tab": "C1s Scan_3", "n": 160, "n_peaks": 5, "R_bytes": 8006, "O_bytes": 41214, "R_gzip": 2776, "O_gzip": 19100}
+{"id": "574ece1ffb18", "tab": "C1s Scan_4", "n": 170, "n_peaks": 5, "R_bytes": 8403, "O_bytes": 43221, "R_gzip": 2896, "O_gzip": 20156}
+{"id": "4cabca782c2f", "tab": "C1s Scan_5", "n": 170, "n_peaks": 5, "R_bytes": 8399, "O_bytes": 43018, "R_gzip": 2905, "O_gzip": 19902}
+{"id": "975e736e57d1", "tab": "C1s Scan_6", "n": 170, "n_peaks": 5, "R_bytes": 8409, "O_bytes": 43063, "R_gzip": 2902, "O_gzip": 20032}
+{"id": "3279e80ffb89", "tab": "C1s Scan_7", "n": 160, "n_peaks": 5, "R_bytes": 8014, "O_bytes": 40819, "R_gzip": 2749, "O_gzip": 18647}
+{"id": "6d5a6bd78f91", "tab": "C1s Scan_8", "n": 160, "n_peaks": 6, "R_bytes": 8319, "O_bytes": 45118, "R_gzip": 2834, "O_gzip": 20227}
+{"id": "6150d0305d64", "tab": "C1s Scan_0", "n": 160, "n_peaks": 5, "R_bytes": 8024, "O_bytes": 41067, "R_gzip": 2778, "O_gzip": 18756}
+{"id": "667d55ceba73", "tab": "C1s Scan_1", "n": 160, "n_peaks": 5, "R_bytes": 8023, "O_bytes": 40959, "R_gzip": 2754, "O_gzip": 18720}
+{"id": "9f2647f80e76", "tab": "C1s Scan_2", "n": 160, "n_peaks": 5, "R_bytes": 8021, "O_bytes": 40828, "R_gzip": 2790, "O_gzip": 18747}
+{"id": "e547e4647e85", "tab": "C1s Scan_3", "n": 160, "n_peaks": 5, "R_bytes": 8004, "O_bytes": 40935, "R_gzip": 2765, "O_gzip": 18793}
+{"id": "c53a5d053129", "tab": "C1s Scan_4", "n": 160, "n_peaks": 5, "R_bytes": 8013, "O_bytes": 41061, "R_gzip": 2779, "O_gzip": 18766}
+{"id": "d3f78df20301", "tab": "C1s Scan_5", "n": 160, "n_peaks": 5, "R_bytes": 8005, "O_bytes": 42786, "R_gzip": 2768, "O_gzip": 19269}
+{"id": "890b08d6576d", "tab": "C1s Scan_6", "n": 160, "n_peaks": 5, "R_bytes": 8018, "O_bytes": 42683, "R_gzip": 2765, "O_gzip": 19165}
+{"id": "7205f2094254", "tab": "C1s Scan_7", "n": 160, "n_peaks": 5, "R_bytes": 8012, "O_bytes": 42669, "R_gzip": 2758, "O_gzip": 19164}
+{"id": "56d1cb170a80", "tab": "C1s Scan_8", "n": 160, "n_peaks": 5, "R_bytes": 8006, "O_bytes": 42672, "R_gzip": 2769, "O_gzip": 19186}
+{"id": "4b4b51cf5aff", "tab": "B1s Scan", "n": 160, "n_peaks": 3, "R_bytes": 7316, "O_bytes": 32598, "R_gzip": 2581, "O_gzip": 14926}
+{"id": "5239593a1a9d", "tab": "B1s Scan_0", "n": 160, "n_peaks": 3, "R_bytes": 7298, "O_bytes": 32507, "R_gzip": 2595, "O_gzip": 14662}
+{"id": "a5a762117f92", "tab": "B1s Scan_1", "n": 160, "n_peaks": 3, "R_bytes": 7352, "O_bytes": 32619, "R_gzip": 2596, "O_gzip": 14906}
+{"id": "39aac4dc86cf", "tab": "B1s Scan_2", "n": 160, "n_peaks": 3, "R_bytes": 7312, "O_bytes": 32576, "R_gzip": 2590, "O_gzip": 14895}
+{"id": "5f785c0b35bd", "tab": "B1s Scan_3", "n": 160, "n_peaks": 3, "R_bytes": 7317, "O_bytes": 32553, "R_gzip": 2591, "O_gzip": 14841}
+{"id": "4593c74eae30", "tab": "B1s Scan_4", "n": 160, "n_peaks": 3, "R_bytes": 7301, "O_bytes": 32552, "R_gzip": 2595, "O_gzip": 14813}
+{"id": "fc53cda1ab2a", "tab": "B1s Scan_5", "n": 160, "n_peaks": 3, "R_bytes": 7318, "O_bytes": 32560, "R_gzip": 2582, "O_gzip": 14912}
+{"id": "f24f6557ad60", "tab": "B1s Scan_6", "n": 160, "n_peaks": 3, "R_bytes": 7304, "O_bytes": 32515, "R_gzip": 2584, "O_gzip": 14797}
+{"id": "04257f8fd55a", "tab": "B1s Scan_7", "n": 160, "n_peaks": 3, "R_bytes": 7335, "O_bytes": 32574, "R_gzip": 2598, "O_gzip": 14880}
+{"id": "ba6e28c0ece8", "tab": "B1s Scan_8", "n": 160, "n_peaks": 3, "R_bytes": 7310, "O_bytes": 32533, "R_gzip": 2607, "O_gzip": 14920}
+{"id": "6cec06f3d77a", "tab": "B1s Scan_0", "n": 160, "n_peaks": 3, "R_bytes": 7300, "O_bytes": 32547, "R_gzip": 2593, "O_gzip": 14703}
+{"id": "96709fdaa088", "tab": "B1s Scan_1", "n": 160, "n_peaks": 3, "R_bytes": 7321, "O_bytes": 32573, "R_gzip": 2599, "O_gzip": 14829}
+{"id": "11ae95a7f314", "tab": "B1s Scan_2", "n": 160, "n_peaks": 3, "R_bytes": 7316, "O_bytes": 32578, "R_gzip": 2594, "O_gzip": 14924}
+{"id": "1a280f9344c3", "tab": "B1s Scan_3", "n": 160, "n_peaks": 3, "R_bytes": 7317, "O_bytes": 32564, "R_gzip": 2593, "O_gzip": 14878}
+{"id": "4e5388460b7b", "tab": "B1s Scan_4", "n": 160, "n_peaks": 3, "R_bytes": 7300, "O_bytes": 32513, "R_gzip": 2590, "O_gzip": 14786}
+{"id": "7b48f30546c3", "tab": "B1s Scan_5", "n": 160, "n_peaks": 3, "R_bytes": 7320, "O_bytes": 32581, "R_gzip": 2586, "O_gzip": 14952}
+{"id": "5ebf78293d46", "tab": "B1s Scan_6", "n": 160, "n_peaks": 3, "R_bytes": 7304, "O_bytes": 32565, "R_gzip": 2582, "O_gzip": 14835}
+{"id": "82a33cfe1339", "tab": "B1s Scan_7", "n": 160, "n_peaks": 3, "R_bytes": 7303, "O_bytes": 32537, "R_gzip": 2605, "O_gzip": 14816}
+{"id": "22f68c1ed361", "tab": "B1s Scan_8", "n": 160, "n_peaks": 3, "R_bytes": 7311, "O_bytes": 32528, "R_gzip": 2603, "O_gzip": 14948}
+{"id": "8a7ae80dff2d", "tab": "U4f Scan", "n": 350, "n_peaks": 4, "R_bytes": 15321, "O_bytes": 75038, "R_gzip": 5104, "O_gzip": 33703}
+{"id": "f2c380f2e672", "tab": "U4f Scan_0", "n": 350, "n_peaks": 4, "R_bytes": 14430, "O_bytes": 73126, "R_gzip": 5076, "O_gzip": 33846}
+{"id": "3b2699cce7ee", "tab": "U4f Scan_1", "n": 350, "n_peaks": 4, "R_bytes": 15244, "O_bytes": 74003, "R_gzip": 5076, "O_gzip": 33731}
+{"id": "64f6a4e30981", "tab": "U4f Scan_2", "n": 350, "n_peaks": 4, "R_bytes": 15259, "O_bytes": 74896, "R_gzip": 5068, "O_gzip": 33921}
+{"id": "bd591b14d952", "tab": "U4f Scan_3", "n": 350, "n_peaks": 4, "R_bytes": 15270, "O_bytes": 74964, "R_gzip": 5098, "O_gzip": 33940}
+{"id": "9faa5cfeaa80", "tab": "U4f Scan_4", "n": 350, "n_peaks": 4, "R_bytes": 15267, "O_bytes": 73978, "R_gzip": 5075, "O_gzip": 33603}
+{"id": "1f542d778b08", "tab": "U4f Scan_5", "n": 350, "n_peaks": 4, "R_bytes": 15190, "O_bytes": 73830, "R_gzip": 5071, "O_gzip": 33775}
+{"id": "84cb45f885b2", "tab": "U4f Scan_6", "n": 350, "n_peaks": 4, "R_bytes": 15278, "O_bytes": 73883, "R_gzip": 5116, "O_gzip": 33954}
+{"id": "a8120c16ba36", "tab": "U4f Scan_7", "n": 350, "n_peaks": 4, "R_bytes": 15282, "O_bytes": 75311, "R_gzip": 5107, "O_gzip": 33938}
+{"id": "9f4489709766", "tab": "U4f Scan_8", "n": 350, "n_peaks": 4, "R_bytes": 15363, "O_bytes": 75088, "R_gzip": 5125, "O_gzip": 33796}
+{"id": "08627cd00a96", "tab": "U4f Scan_0", "n": 350, "n_peaks": 4, "R_bytes": 15339, "O_bytes": 74015, "R_gzip": 5108, "O_gzip": 33846}
+{"id": "89ff62763ce1", "tab": "U4f Scan_1", "n": 350, "n_peaks": 4, "R_bytes": 15311, "O_bytes": 73832, "R_gzip": 5085, "O_gzip": 33990}
+{"id": "bed0733937f0", "tab": "U4f Scan_2", "n": 350, "n_peaks": 4, "R_bytes": 15327, "O_bytes": 75047, "R_gzip": 5087, "O_gzip": 33427}
+{"id": "5e8f7aa46f78", "tab": "U4f Scan_3", "n": 350, "n_peaks": 4, "R_bytes": 15342, "O_bytes": 74103, "R_gzip": 5110, "O_gzip": 33686}
+{"id": "c4124ea475b8", "tab": "U4f Scan_4", "n": 350, "n_peaks": 4, "R_bytes": 15332, "O_bytes": 74967, "R_gzip": 5093, "O_gzip": 33818}
+{"id": "e1a437ac9c32", "tab": "U4f Scan_5", "n": 350, "n_peaks": 4, "R_bytes": 15330, "O_bytes": 74029, "R_gzip": 5106, "O_gzip": 33827}
+{"id": "c403625c68c2", "tab": "U4f Scan_6", "n": 350, "n_peaks": 4, "R_bytes": 15350, "O_bytes": 74041, "R_gzip": 5122, "O_gzip": 33920}
+{"id": "8fd67742c144", "tab": "U4f Scan_7", "n": 350, "n_peaks": 4, "R_bytes": 15350, "O_bytes": 75028, "R_gzip": 5115, "O_gzip": 33864}
+{"id": "403363f3400c", "tab": "U4f Scan_8", "n": 350, "n_peaks": 4, "R_bytes": 15362, "O_bytes": 75057, "R_gzip": 5122, "O_gzip": 33796}
+{"id": "18a1cbf4dbac", "tab": "C1s Scan", "n": 190, "n_peaks": 6, "R_bytes": 9428, "O_bytes": 52494, "R_gzip": 3182, "O_gzip": 24038}
+{"id": "072c5a395942", "tab": "C1s Scan_0", "n": 190, "n_peaks": 7, "R_bytes": 9759, "O_bytes": 57946, "R_gzip": 3259, "O_gzip": 26006}
+{"id": "790adc4343fa", "tab": "C1s Scan_1", "n": 190, "n_peaks": 6, "R_bytes": 9480, "O_bytes": 52702, "R_gzip": 3218, "O_gzip": 23782}
+{"id": "6b0f2ebd2a6b", "tab": "C1s Scan_2", "n": 190, "n_peaks": 6, "R_bytes": 9501, "O_bytes": 52665, "R_gzip": 3199, "O_gzip": 23689}
+{"id": "e07f4a00896e", "tab": "C1s Scan_3", "n": 190, "n_peaks": 6, "R_bytes": 9441, "O_bytes": 52967, "R_gzip": 3192, "O_gzip": 23736}
+{"id": "408d9cb5d54a", "tab": "C1s Scan_4", "n": 190, "n_peaks": 6, "R_bytes": 9453, "O_bytes": 52131, "R_gzip": 3198, "O_gzip": 23445}
+{"id": "ce31b0a136f9", "tab": "C1s Scan_5", "n": 190, "n_peaks": 6, "R_bytes": 9461, "O_bytes": 52739, "R_gzip": 3206, "O_gzip": 23350}
+{"id": "1e017accfd68", "tab": "C1s Scan_0", "n": 190, "n_peaks": 6, "R_bytes": 9426, "O_bytes": 52707, "R_gzip": 3185, "O_gzip": 24080}
+{"id": "1354feb66072", "tab": "C1s Scan_1", "n": 190, "n_peaks": 6, "R_bytes": 9429, "O_bytes": 51529, "R_gzip": 3195, "O_gzip": 23700}
+{"id": "a5b495b17506", "tab": "C1s Scan_2", "n": 190, "n_peaks": 6, "R_bytes": 9417, "O_bytes": 52101, "R_gzip": 3164, "O_gzip": 23886}
+{"id": "67f6fc780042", "tab": "C1s Scan_3", "n": 190, "n_peaks": 6, "R_bytes": 9429, "O_bytes": 52839, "R_gzip": 3182, "O_gzip": 23926}
+{"id": "3081b83af679", "tab": "C1s Scan_4", "n": 190, "n_peaks": 6, "R_bytes": 9416, "O_bytes": 53795, "R_gzip": 3184, "O_gzip": 24332}
+{"id": "24948b12cc08", "tab": "C1s Scan_5", "n": 190, "n_peaks": 6, "R_bytes": 9423, "O_bytes": 52255, "R_gzip": 3191, "O_gzip": 23877}
+{"id": "f562abf3e911", "tab": "U4f Scan", "n": 350, "n_peaks": 4, "R_bytes": 15221, "O_bytes": 75217, "R_gzip": 5050, "O_gzip": 33979}
+{"id": "606229566ee2", "tab": "U4f Scan_0", "n": 350, "n_peaks": 4, "R_bytes": 15280, "O_bytes": 75354, "R_gzip": 5104, "O_gzip": 33760}
+{"id": "1c2c388c5ee0", "tab": "U4f Scan_1", "n": 350, "n_peaks": 4, "R_bytes": 15270, "O_bytes": 74380, "R_gzip": 5090, "O_gzip": 33747}
+{"id": "99c558885aed", "tab": "U4f Scan_2", "n": 350, "n_peaks": 4, "R_bytes": 15338, "O_bytes": 75290, "R_gzip": 5099, "O_gzip": 33767}
+{"id": "5912edd92229", "tab": "U4f Scan_3", "n": 350, "n_peaks": 4, "R_bytes": 15218, "O_bytes": 75271, "R_gzip": 5067, "O_gzip": 33837}
+{"id": "bbae21c4adb3", "tab": "U4f Scan_4", "n": 350, "n_peaks": 4, "R_bytes": 15266, "O_bytes": 75059, "R_gzip": 5090, "O_gzip": 33636}
+{"id": "5463772bf728", "tab": "U4f Scan_5", "n": 350, "n_peaks": 4, "R_bytes": 15266, "O_bytes": 75270, "R_gzip": 5070, "O_gzip": 33660}
+{"id": "81c4c43afcae", "tab": "U4f Scan_0", "n": 350, "n_peaks": 4, "R_bytes": 15211, "O_bytes": 75279, "R_gzip": 5062, "O_gzip": 33712}
+{"id": "2568313bac0a", "tab": "U4f Scan_1", "n": 350, "n_peaks": 4, "R_bytes": 15197, "O_bytes": 75173, "R_gzip": 5060, "O_gzip": 33923}
+{"id": "ac030a078000", "tab": "U4f Scan_2", "n": 350, "n_peaks": 4, "R_bytes": 15192, "O_bytes": 75128, "R_gzip": 5063, "O_gzip": 33770}
+{"id": "2fb4550e5db8", "tab": "U4f Scan_3", "n": 350, "n_peaks": 4, "R_bytes": 15215, "O_bytes": 75011, "R_gzip": 5065, "O_gzip": 33631}
+{"id": "58e6dcb51ccc", "tab": "U4f Scan_4", "n": 350, "n_peaks": 4, "R_bytes": 15188, "O_bytes": 74914, "R_gzip": 5063, "O_gzip": 33608}
+{"id": "4c4e73ae6ce7", "tab": "U4f Scan_5", "n": 350, "n_peaks": 4, "R_bytes": 15186, "O_bytes": 75197, "R_gzip": 5040, "O_gzip": 33682}
+{"id": "8075372860d5", "tab": "Cl2p Scan", "n": 200, "n_peaks": 2, "R_bytes": 8765, "O_bytes": 34302, "R_gzip": 2991, "O_gzip": 14331}
+{"id": "43378d3ca15b", "tab": "Cl2p Scan_0", "n": 200, "n_peaks": 2, "R_bytes": 8767, "O_bytes": 34297, "R_gzip": 2989, "O_gzip": 14672}
+{"id": "c7bdab51510d", "tab": "Cl2p Scan_1", "n": 200, "n_peaks": 2, "R_bytes": 8679, "O_bytes": 34213, "R_gzip": 2996, "O_gzip": 14582}
+{"id": "4a911549079b", "tab": "Cl2p Scan_0", "n": 200, "n_peaks": 2, "R_bytes": 8767, "O_bytes": 34284, "R_gzip": 2997, "O_gzip": 14707}
+{"id": "ee91238e5257", "tab": "Cl2p Scan_1", "n": 200, "n_peaks": 2, "R_bytes": 8751, "O_bytes": 34219, "R_gzip": 2984, "O_gzip": 14515}
+{"id": "f22c71c794f9", "tab": "C1s Scan", "n": 190, "n_peaks": 6, "R_bytes": 9476, "O_bytes": 52926, "R_gzip": 3218, "O_gzip": 23764}
+{"id": "024ab35a6b85", "tab": "C1s Scan_0", "n": 189, "n_peaks": 6, "R_bytes": 9438, "O_bytes": 52048, "R_gzip": 3195, "O_gzip": 23330}
+{"id": "0a5f464daf3d", "tab": "C1s Scan_1", "n": 143, "n_peaks": 6, "R_bytes": 7637, "O_bytes": 41157, "R_gzip": 2603, "O_gzip": 18080}
+{"id": "a290a05e87dc", "tab": "C1s Scan_2", "n": 143, "n_peaks": 6, "R_bytes": 7687, "O_bytes": 41441, "R_gzip": 2618, "O_gzip": 18297}
+{"id": "f61fb18983ea", "tab": "C1s Scan_3", "n": 142, "n_peaks": 6, "R_bytes": 7650, "O_bytes": 41182, "R_gzip": 2584, "O_gzip": 18216}
+{"id": "edf39ecb66ce", "tab": "C1s Scan_4", "n": 142, "n_peaks": 7, "R_bytes": 7943, "O_bytes": 45227, "R_gzip": 2652, "O_gzip": 20239}
+{"id": "56ed53233026", "tab": "C1s Scan_5", "n": 142, "n_peaks": 6, "R_bytes": 7659, "O_bytes": 41071, "R_gzip": 2600, "O_gzip": 18068}
+{"id": "e42dbb368f5a", "tab": "C1s Scan_6", "n": 143, "n_peaks": 6, "R_bytes": 7661, "O_bytes": 41383, "R_gzip": 2620, "O_gzip": 18584}
+{"id": "6a88081f639b", "tab": "C1s Scan_7", "n": 142, "n_peaks": 6, "R_bytes": 7664, "O_bytes": 41160, "R_gzip": 2615, "O_gzip": 18356}
+{"id": "66f258ea2c39", "tab": "C1s Scan_8", "n": 142, "n_peaks": 6, "R_bytes": 7645, "O_bytes": 41053, "R_gzip": 2590, "O_gzip": 18317}
+{"id": "94df8f0d2d64", "tab": "C1s Scan_0", "n": 190, "n_peaks": 6, "R_bytes": 9474, "O_bytes": 52686, "R_gzip": 3206, "O_gzip": 23797}
+{"id": "a29a6e44640b", "tab": "C1s Scan_1", "n": 190, "n_peaks": 6, "R_bytes": 9457, "O_bytes": 52917, "R_gzip": 3201, "O_gzip": 23892}
+{"id": "4d56d1db9a69", "tab": "C1s Scan_2", "n": 190, "n_peaks": 6, "R_bytes": 9459, "O_bytes": 52622, "R_gzip": 3197, "O_gzip": 23757}
+{"id": "8b4c2f656a80", "tab": "C1s Scan_3", "n": 190, "n_peaks": 6, "R_bytes": 9465, "O_bytes": 52313, "R_gzip": 3202, "O_gzip": 23839}
+{"id": "496c4edd97af", "tab": "C1s Scan_4", "n": 190, "n_peaks": 6, "R_bytes": 9461, "O_bytes": 51971, "R_gzip": 3207, "O_gzip": 23627}
+{"id": "6773465678ab", "tab": "C1s Scan_5", "n": 190, "n_peaks": 6, "R_bytes": 9470, "O_bytes": 52818, "R_gzip": 3203, "O_gzip": 23838}
+{"id": "b885bd59a068", "tab": "C1s Scan_6", "n": 190, "n_peaks": 6, "R_bytes": 9465, "O_bytes": 52744, "R_gzip": 3209, "O_gzip": 23752}
+{"id": "b67aff466b05", "tab": "C1s Scan_7", "n": 190, "n_peaks": 6, "R_bytes": 9471, "O_bytes": 52883, "R_gzip": 3210, "O_gzip": 23717}
+{"id": "d2bd62d2f976", "tab": "C1s Scan_8", "n": 190, "n_peaks": 6, "R_bytes": 9458, "O_bytes": 52755, "R_gzip": 3196, "O_gzip": 23775}
+{"id": "d2e02b4366ff", "tab": "U4f Scan", "n": 350, "n_peaks": 4, "R_bytes": 15275, "O_bytes": 75067, "R_gzip": 5099, "O_gzip": 34193}
+{"id": "8af16ffcdea4", "tab": "U4f Scan_0", "n": 350, "n_peaks": 4, "R_bytes": 15259, "O_bytes": 75060, "R_gzip": 5087, "O_gzip": 34076}
+{"id": "f01a4a9bd4b6", "tab": "U4f Scan_1", "n": 350, "n_peaks": 4, "R_bytes": 15310, "O_bytes": 75081, "R_gzip": 5096, "O_gzip": 33977}
+{"id": "b7427ab1611d", "tab": "U4f Scan_2", "n": 350, "n_peaks": 4, "R_bytes": 15368, "O_bytes": 74159, "R_gzip": 5117, "O_gzip": 34010}
+{"id": "0724d48e3aa5", "tab": "U4f Scan_3", "n": 350, "n_peaks": 4, "R_bytes": 15328, "O_bytes": 74067, "R_gzip": 5106, "O_gzip": 34012}
+{"id": "7d7b6cd57ab1", "tab": "U4f Scan_4", "n": 350, "n_peaks": 4, "R_bytes": 15317, "O_bytes": 75334, "R_gzip": 5095, "O_gzip": 33918}
+{"id": "00abfb6fbbb3", "tab": "U4f Scan_5", "n": 350, "n_peaks": 4, "R_bytes": 15364, "O_bytes": 75214, "R_gzip": 5123, "O_gzip": 33923}
+{"id": "c98c5f60c1d1", "tab": "U4f Scan_6", "n": 350, "n_peaks": 4, "R_bytes": 15282, "O_bytes": 75089, "R_gzip": 5091, "O_gzip": 34166}
+{"id": "13a64c8f0724", "tab": "U4f Scan_7", "n": 350, "n_peaks": 4, "R_bytes": 15345, "O_bytes": 74315, "R_gzip": 5124, "O_gzip": 33843}
+{"id": "525ca1e0b512", "tab": "U4f Scan_8", "n": 350, "n_peaks": 4, "R_bytes": 15346, "O_bytes": 75135, "R_gzip": 5121, "O_gzip": 33989}
+{"id": "0e99f8fb2dd8", "tab": "U4f Scan_0", "n": 350, "n_peaks": 4, "R_bytes": 15255, "O_bytes": 75004, "R_gzip": 5073, "O_gzip": 34095}
+{"id": "7053cb0398f0", "tab": "U4f Scan_1", "n": 350, "n_peaks": 4, "R_bytes": 15303, "O_bytes": 75114, "R_gzip": 5090, "O_gzip": 33846}
+{"id": "f4acd73fa62a", "tab": "U4f Scan_2", "n": 350, "n_peaks": 4, "R_bytes": 15299, "O_bytes": 74110, "R_gzip": 5104, "O_gzip": 33947}
+{"id": "94322263650b", "tab": "U4f Scan_3", "n": 350, "n_peaks": 4, "R_bytes": 15255, "O_bytes": 73965, "R_gzip": 5089, "O_gzip": 33973}
+{"id": "4afa73305e4c", "tab": "U4f Scan_4", "n": 350, "n_peaks": 4, "R_bytes": 15245, "O_bytes": 75214, "R_gzip": 5076, "O_gzip": 33876}
+{"id": "75add21f96ae", "tab": "U4f Scan_5", "n": 350, "n_peaks": 4, "R_bytes": 15294, "O_bytes": 75123, "R_gzip": 5118, "O_gzip": 33884}
+{"id": "b8082a8d3a48", "tab": "U4f Scan_6", "n": 350, "n_peaks": 4, "R_bytes": 15283, "O_bytes": 74612, "R_gzip": 5098, "O_gzip": 34103}
+{"id": "6455160ba814", "tab": "U4f Scan_7", "n": 350, "n_peaks": 4, "R_bytes": 15274, "O_bytes": 74271, "R_gzip": 5110, "O_gzip": 33811}
+{"id": "005c6346813e", "tab": "U4f Scan_8", "n": 350, "n_peaks": 4, "R_bytes": 15275, "O_bytes": 75011, "R_gzip": 5105, "O_gzip": 33933}
+{"id": "syn-3-gaussian-0", "tab": "syn-3-gaussian-0", "n": 150, "n_peaks": 2, "R_bytes": 4381, "O_bytes": 25621, "R_gzip": 1125, "O_gzip": 9901}
+{"id": "syn-3-gaussian-1", "tab": "syn-3-gaussian-1", "n": 150, "n_peaks": 2, "R_bytes": 4360, "O_bytes": 25420, "R_gzip": 1108, "O_gzip": 10143}
+{"id": "syn-3-gaussian-2", "tab": "syn-3-gaussian-2", "n": 150, "n_peaks": 2, "R_bytes": 4363, "O_bytes": 25499, "R_gzip": 1113, "O_gzip": 10243}
+{"id": "syn-3-gaussian-3", "tab": "syn-3-gaussian-3", "n": 150, "n_peaks": 2, "R_bytes": 4361, "O_bytes": 25504, "R_gzip": 1112, "O_gzip": 9518}
+{"id": "syn-3-gaussian-4", "tab": "syn-3-gaussian-4", "n": 150, "n_peaks": 2, "R_bytes": 4359, "O_bytes": 23076, "R_gzip": 1110, "O_gzip": 8003}
+{"id": "syn-3-gaussian-5", "tab": "syn-3-gaussian-5", "n": 150, "n_peaks": 2, "R_bytes": 4408, "O_bytes": 24710, "R_gzip": 1138, "O_gzip": 9134}
+{"id": "syn-3-lorentzian-0", "tab": "syn-3-lorentzian-0", "n": 150, "n_peaks": 2, "R_bytes": 4385, "O_bytes": 24555, "R_gzip": 1130, "O_gzip": 10771}
+{"id": "syn-3-lorentzian-1", "tab": "syn-3-lorentzian-1", "n": 150, "n_peaks": 2, "R_bytes": 4364, "O_bytes": 24416, "R_gzip": 1113, "O_gzip": 10882}
+{"id": "syn-3-lorentzian-2", "tab": "syn-3-lorentzian-2", "n": 150, "n_peaks": 2, "R_bytes": 4367, "O_bytes": 24540, "R_gzip": 1115, "O_gzip": 11032}
+{"id": "syn-3-lorentzian-3", "tab": "syn-3-lorentzian-3", "n": 150, "n_peaks": 2, "R_bytes": 4365, "O_bytes": 24512, "R_gzip": 1113, "O_gzip": 10392}
+{"id": "syn-3-lorentzian-4", "tab": "syn-3-lorentzian-4", "n": 150, "n_peaks": 2, "R_bytes": 4363, "O_bytes": 22213, "R_gzip": 1112, "O_gzip": 8394}
+{"id": "syn-3-lorentzian-5", "tab": "syn-3-lorentzian-5", "n": 150, "n_peaks": 2, "R_bytes": 4412, "O_bytes": 24056, "R_gzip": 1143, "O_gzip": 9954}
+{"id": "syn-3-pseudo_voigt_gl-0", "tab": "syn-3-pseudo_voigt_gl-0", "n": 150, "n_peaks": 2, "R_bytes": 4429, "O_bytes": 25430, "R_gzip": 1147, "O_gzip": 10523}
+{"id": "syn-3-pseudo_voigt_gl-1", "tab": "syn-3-pseudo_voigt_gl-1", "n": 150, "n_peaks": 2, "R_bytes": 4408, "O_bytes": 24720, "R_gzip": 1133, "O_gzip": 11079}
+{"id": "syn-3-pseudo_voigt_gl-2", "tab": "syn-3-pseudo_voigt_gl-2", "n": 150, "n_peaks": 2, "R_bytes": 4411, "O_bytes": 24802, "R_gzip": 1136, "O_gzip": 11213}
+{"id": "syn-3-pseudo_voigt_gl-3", "tab": "syn-3-pseudo_voigt_gl-3", "n": 150, "n_peaks": 2, "R_bytes": 4409, "O_bytes": 24792, "R_gzip": 1132, "O_gzip": 10560}
+{"id": "syn-3-pseudo_voigt_gl-4", "tab": "syn-3-pseudo_voigt_gl-4", "n": 150, "n_peaks": 2, "R_bytes": 4407, "O_bytes": 22485, "R_gzip": 1132, "O_gzip": 8442}
+{"id": "syn-3-pseudo_voigt_gl-5", "tab": "syn-3-pseudo_voigt_gl-5", "n": 150, "n_peaks": 2, "R_bytes": 4456, "O_bytes": 24827, "R_gzip": 1161, "O_gzip": 9474}
+{"id": "syn-3-asymmetric_gl-0", "tab": "syn-3-asymmetric_gl-0", "n": 150, "n_peaks": 2, "R_bytes": 4461, "O_bytes": 25655, "R_gzip": 1151, "O_gzip": 10782}
+{"id": "syn-3-asymmetric_gl-1", "tab": "syn-3-asymmetric_gl-1", "n": 150, "n_peaks": 2, "R_bytes": 4440, "O_bytes": 24977, "R_gzip": 1135, "O_gzip": 11132}
+{"id": "syn-3-asymmetric_gl-2", "tab": "syn-3-asymmetric_gl-2", "n": 150, "n_peaks": 2, "R_bytes": 4443, "O_bytes": 25067, "R_gzip": 1140, "O_gzip": 11226}
+{"id": "syn-3-asymmetric_gl-3", "tab": "syn-3-asymmetric_gl-3", "n": 150, "n_peaks": 2, "R_bytes": 4441, "O_bytes": 25050, "R_gzip": 1137, "O_gzip": 10603}
+{"id": "syn-3-asymmetric_gl-4", "tab": "syn-3-asymmetric_gl-4", "n": 150, "n_peaks": 2, "R_bytes": 4439, "O_bytes": 22725, "R_gzip": 1137, "O_gzip": 8478}
+{"id": "syn-3-asymmetric_gl-5", "tab": "syn-3-asymmetric_gl-5", "n": 150, "n_peaks": 2, "R_bytes": 4488, "O_bytes": 25109, "R_gzip": 1164, "O_gzip": 9606}
+{"id": "syn-3-doniach_sunjic-0", "tab": "syn-3-doniach_sunjic-0", "n": 150, "n_peaks": 2, "R_bytes": 4459, "O_bytes": 25323, "R_gzip": 1156, "O_gzip": 11139}
+{"id": "syn-3-doniach_sunjic-1", "tab": "syn-3-doniach_sunjic-1", "n": 150, "n_peaks": 2, "R_bytes": 4438, "O_bytes": 24988, "R_gzip": 1142, "O_gzip": 11062}
+{"id": "syn-3-doniach_sunjic-2", "tab": "syn-3-doniach_sunjic-2", "n": 150, "n_peaks": 2, "R_bytes": 4441, "O_bytes": 25099, "R_gzip": 1146, "O_gzip": 11164}
+{"id": "syn-3-doniach_sunjic-3", "tab": "syn-3-doniach_sunjic-3", "n": 150, "n_peaks": 2, "R_bytes": 4439, "O_bytes": 25112, "R_gzip": 1141, "O_gzip": 10605}
+{"id": "syn-3-doniach_sunjic-4", "tab": "syn-3-doniach_sunjic-4", "n": 150, "n_peaks": 2, "R_bytes": 4437, "O_bytes": 23577, "R_gzip": 1141, "O_gzip": 8805}
+{"id": "syn-3-doniach_sunjic-5", "tab": "syn-3-doniach_sunjic-5", "n": 150, "n_peaks": 2, "R_bytes": 4486, "O_bytes": 24624, "R_gzip": 1171, "O_gzip": 10197}
+{"id": "syn-3-ds_g-0", "tab": "syn-3-ds_g-0", "n": 150, "n_peaks": 2, "R_bytes": 4459, "O_bytes": 25098, "R_gzip": 1149, "O_gzip": 10947}
+{"id": "syn-3-ds_g-1", "tab": "syn-3-ds_g-1", "n": 150, "n_peaks": 2, "R_bytes": 4438, "O_bytes": 24878, "R_gzip": 1134, "O_gzip": 11079}
+{"id": "syn-3-ds_g-2", "tab": "syn-3-ds_g-2", "n": 150, "n_peaks": 2, "R_bytes": 4441, "O_bytes": 24989, "R_gzip": 1138, "O_gzip": 11150}
+{"id": "syn-3-ds_g-3", "tab": "syn-3-ds_g-3", "n": 150, "n_peaks": 2, "R_bytes": 4439, "O_bytes": 24998, "R_gzip": 1134, "O_gzip": 10626}
+{"id": "syn-3-ds_g-4", "tab": "syn-3-ds_g-4", "n": 150, "n_peaks": 2, "R_bytes": 4437, "O_bytes": 22778, "R_gzip": 1135, "O_gzip": 8475}
+{"id": "syn-3-ds_g-5", "tab": "syn-3-ds_g-5", "n": 150, "n_peaks": 2, "R_bytes": 4486, "O_bytes": 24567, "R_gzip": 1163, "O_gzip": 10095}
+{"id": "syn-3-la_casaxps-0", "tab": "syn-3-la_casaxps-0", "n": 150, "n_peaks": 2, "R_bytes": 4459, "O_bytes": 25917, "R_gzip": 1146, "O_gzip": 11023}
+{"id": "syn-3-la_casaxps-1", "tab": "syn-3-la_casaxps-1", "n": 150, "n_peaks": 2, "R_bytes": 4438, "O_bytes": 25727, "R_gzip": 1131, "O_gzip": 11191}
+{"id": "syn-3-la_casaxps-2", "tab": "syn-3-la_casaxps-2", "n": 150, "n_peaks": 2, "R_bytes": 4441, "O_bytes": 25787, "R_gzip": 1136, "O_gzip": 11344}
+{"id": "syn-3-la_casaxps-3", "tab": "syn-3-la_casaxps-3", "n": 150, "n_peaks": 2, "R_bytes": 4439, "O_bytes": 25793, "R_gzip": 1133, "O_gzip": 10773}
+{"id": "syn-3-la_casaxps-4", "tab": "syn-3-la_casaxps-4", "n": 150, "n_peaks": 2, "R_bytes": 4437, "O_bytes": 23298, "R_gzip": 1132, "O_gzip": 8484}
+{"id": "syn-3-la_casaxps-5", "tab": "syn-3-la_casaxps-5", "n": 150, "n_peaks": 2, "R_bytes": 4486, "O_bytes": 25365, "R_gzip": 1160, "O_gzip": 10232}
+{"id": "syn-4-gaussian-0", "tab": "syn-4-gaussian-0", "n": 150, "n_peaks": 2, "R_bytes": 4380, "O_bytes": 25568, "R_gzip": 1122, "O_gzip": 10050}
+{"id": "syn-4-gaussian-1", "tab": "syn-4-gaussian-1", "n": 150, "n_peaks": 2, "R_bytes": 4359, "O_bytes": 25107, "R_gzip": 1107, "O_gzip": 9790}
+{"id": "syn-4-gaussian-2", "tab": "syn-4-gaussian-2", "n": 150, "n_peaks": 2, "R_bytes": 4362, "O_bytes": 25552, "R_gzip": 1110, "O_gzip": 10121}
+{"id": "syn-4-gaussian-3", "tab": "syn-4-gaussian-3", "n": 150, "n_peaks": 2, "R_bytes": 4360, "O_bytes": 25545, "R_gzip": 1108, "O_gzip": 9523}
+{"id": "syn-4-gaussian-4", "tab": "syn-4-gaussian-4", "n": 150, "n_peaks": 2, "R_bytes": 4358, "O_bytes": 23767, "R_gzip": 1108, "O_gzip": 8212}
+{"id": "syn-4-gaussian-5", "tab": "syn-4-gaussian-5", "n": 150, "n_peaks": 2, "R_bytes": 4407, "O_bytes": 24659, "R_gzip": 1139, "O_gzip": 9159}
+{"id": "syn-4-lorentzian-0", "tab": "syn-4-lorentzian-0", "n": 150, "n_peaks": 2, "R_bytes": 4384, "O_bytes": 24568, "R_gzip": 1125, "O_gzip": 10895}
+{"id": "syn-4-lorentzian-1", "tab": "syn-4-lorentzian-1", "n": 150, "n_peaks": 2, "R_bytes": 4363, "O_bytes": 24079, "R_gzip": 1108, "O_gzip": 10508}
+{"id": "syn-4-lorentzian-2", "tab": "syn-4-lorentzian-2", "n": 150, "n_peaks": 2, "R_bytes": 4366, "O_bytes": 24500, "R_gzip": 1114, "O_gzip": 11024}
+{"id": "syn-4-lorentzian-3", "tab": "syn-4-lorentzian-3", "n": 150, "n_peaks": 2, "R_bytes": 4364, "O_bytes": 24505, "R_gzip": 1109, "O_gzip": 10487}
+{"id": "syn-4-lorentzian-4", "tab": "syn-4-lorentzian-4", "n": 150, "n_peaks": 2, "R_bytes": 4362, "O_bytes": 22238, "R_gzip": 1109, "O_gzip": 8369}
+{"id": "syn-4-lorentzian-5", "tab": "syn-4-lorentzian-5", "n": 150, "n_peaks": 2, "R_bytes": 4411, "O_bytes": 24062, "R_gzip": 1144, "O_gzip": 9952}
+{"id": "syn-4-pseudo_voigt_gl-0", "tab": "syn-4-pseudo_voigt_gl-0", "n": 150, "n_peaks": 2, "R_bytes": 4428, "O_bytes": 25259, "R_gzip": 1142, "O_gzip": 10462}
+{"id": "syn-4-pseudo_voigt_gl-1", "tab": "syn-4-pseudo_voigt_gl-1", "n": 150, "n_peaks": 2, "R_bytes": 4407, "O_bytes": 24770, "R_gzip": 1127, "O_gzip": 9993}
+{"id": "syn-4-pseudo_voigt_gl-2", "tab": "syn-4-pseudo_voigt_gl-2", "n": 150, "n_peaks": 2, "R_bytes": 4410, "O_bytes": 25854, "R_gzip": 1132, "O_gzip": 10775}
+{"id": "syn-4-pseudo_voigt_gl-3", "tab": "syn-4-pseudo_voigt_gl-3", "n": 150, "n_peaks": 2, "R_bytes": 4408, "O_bytes": 25352, "R_gzip": 1128, "O_gzip": 10061}
+{"id": "syn-4-pseudo_voigt_gl-4", "tab": "syn-4-pseudo_voigt_gl-4", "n": 150, "n_peaks": 2, "R_bytes": 4406, "O_bytes": 22473, "R_gzip": 1125, "O_gzip": 8444}
+{"id": "syn-4-pseudo_voigt_gl-5", "tab": "syn-4-pseudo_voigt_gl-5", "n": 150, "n_peaks": 2, "R_bytes": 4455, "O_bytes": 24827, "R_gzip": 1161, "O_gzip": 9674}
+{"id": "syn-4-asymmetric_gl-0", "tab": "syn-4-asymmetric_gl-0", "n": 150, "n_peaks": 2, "R_bytes": 4460, "O_bytes": 25523, "R_gzip": 1148, "O_gzip": 10459}
+{"id": "syn-4-asymmetric_gl-1", "tab": "syn-4-asymmetric_gl-1", "n": 150, "n_peaks": 2, "R_bytes": 4439, "O_bytes": 25073, "R_gzip": 1131, "O_gzip": 10082}
+{"id": "syn-4-asymmetric_gl-2", "tab": "syn-4-asymmetric_gl-2", "n": 150, "n_peaks": 2, "R_bytes": 4442, "O_bytes": 26160, "R_gzip": 1136, "O_gzip": 10864}
+{"id": "syn-4-asymmetric_gl-3", "tab": "syn-4-asymmetric_gl-3", "n": 150, "n_peaks": 2, "R_bytes": 4440, "O_bytes": 25591, "R_gzip": 1133, "O_gzip": 10410}
+{"id": "syn-4-asymmetric_gl-4", "tab": "syn-4-asymmetric_gl-4", "n": 150, "n_peaks": 2, "R_bytes": 4438, "O_bytes": 22723, "R_gzip": 1130, "O_gzip": 8473}
+{"id": "syn-4-asymmetric_gl-5", "tab": "syn-4-asymmetric_gl-5", "n": 150, "n_peaks": 2, "R_bytes": 4487, "O_bytes": 25094, "R_gzip": 1164, "O_gzip": 9592}
+{"id": "syn-4-doniach_sunjic-0", "tab": "syn-4-doniach_sunjic-0", "n": 150, "n_peaks": 2, "R_bytes": 4458, "O_bytes": 25100, "R_gzip": 1152, "O_gzip": 11104}
+{"id": "syn-4-doniach_sunjic-1", "tab": "syn-4-doniach_sunjic-1", "n": 150, "n_peaks": 2, "R_bytes": 4437, "O_bytes": 24646, "R_gzip": 1137, "O_gzip": 10689}
+{"id": "syn-4-doniach_sunjic-2", "tab": "syn-4-doniach_sunjic-2", "n": 150, "n_peaks": 2, "R_bytes": 4440, "O_bytes": 25049, "R_gzip": 1142, "O_gzip": 11274}
+{"id": "syn-4-doniach_sunjic-3", "tab": "syn-4-doniach_sunjic-3", "n": 150, "n_peaks": 2, "R_bytes": 4438, "O_bytes": 25225, "R_gzip": 1138, "O_gzip": 10794}
+{"id": "syn-4-doniach_sunjic-4", "tab": "syn-4-doniach_sunjic-4", "n": 150, "n_peaks": 2, "R_bytes": 4436, "O_bytes": 22837, "R_gzip": 1139, "O_gzip": 8571}
+{"id": "syn-4-doniach_sunjic-5", "tab": "syn-4-doniach_sunjic-5", "n": 150, "n_peaks": 2, "R_bytes": 4485, "O_bytes": 24616, "R_gzip": 1171, "O_gzip": 10170}
+{"id": "syn-4-ds_g-0", "tab": "syn-4-ds_g-0", "n": 150, "n_peaks": 2, "R_bytes": 4458, "O_bytes": 25089, "R_gzip": 1146, "O_gzip": 10990}
+{"id": "syn-4-ds_g-1", "tab": "syn-4-ds_g-1", "n": 150, "n_peaks": 2, "R_bytes": 4437, "O_bytes": 24625, "R_gzip": 1128, "O_gzip": 10595}
+{"id": "syn-4-ds_g-2", "tab": "syn-4-ds_g-2", "n": 150, "n_peaks": 2, "R_bytes": 4440, "O_bytes": 25019, "R_gzip": 1133, "O_gzip": 11186}
+{"id": "syn-4-ds_g-3", "tab": "syn-4-ds_g-3", "n": 150, "n_peaks": 2, "R_bytes": 4438, "O_bytes": 25057, "R_gzip": 1130, "O_gzip": 10592}
+{"id": "syn-4-ds_g-4", "tab": "syn-4-ds_g-4", "n": 150, "n_peaks": 2, "R_bytes": 4436, "O_bytes": 22921, "R_gzip": 1129, "O_gzip": 8612}
+{"id": "syn-4-ds_g-5", "tab": "syn-4-ds_g-5", "n": 150, "n_peaks": 2, "R_bytes": 4485, "O_bytes": 24585, "R_gzip": 1162, "O_gzip": 10096}
+{"id": "syn-4-la_casaxps-0", "tab": "syn-4-la_casaxps-0", "n": 150, "n_peaks": 2, "R_bytes": 4458, "O_bytes": 25858, "R_gzip": 1144, "O_gzip": 11137}
+{"id": "syn-4-la_casaxps-1", "tab": "syn-4-la_casaxps-1", "n": 150, "n_peaks": 2, "R_bytes": 4437, "O_bytes": 25428, "R_gzip": 1129, "O_gzip": 10765}
+{"id": "syn-4-la_casaxps-2", "tab": "syn-4-la_casaxps-2", "n": 150, "n_peaks": 2, "R_bytes": 4440, "O_bytes": 25848, "R_gzip": 1134, "O_gzip": 11252}
+{"id": "syn-4-la_casaxps-3", "tab": "syn-4-la_casaxps-3", "n": 150, "n_peaks": 2, "R_bytes": 4438, "O_bytes": 25857, "R_gzip": 1128, "O_gzip": 10706}
+{"id": "syn-4-la_casaxps-4", "tab": "syn-4-la_casaxps-4", "n": 150, "n_peaks": 2, "R_bytes": 4436, "O_bytes": 23266, "R_gzip": 1125, "O_gzip": 8441}
+{"id": "syn-4-la_casaxps-5", "tab": "syn-4-la_casaxps-5", "n": 150, "n_peaks": 2, "R_bytes": 4485, "O_bytes": 25367, "R_gzip": 1160, "O_gzip": 10235}
+{"id": "syn-5-gaussian-0", "tab": "syn-5-gaussian-0", "n": 300, "n_peaks": 2, "R_bytes": 8351, "O_bytes": 48219, "R_gzip": 1904, "O_gzip": 18033}
+{"id": "syn-5-gaussian-1", "tab": "syn-5-gaussian-1", "n": 300, "n_peaks": 2, "R_bytes": 8330, "O_bytes": 46953, "R_gzip": 1883, "O_gzip": 17418}
+{"id": "syn-5-gaussian-2", "tab": "syn-5-gaussian-2", "n": 300, "n_peaks": 2, "R_bytes": 8333, "O_bytes": 48183, "R_gzip": 1889, "O_gzip": 18358}
+{"id": "syn-5-gaussian-3", "tab": "syn-5-gaussian-3", "n": 300, "n_peaks": 2, "R_bytes": 8331, "O_bytes": 48211, "R_gzip": 1887, "O_gzip": 17233}
+{"id": "syn-5-gaussian-4", "tab": "syn-5-gaussian-4", "n": 300, "n_peaks": 2, "R_bytes": 8329, "O_bytes": 42609, "R_gzip": 1886, "O_gzip": 13747}
+{"id": "syn-5-gaussian-5", "tab": "syn-5-gaussian-5", "n": 300, "n_peaks": 2, "R_bytes": 8378, "O_bytes": 46339, "R_gzip": 1927, "O_gzip": 16559}
+{"id": "syn-5-lorentzian-0", "tab": "syn-5-lorentzian-0", "n": 300, "n_peaks": 2, "R_bytes": 8355, "O_bytes": 46136, "R_gzip": 1906, "O_gzip": 19736}
+{"id": "syn-5-lorentzian-1", "tab": "syn-5-lorentzian-1", "n": 300, "n_peaks": 2, "R_bytes": 8334, "O_bytes": 44887, "R_gzip": 1889, "O_gzip": 18891}
+{"id": "syn-5-lorentzian-2", "tab": "syn-5-lorentzian-2", "n": 300, "n_peaks": 2, "R_bytes": 8337, "O_bytes": 46136, "R_gzip": 1894, "O_gzip": 20226}
+{"id": "syn-5-lorentzian-3", "tab": "syn-5-lorentzian-3", "n": 300, "n_peaks": 2, "R_bytes": 8335, "O_bytes": 46098, "R_gzip": 1890, "O_gzip": 19123}
+{"id": "syn-5-lorentzian-4", "tab": "syn-5-lorentzian-4", "n": 300, "n_peaks": 2, "R_bytes": 8333, "O_bytes": 41543, "R_gzip": 1890, "O_gzip": 15140}
+{"id": "syn-5-lorentzian-5", "tab": "syn-5-lorentzian-5", "n": 300, "n_peaks": 2, "R_bytes": 8382, "O_bytes": 45093, "R_gzip": 1928, "O_gzip": 18223}
+{"id": "syn-5-pseudo_voigt_gl-0", "tab": "syn-5-pseudo_voigt_gl-0", "n": 300, "n_peaks": 2, "R_bytes": 8399, "O_bytes": 47634, "R_gzip": 1923, "O_gzip": 19594}
+{"id": "syn-5-pseudo_voigt_gl-1", "tab": "syn-5-pseudo_voigt_gl-1", "n": 300, "n_peaks": 2, "R_bytes": 8378, "O_bytes": 46138, "R_gzip": 1910, "O_gzip": 18297}
+{"id": "syn-5-pseudo_voigt_gl-2", "tab": "syn-5-pseudo_voigt_gl-2", "n": 300, "n_peaks": 2, "R_bytes": 8381, "O_bytes": 48506, "R_gzip": 1915, "O_gzip": 19029}
+{"id": "syn-5-pseudo_voigt_gl-3", "tab": "syn-5-pseudo_voigt_gl-3", "n": 300, "n_peaks": 2, "R_bytes": 8379, "O_bytes": 48577, "R_gzip": 1909, "O_gzip": 18644}
+{"id": "syn-5-pseudo_voigt_gl-4", "tab": "syn-5-pseudo_voigt_gl-4", "n": 300, "n_peaks": 2, "R_bytes": 8377, "O_bytes": 41753, "R_gzip": 1910, "O_gzip": 15201}
+{"id": "syn-5-pseudo_voigt_gl-5", "tab": "syn-5-pseudo_voigt_gl-5", "n": 300, "n_peaks": 2, "R_bytes": 8426, "O_bytes": 46344, "R_gzip": 1949, "O_gzip": 17247}
+{"id": "syn-5-asymmetric_gl-0", "tab": "syn-5-asymmetric_gl-0", "n": 300, "n_peaks": 2, "R_bytes": 8431, "O_bytes": 47853, "R_gzip": 1928, "O_gzip": 19602}
+{"id": "syn-5-asymmetric_gl-1", "tab": "syn-5-asymmetric_gl-1", "n": 300, "n_peaks": 2, "R_bytes": 8410, "O_bytes": 46406, "R_gzip": 1912, "O_gzip": 17951}
+{"id": "syn-5-asymmetric_gl-2", "tab": "syn-5-asymmetric_gl-2", "n": 300, "n_peaks": 2, "R_bytes": 8413, "O_bytes": 48795, "R_gzip": 1917, "O_gzip": 19992}
+{"id": "syn-5-asymmetric_gl-3", "tab": "syn-5-asymmetric_gl-3", "n": 300, "n_peaks": 2, "R_bytes": 8411, "O_bytes": 48744, "R_gzip": 1911, "O_gzip": 18891}
+{"id": "syn-5-asymmetric_gl-4", "tab": "syn-5-asymmetric_gl-4", "n": 300, "n_peaks": 2, "R_bytes": 8409, "O_bytes": 41995, "R_gzip": 1911, "O_gzip": 15179}
+{"id": "syn-5-asymmetric_gl-5", "tab": "syn-5-asymmetric_gl-5", "n": 300, "n_peaks": 2, "R_bytes": 8458, "O_bytes": 46635, "R_gzip": 1951, "O_gzip": 18173}
+{"id": "syn-5-doniach_sunjic-0", "tab": "syn-5-doniach_sunjic-0", "n": 300, "n_peaks": 2, "R_bytes": 8429, "O_bytes": 46958, "R_gzip": 1935, "O_gzip": 20034}
+{"id": "syn-5-doniach_sunjic-1", "tab": "syn-5-doniach_sunjic-1", "n": 300, "n_peaks": 2, "R_bytes": 8408, "O_bytes": 45521, "R_gzip": 1919, "O_gzip": 19195}
+{"id": "syn-5-doniach_sunjic-2", "tab": "syn-5-doniach_sunjic-2", "n": 300, "n_peaks": 2, "R_bytes": 8411, "O_bytes": 46925, "R_gzip": 1923, "O_gzip": 20603}
+{"id": "syn-5-doniach_sunjic-3", "tab": "syn-5-doniach_sunjic-3", "n": 300, "n_peaks": 2, "R_bytes": 8409, "O_bytes": 46717, "R_gzip": 1916, "O_gzip": 19423}
+{"id": "syn-5-doniach_sunjic-4", "tab": "syn-5-doniach_sunjic-4", "n": 300, "n_peaks": 2, "R_bytes": 8407, "O_bytes": 42233, "R_gzip": 1918, "O_gzip": 15357}
+{"id": "syn-5-doniach_sunjic-5", "tab": "syn-5-doniach_sunjic-5", "n": 300, "n_peaks": 2, "R_bytes": 8456, "O_bytes": 45744, "R_gzip": 1959, "O_gzip": 18479}
+{"id": "syn-5-ds_g-0", "tab": "syn-5-ds_g-0", "n": 300, "n_peaks": 2, "R_bytes": 8429, "O_bytes": 46694, "R_gzip": 1927, "O_gzip": 19901}
+{"id": "syn-5-ds_g-1", "tab": "syn-5-ds_g-1", "n": 300, "n_peaks": 2, "R_bytes": 8408, "O_bytes": 45423, "R_gzip": 1910, "O_gzip": 19101}
+{"id": "syn-5-ds_g-2", "tab": "syn-5-ds_g-2", "n": 300, "n_peaks": 2, "R_bytes": 8411, "O_bytes": 46738, "R_gzip": 1915, "O_gzip": 20345}
+{"id": "syn-5-ds_g-3", "tab": "syn-5-ds_g-3", "n": 300, "n_peaks": 2, "R_bytes": 8409, "O_bytes": 46690, "R_gzip": 1912, "O_gzip": 19229}
+{"id": "syn-5-ds_g-4", "tab": "syn-5-ds_g-4", "n": 300, "n_peaks": 2, "R_bytes": 8407, "O_bytes": 42250, "R_gzip": 1909, "O_gzip": 15342}
+{"id": "syn-5-ds_g-5", "tab": "syn-5-ds_g-5", "n": 300, "n_peaks": 2, "R_bytes": 8456, "O_bytes": 45702, "R_gzip": 1949, "O_gzip": 18366}
+{"id": "syn-5-la_casaxps-0", "tab": "syn-5-la_casaxps-0", "n": 300, "n_peaks": 2, "R_bytes": 8429, "O_bytes": 48085, "R_gzip": 1925, "O_gzip": 20140}
+{"id": "syn-5-la_casaxps-1", "tab": "syn-5-la_casaxps-1", "n": 300, "n_peaks": 2, "R_bytes": 8408, "O_bytes": 46935, "R_gzip": 1906, "O_gzip": 19360}
+{"id": "syn-5-la_casaxps-2", "tab": "syn-5-la_casaxps-2", "n": 300, "n_peaks": 2, "R_bytes": 8411, "O_bytes": 48047, "R_gzip": 1912, "O_gzip": 20562}
+{"id": "syn-5-la_casaxps-3", "tab": "syn-5-la_casaxps-3", "n": 300, "n_peaks": 2, "R_bytes": 8409, "O_bytes": 48035, "R_gzip": 1908, "O_gzip": 19465}
+{"id": "syn-5-la_casaxps-4", "tab": "syn-5-la_casaxps-4", "n": 300, "n_peaks": 2, "R_bytes": 8407, "O_bytes": 42910, "R_gzip": 1907, "O_gzip": 15180}
+{"id": "syn-5-la_casaxps-5", "tab": "syn-5-la_casaxps-5", "n": 300, "n_peaks": 2, "R_bytes": 8456, "O_bytes": 46968, "R_gzip": 1945, "O_gzip": 18674}
