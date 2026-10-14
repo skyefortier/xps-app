@@ -98,3 +98,16 @@ measurements.
 
 The logged refusal-wording fix (Q10 0c′ Codex round 4, run B): a link across two backend shapes
 both labelled "GL" now names the backend shapes (bfca83a).
+
+## Round-3 fixes (Codex NO-GO ×2; no false `consistent` left in run B)
+
+- One reading of a parameter's value: the float the fit evaluates and records (`float(par.value)`),
+  for held, free and expression values alike (a held integer 10000000000000001 is evaluated and
+  recorded as 1e16).
+- The id schema is the producer's: any JSON scalar the fit routes accept (true, null, numbers, text).
+- `_exact_float`: a recorded number no float represents, or one that overflows a float, is a
+  mismatch — never a 500.
+- Every stable component's evaluation is judged before an unstable one may answer `unconfirmed`.
+- Tests on honest values beyond 2⁵³ (the integer equal to the honest float is consistent; the next
+  integer, which rounds to it, is a mismatch) across every array family, parameters, areas,
+  statistics and support.

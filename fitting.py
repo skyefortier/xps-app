@@ -3138,6 +3138,16 @@ class _Unverifiable(Exception):
         self.check, self.reason = check, reason
 
 
+def _exact_float(v):
+    """``v`` as the float it equals EXACTLY, else None (an integer beyond 2**53 that no float
+    represents, or one that overflows a float — never a 500; Codex round 3)."""
+    try:
+        f = float(v)
+    except (OverflowError, TypeError, ValueError):
+        return None
+    return f if f == v else None
+
+
 def _is_number(v) -> bool:
     """A JSON number as a JSON reader holds it — never a bool, never a numeric string."""
     return isinstance(v, (int, float)) and not isinstance(v, bool)
@@ -3187,7 +3197,7 @@ def _non_finite(value, path="O"):
 # The recorded-only objects' form (option (b): their TRUTH is not recomputed, but their form is
 # what the producer emits — Codex round 2). A spec is a type name, ("null", spec), ("list", spec),
 # ("map", spec) or a dict of exact keys (a key spelt "?k" is optional).
-_ID_T = "id"
+_ID_T = "id"                 # what the fit routes accept as an id and the producer echoes: any JSON scalar
 _MOVE_T = {"id": _ID_T, "ev": "num"}
 _NOT_RUN_T = {"ran": "false", "reason": "str", "?error": "str"}
 _STARTS_T = {"ran": "true", "n_run": "int", "n_converged": "int", "n_same_as_fit": "int",
@@ -3213,7 +3223,7 @@ def _typed(v, spec) -> bool:
         return {"bool": lambda: isinstance(v, bool), "true": lambda: v is True, "false": lambda: v is False,
                 "int": lambda: isinstance(v, int) and not isinstance(v, bool), "num": lambda: _is_number(v),
                 "str": lambda: isinstance(v, str),
-                "id": lambda: isinstance(v, str) or (isinstance(v, int) and not isinstance(v, bool))}[spec]()
+                "id": lambda: v is None or isinstance(v, (str, bool, int, float))}[spec]()
     if isinstance(spec, tuple):
         kind, inner = spec
         if kind == "null":
@@ -3389,6 +3399,12 @@ def _verify(O, *, energy, counts, peak_specs, background_method, bg_start_idx, b
                 or not (area["stderr"] is None or _is_number(area["stderr"])):
             raise _Mismatch("schema", f"component {spec['id']!r}: the recorded area is not of a response's form")
 
+    # every parameter's value as the fitter EVALUATES it — the float (a request's integer amplitude of
+    # 10000000000000001 is evaluated, and recorded, as 1e16; Codex round 3: one reading)
+    try:
+        effective = {name: float(par.value) for name, par in params.items()}
+    except OverflowError:
+        raise _Mismatch("request", "a parameter of the request overflows a float: no fit has this response")
     for (comp, prefix, own), spec, ip in zip(owned, peak_specs, peaks):
         for name in own:
             par, rec = params[name], ip["params"][name[len(prefix):]]
@@ -3397,7 +3413,7 @@ def _verify(O, *, energy, counts, peak_specs, background_method, bg_start_idx, b
             if rec["vary"] is not bool(par.vary) or rec["expr"] != par.expr or not _same(rec["min"], lo) \
                     or not _same(rec["max"], hi):
                 raise _Mismatch("roles", f"{name}: the recorded role (vary / expression / bounds) is not the request's")
-            if par.expr is None and not par.vary and rec["value"] != par.value:
+            if par.expr is None and not par.vary and rec["value"] != effective[name]:
                 raise _Mismatch("held", f"{name}: the recorded held value is not the request's")
             if par.expr is None and par.vary and not par.min <= rec["value"] <= par.max:
                 raise _Mismatch("roles", f"{name}: the recorded value lies outside the request's bounds")
@@ -3411,11 +3427,16 @@ def _verify(O, *, energy, counts, peak_specs, background_method, bg_start_idx, b
     for (comp, prefix, own), ip in zip(owned, peaks):
         for name in own:
             if params[name].expr is None and params[name].vary:
-                params[name].value = float(ip["params"][name[len(prefix):]]["value"])
+                v = _exact_float(ip["params"][name[len(prefix):]]["value"])
+                if v is None:
+                    raise _Mismatch("roles", f"{name}: the recorded value is not a number a fit can hold")
+                params[name].value = v
+            elif params[name].expr is None:
+                params[name].value = effective[name]           # a held value, as the fitter evaluates it
     params.update_constraints()
     for (comp, prefix, own), ip in zip(owned, peaks):
         for name in own:
-            if ip["params"][name[len(prefix):]]["value"] != params[name].value:
+            if ip["params"][name[len(prefix):]]["value"] != float(params[name].value):   # recorded as float(par.value)
                 check = "expressions" if params[name].expr is not None else "roles"
                 raise _Mismatch(check, f"{name}: the recorded value is not the value evaluated")
 
@@ -3434,12 +3455,16 @@ def _verify(O, *, energy, counts, peak_specs, background_method, bg_start_idx, b
                              f"{what}: the recorded curve is not this server's evaluation of its parameters, and "
                              f"the lineshape ({', '.join(shapes)}) is not evaluated bit-identically here, so it "
                              f"cannot be verified exactly")
+    # every stable evaluation is judged before an unstable one can answer "unconfirmed" (Codex round 3)
+    deferred = None
     for (comp, prefix, own), spec, rec_y in zip(owned, peak_specs, rec_ys):
         if not equal(rec_y, comp.eval(params, x=x)):
             shape = spec.get("shape", "pseudo_voigt_gl")
-            if shape in NOT_BIT_STABLE_SHAPES:
-                raise unverifiable(f"component {spec['id']!r}", [shape])
-            raise _Mismatch("components", f"component {spec['id']!r}: the recorded curve is not its parameters'")
+            if shape not in NOT_BIT_STABLE_SHAPES:
+                raise _Mismatch("components", f"component {spec['id']!r}: the recorded curve is not its parameters'")
+            deferred = deferred or unverifiable(f"component {spec['id']!r}", [shape])
+    if deferred is not None:
+        raise deferred
     if not equal(rec_sub, composite_model.eval(params, x=x)):
         if unstable:
             raise unverifiable("the model sum", unstable)
@@ -3452,7 +3477,7 @@ def _verify_relations(O, peaks, peak_specs, owned, params, x, bg, y_sub, weights
     the statistics and each component's support."""
     # each recorded number exactly a float (an integer beyond 2**53 is not): Python's float / int
     # comparison is exact, numpy's would convert first
-    if any(float(v) != v for curve in [rec_sub, *rec_ys] for v in curve):
+    if any(_exact_float(v) is None for curve in [rec_sub, *rec_ys] for v in curve):
         raise _Mismatch("schema", "a recorded curve holds a number no float represents")
     fitted_sub = np.asarray(rec_sub, dtype=float)
     comp_ys = [np.asarray(r, dtype=float) for r in rec_ys]

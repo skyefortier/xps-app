@@ -48,9 +48,12 @@ def _verify(client, R, O):
     return r.get_json()
 
 
-def _consistent(client, R, O):
+def _consistent(client, R, O, allow_unstable=False):
     v = _verify(client, R, O)
-    assert v["state"] == "consistent", v
+    if allow_unstable:            # a non-bit-stable lineshape may meet its own arithmetic jitter (owner Q7)
+        assert v["state"] == "consistent" or (v["state"] == "unconfirmed" and v["check"] in ("components", "fitted_sub")), v
+    else:
+        assert v["state"] == "consistent", v
     assert v["software"] == fitting.SOFTWARE
 
 
@@ -60,7 +63,8 @@ def _consistent(client, R, O):
 def test_every_lineshape_verifies(client, shape):
     x, y, specs = SS._well_posed()
     specs = [{**s, "shape": shape, **SHAPES[shape]} for s in specs]
-    _consistent(client, *_seal(client, x, y, specs, background={"method": "shirley"}))
+    _consistent(client, *_seal(client, x, y, specs, background={"method": "shirley"}),
+                allow_unstable=shape in fitting.NOT_BIT_STABLE_SHAPES)
 
 
 @pytest.mark.parametrize("bg", [{"method": "shirley", "start_idx": 10, "end_idx": 120, "endpoint_avg": 3},
@@ -176,8 +180,6 @@ TAMPER = [
     # the recorded-only objects keep a response's FORM (Codex round 2)
     ("certified as text", _set(["certificate", "certified"], "false"), "schema"),
     ("certificate extra key", _set(["certificate", "extra"], 1), "schema"),
-    # a JSON integer no float represents, beside its honest neighbour (Codex round 2: converted first, equal)
-    ("huge integer", _set(["counts", 0], 10 ** 16 + 1), "data"),
     # a free value outside its bounds, and a caller's seed that is not the caller's
     ("free value out of bounds", _set(["individual_peaks", 0, "params", "amplitude", "value"], -1.0), "roles"),
 ]
@@ -396,3 +398,83 @@ def test_an_undetermined_request_has_no_consistent_record(monkeypatch):
     monkeypatch.undo()
     v = fitting.verify_fit(O, **args)
     assert v["state"] == "mismatch" and v["check"] == "determinacy", v
+
+
+def _big_seal(client):
+    """An honest seal whose counts and amplitudes lie beyond 2**53, where distinct JSON integers share a float."""
+    x, y, specs = SS._well_posed()
+    specs = [{**specs[0], "shape": "gaussian", "amplitude": specs[0]["amplitude"] * 1e14},
+             {**specs[1], "shape": "gaussian", "amplitude": specs[1]["amplitude"] * 1e14}]
+    return _seal(client, x, y * 1e14, specs, background={"method": "none"})
+
+
+@pytest.mark.parametrize("path", [["counts", 0], ["fitted_y", 40], ["fitted_sub", 40], ["residuals", 40],
+                                  ["individual_peaks", 0, "y", 40], ["individual_peaks", 0, "params", "amplitude", "value"],
+                                  ["individual_peaks", 0, "params", "area", "value"], ["statistics", "chi_square"],
+                                  ["individual_peaks", 1, "support", "delta_chi2"]])
+def test_an_integer_that_shares_the_honest_float_is_still_a_different_number(client, path):
+    # Codex rounds 2-3: the honest value written as the JSON integer it equals is the same number
+    # (consistent); the next integer rounds to the same float but is a different number (never consistent)
+    R, O = _big_seal(client)
+    _consistent(client, R, O)
+    cur = O
+    for k in path[:-1]:
+        cur = cur[k]
+    honest = cur[path[-1]]
+    assert abs(honest) >= 2 ** 53 and float(int(honest)) == honest, (path, honest)
+    same, other = copy.deepcopy(O), copy.deepcopy(O)
+    _set(path, int(honest))(same)
+    _set(path, int(honest) + 1)(other)
+    assert float(int(honest) + 1) == honest                     # the lossy reading cannot tell them apart
+    _consistent(client, R, same)
+    assert _verify(client, R, other)["state"] == "mismatch", path
+
+
+@pytest.mark.parametrize("path", [["fitted_sub", 0], ["individual_peaks", 0, "y", 0],
+                                  ["individual_peaks", 0, "params", "amplitude", "value"], ["counts", 0],
+                                  ["statistics", "rmse"], ["individual_peaks", 0, "params", "center", "stderr"]])
+def test_an_integer_beyond_any_float_is_judged_never_a_500(client, sealed, path):
+    R, O = sealed
+    O2 = copy.deepcopy(O)
+    _set(path, 10 ** 400)(O2)
+    v = _verify(client, R, O2)
+    assert v["state"] in ("mismatch", "consistent") and (v["state"] == "mismatch" or path[-1] == "stderr"), (path, v)
+
+
+def test_a_held_integer_is_held_as_the_float_the_fit_evaluates(client):
+    # Codex round 3 BLOCKER: a held amplitude sent as the JSON integer 10000000000000001 is evaluated (and
+    # recorded) as 1e16; the verifier compared the integer — honest read mismatch, the integer read consistent
+    x, y, specs = SS._well_posed()
+    big = 10 ** 16 + 1
+    specs = [{**specs[0], "shape": "gaussian", "amplitude": big, "amplitude_min": big, "fix_amplitude": True},
+             {**specs[1], "shape": "gaussian", "amplitude": 700e12}]
+    R, O = _seal(client, x, y * 1e12, specs, background={"method": "none"})
+    assert O["individual_peaks"][0]["params"]["amplitude"]["value"] == 1e16
+    _consistent(client, R, O)
+    O2 = copy.deepcopy(O)
+    O2["individual_peaks"][0]["params"]["amplitude"]["value"] = big
+    assert _verify(client, R, O2)["state"] == "mismatch"
+
+
+@pytest.mark.parametrize("pid", [True, False, None, "ab", 7])
+def test_every_id_the_fit_route_accepts_verifies(client, pid):
+    # Codex round 3: the id schema refused ids the producer accepts and echoes (true, null)
+    x, y, specs = SS._well_posed()
+    R, O = _seal(client, x, y, [{**specs[0], "id": pid, "shape": "gaussian"}])
+    _consistent(client, R, O)
+
+
+def test_a_stable_components_mismatch_is_not_hidden_behind_an_unstable_one():
+    # Codex round 3: the first LA evaluation failure ended the checks before a later Gaussian's
+    x, y, specs = SS._well_posed()
+    specs = [{**specs[0], "shape": "la_casaxps", **SHAPES["la_casaxps"]}, {**specs[1], "shape": "gaussian"}]
+    args = dict(energy=x, counts=y, peak_specs=specs, background_method="linear", n_perturb=0,
+                fit_kws={"method": "leastsq"})
+    O = json.loads(json.dumps(fitting.run_fit(**args)))
+    xs = np.asarray(O["energy"])
+    for k in (0, 1):                                  # both curves one ulp off, every relation recomputed
+        yk = np.asarray(O["individual_peaks"][k]["y"]); yk[50] = np.nextafter(yk[50], np.inf)
+        O["individual_peaks"][k]["y"] = yk.tolist()
+        O["individual_peaks"][k]["params"]["area"]["value"] = float(abs(fitting.trapezoid(yk, xs)))
+    v = fitting.verify_fit(O, **args)
+    assert v["state"] == "mismatch" and v["check"] == "components" and v["reason"].startswith("component 2"), v
