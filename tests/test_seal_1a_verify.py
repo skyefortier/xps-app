@@ -109,7 +109,8 @@ def test_acceptance_is_recorded_not_recomputed(client):
     forged = copy.deepcopy(O)
     forged["success"] = not O["success"]
     forged["message"] = "anything"
-    forged["certificate"] = {"certified": True}
+    forged["certificate"] = {**O["certificate"], "certified": not O["certificate"]["certified"]}
+    forged["starts"] = None
     forged["individual_peaks"][0]["params"]["center"]["stderr"] = 1e-9
     _consistent(client, R, forged)
 
@@ -145,7 +146,7 @@ TAMPER = [
     ("verdict", _set(["background_verdict", "method"], "smart"), "background"),
     ("curve", _set(["individual_peaks", 1, "y", 50], _bump), "components"),
     ("area", _set(["individual_peaks", 1, "params", "area", "value"], _bump), "components"),
-    ("fitted_sub", _set(["fitted_sub", 50], _bump), "fitted_sub"),
+    ("fitted_sub", _set(["fitted_sub", 50], _bump), "fitted_y"),       # its relation to fitted_y fails first
     ("fitted_y", _set(["fitted_y", 50], _bump), "fitted_y"),
     ("residuals", _set(["residuals", 50], _bump), "residuals"),
     ("chi_square", _set(["statistics", "chi_square"], _bump), "statistics"),
@@ -161,14 +162,22 @@ TAMPER = [
     ("numeric strings", _set(["counts"], lambda a: [repr(v) for v in a]), "schema"),
     ("fitted_y strings", _set(["fitted_y"], lambda a: [repr(v) for v in a]), "schema"),
     ("shift as a flag", _set(["charge_shift_applied"], False), "schema"),
-    ("supported as a number", _set(["individual_peaks", 1, "support", "supported"], lambda s: int(s)), "support"),
+    ("supported as a number", _set(["individual_peaks", 1, "support", "supported"], lambda s: int(s)), "schema"),
     ("area stderr text", _set(["individual_peaks", 1, "params", "area", "stderr"], "garbage"), "schema"),
     ("area stderr object", _set(["individual_peaks", 1, "params", "area", "stderr"], {"not": "a number"}), "schema"),
     ("stderr text", _set(["individual_peaks", 0, "params", "center", "stderr"], "0.1"), "schema"),
     ("vary as a number", _set(["individual_peaks", 0, "params", "center", "vary"], 1), "schema"),
     ("seed as a float", _set(["random_seed"], lambda s: float(s)), "schema"),
     ("verdict converged as a number", _set(["background_verdict", "converged"], 1), "background"),
-    ("statistics n_data as a flag", _set(["statistics", "n_free_params"], True), "statistics"),
+    ("statistics n_data as a flag", _set(["statistics", "n_free_params"], True), "schema"),
+    ("statistics empty", _set(["statistics"], {}), "schema"),
+    ("support empty", _set(["individual_peaks", 1, "support"], {}), "schema"),
+    ("n_data", _set(["statistics", "n_data"], lambda k: k + 1), "statistics"),
+    # the recorded-only objects keep a response's FORM (Codex round 2)
+    ("certified as text", _set(["certificate", "certified"], "false"), "schema"),
+    ("certificate extra key", _set(["certificate", "extra"], 1), "schema"),
+    # a JSON integer no float represents, beside its honest neighbour (Codex round 2: converted first, equal)
+    ("huge integer", _set(["counts", 0], 10 ** 16 + 1), "data"),
     # a free value outside its bounds, and a caller's seed that is not the caller's
     ("free value out of bounds", _set(["individual_peaks", 0, "params", "amplitude", "value"], -1.0), "roles"),
 ]
@@ -309,23 +318,67 @@ def test_reversed_bounds_verify_as_the_fitter_holds_them(client):
 
 
 def test_a_lineshape_that_is_not_bit_stable_is_unconfirmed_not_mismatch(client):
-    # owner Q7 / V6.5: LA(α,β,m)'s np.convolve is not bit-stable, so a curve-derived failure on a request
-    # holding it cannot be told from arithmetic: UNCONFIRMED, never a tolerance, never a false STALE
-    assert "la_casaxps" in fitting.NOT_BIT_STABLE_SHAPES
+    # owner Q7 / V6.5: LA(α,β,m)'s np.convolve is not bit-stable, so ONLY the identity "this recorded curve
+    # is this server's evaluation of its parameters" cannot be judged for it: UNCONFIRMED, never a tolerance.
+    # Every relation of the recorded arrays, and every stable component, stays exact (Codex round 2).
+    assert fitting.NOT_BIT_STABLE_SHAPES == {"la_casaxps"}
     x, y, specs = SS._well_posed()
-    specs = [{**s, "shape": "la_casaxps", **SHAPES["la_casaxps"]} for s in specs]
+    specs = [{**specs[0], "shape": "la_casaxps", **SHAPES["la_casaxps"]}, {**specs[1], "shape": "gaussian"}]
     R, O = _seal(client, x, y, specs)
-    _consistent(client, R, O)
-    for path, check in ((["individual_peaks", 0, "y", 50], "components"), (["fitted_sub", 50], "fitted_sub"),
-                        (["statistics", "chi_square"], "statistics")):
+    assert _verify(client, R, O)["state"] in ("consistent", "unconfirmed")   # honest; its own arithmetic may jitter
+
+    def after(path, change):
         O2 = copy.deepcopy(O)
-        _set(path, _bump)(O2)
-        v = _verify(client, R, O2)
-        assert v["state"] == "unconfirmed" and v["check"] == check, (path, v)
-    # what no evaluation decides stays a mismatch
+        _set(path, change)(O2)
+        return _verify(client, R, O2)
+
+    # the LA curve changed CONSISTENTLY (its area, the model sum, fitted_y, residuals, statistics, support all
+    # following it) is an evaluation question only: unconfirmed
     O2 = copy.deepcopy(O)
-    _set(["random_seed"], lambda s: (s + 1) % 2 ** 32)(O2)
-    assert _verify(client, R, O2)["state"] == "mismatch"
+    la = np.asarray(O2["individual_peaks"][0]["y"]); la[50] = np.nextafter(la[50], np.inf)
+    O2["individual_peaks"][0]["y"] = la.tolist()
+    v = _verify(client, R, O2)
+    assert v["state"] in ("unconfirmed", "mismatch") and v["check"] in ("components", "statistics", "support"), v
+    # every relation and every stable component stays a mismatch
+    for path, change, check in ((["statistics", "chi_square"], _bump, "statistics"), (["statistics"], {}, "schema"),
+                                (["statistics", "n_data"], lambda k: k + 1, "statistics"),
+                                (["individual_peaks", 1, "support"], {}, "schema"),
+                                (["individual_peaks", 1, "support", "supported"], lambda s: not s, "support"),
+                                (["individual_peaks", 1, "y", 50], _bump, "components"),
+                                (["individual_peaks", 0, "params", "area", "value"], _bump, "components"),
+                                (["fitted_sub", 50], _bump, "fitted_y"), (["random_seed"], lambda s: (s + 1) % 2 ** 32, "seed")):
+        v = after(path, change)
+        assert v["state"] == "mismatch" and v["check"] == check, (path, v)
+
+
+def test_an_la_curve_that_is_not_its_parameters_is_unconfirmed():
+    # the evaluation identity itself, built consistently: an LA curve one ulp off its parameters, with every
+    # relation recomputed from it — the verifier cannot tell that from LA's own jitter
+    x, y, specs = SS._well_posed()
+    specs = [{**specs[0], "shape": "la_casaxps", **SHAPES["la_casaxps"]}, {**specs[1], "shape": "gaussian"}]
+    args = dict(energy=x, counts=y, peak_specs=specs, background_method="linear", n_perturb=0,
+                fit_kws={"method": "leastsq"})
+    O = json.loads(json.dumps(fitting.run_fit(**args)))
+    bg, cnt = np.asarray(O["background_y"]), np.asarray(O["counts"])
+    y0 = np.asarray(O["individual_peaks"][0]["y"]); y0[50] = np.nextafter(y0[50], np.inf)
+    O["individual_peaks"][0]["y"] = y0.tolist()
+    O["individual_peaks"][0]["params"]["area"]["value"] = float(abs(fitting.trapezoid(y0, np.asarray(O["energy"]))))
+    v = fitting.verify_fit(O, **args)
+    assert v["state"] == "unconfirmed" and v["check"] == "components", v
+    # the same on a stable lineshape is a mismatch
+    O = json.loads(json.dumps(fitting.run_fit(**{**args, "peak_specs": [{**specs[0], "shape": "gaussian"}, specs[1]]})))
+    y0 = np.asarray(O["individual_peaks"][0]["y"]); y0[50] = np.nextafter(y0[50], np.inf)
+    O["individual_peaks"][0]["y"] = y0.tolist()
+    O["individual_peaks"][0]["params"]["area"]["value"] = float(abs(fitting.trapezoid(y0, np.asarray(O["energy"]))))
+    v = fitting.verify_fit(O, **{**args, "peak_specs": [{**specs[0], "shape": "gaussian"}, specs[1]]})
+    assert v["state"] == "mismatch" and v["check"] == "components", v
+
+
+def test_a_huge_integer_id_is_judged_not_a_500(client):
+    # Codex round 2: the finiteness scan converted a 10**400 id to float and the route answered 500
+    x, y, specs = SS._well_posed()
+    specs = [{**specs[0], "id": 10 ** 400, "shape": "gaussian"}]
+    _consistent(client, *_seal(client, x, y, specs))
 
 
 def test_an_undetermined_request_has_no_consistent_record(monkeypatch):

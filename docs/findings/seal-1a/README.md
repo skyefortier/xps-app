@@ -20,9 +20,9 @@ whether `result.nvarys` is the roles count, and the in-process verification's ve
 Reading: on the committed targets the array-formed statistics equal lmfit's bit for bit (each of
 the four, every fit) and `best_fit` equals the returned `fitted_sub`; the residual vectors
 themselves were not compared, so nothing further is claimed about lmfit's last evaluation. The change makes them recomputable from the
-response; it moves no reported number on these targets. (It can differ where the minimiser's last
-evaluation is not at the returned parameters; none of the 404 fits is such a case. The unit
-reports no size it did not measure.) Release note: none needed for the numbers; `rmse` and
+response; it moves no reported number on these targets. (It can differ where lmfit's statistic was formed
+from another evaluation than the returned model's; no measured statistic differs on any of the
+404 fits, and the unit reports no size it did not measure.) Release note: none needed for the numbers; `rmse` and
 `fitted_sub` are new fields.
 
 ## 2. The refactor is the code it replaced

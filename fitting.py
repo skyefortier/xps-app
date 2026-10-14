@@ -2342,21 +2342,17 @@ def _component_support(y_sub, fitted_sub, comp_y, weights, n_free_comp, n_free_t
 # One extra fit, so it is done only when asked for (Auto-Fit asks for its
 # charge-reference anchor: an anchor that is not required must not set the
 # energy reference of a whole spectrum). Same threshold as `support`.
-def _component_required(fit_reduced, params_full, removed_prefixes, y_sub, weights,
-                        chi2_with, n_free_comp, n_free_total, removed_names=None) -> dict[str, Any]:
+def _component_required(fit_reduced, params_full, removed_names, y_sub, weights,
+                        chi2_with, n_free_comp, n_free_total) -> dict[str, Any]:
     """``fit_reduced(params)`` is the run's own fitter for the reduced model
     (the same candidate machinery and seeding the fit used, so differential
     evolution's box/refinement and the request seed apply to the refit too).
-    ``removed_prefixes`` is the removed component AND everything linked to it,
-    transitively. The reduced start is built in dependency order: plain
+    ``removed_names`` are the parameter names OWNED by the removed component and everything linked
+    to it, transitively (``_component_of``: exact membership, never a prefix — seal 1a′). The reduced start is built in dependency order: plain
     parameters first, expressions after, so a child ordered before its parent
     in the request still resolves."""
-    # run_fit passes the removed components' OWN parameter names (_component_of); a bare prefix
-    # list (direct callers) is matched by prefix
-    if removed_names is not None:
-        kept = [(name, par) for name, par in params_full.items() if name not in removed_names]
-    else:
-        kept = [(name, par) for name, par in params_full.items() if not any(name.startswith(r) for r in removed_prefixes)]
+    removed_names = set(removed_names)
+    kept = [(name, par) for name, par in params_full.items() if name not in removed_names]
     # ALL retained parameters exist before any expression is assigned, so a
     # chain of links in any request order resolves (lmfit evaluates an
     # expression when it is set).
@@ -2852,8 +2848,8 @@ def _run_fit_impl(
                                       if result.params[n].vary and result.params[n].expr is None)
                     removed_names = {n for pid in removed for n in own[pid]}
                     required = {"ran": True, **_component_required(
-                        lambda params: fit_model(without, params), result.params, removed_prefixes, y_sub, weights,
-                        float(result.chisqr), n_free_comp, result.nvarys, removed_names=removed_names)}
+                        lambda params: fit_model(without, params), result.params, removed_names, y_sub, weights,
+                        float(result.chisqr), n_free_comp, result.nvarys)}
             except Exception as exc:                              # the check must never cost the student the fit
                 log.exception("required-component refit failed")
                 required = {"ran": False, "reason": "error", "error": f"{type(exc).__name__}: {exc}"[:200]}
@@ -3128,8 +3124,6 @@ _PARAM_KEYS = frozenset({"value", "stderr", "vary", "expr", "min", "max"})
 # (CLAUDE.md "Reproducibility"); measured in seal 1a′ (docs/findings/seal-1a: two evaluations of one
 # model's LA components differ in one process) and 1b.
 NOT_BIT_STABLE_SHAPES = frozenset({"la_casaxps"})
-# the checks a curve evaluation decides (a non-bit-stable shape makes their failure UNCONFIRMED)
-_CURVE_CHECKS = frozenset({"components", "fitted_sub", "fitted_y", "residuals", "statistics", "support"})
 
 
 class _Mismatch(Exception):
@@ -3175,7 +3169,7 @@ def _as_json(value):
 
 def _non_finite(value, path="O"):
     """The path of the first non-finite number in ``value``, or None."""
-    if _is_number(value):
+    if isinstance(value, float):                 # a JSON integer is finite whatever its size (Codex round 2)
         return None if math.isfinite(value) else path
     if isinstance(value, list):
         for k, v in enumerate(value):
@@ -3188,6 +3182,55 @@ def _non_finite(value, path="O"):
             if hit:
                 return hit
     return None
+
+
+# The recorded-only objects' form (option (b): their TRUTH is not recomputed, but their form is
+# what the producer emits — Codex round 2). A spec is a type name, ("null", spec), ("list", spec),
+# ("map", spec) or a dict of exact keys (a key spelt "?k" is optional).
+_ID_T = "id"
+_MOVE_T = {"id": _ID_T, "ev": "num"}
+_NOT_RUN_T = {"ran": "false", "reason": "str", "?error": "str"}
+_STARTS_T = {"ran": "true", "n_run": "int", "n_converged": "int", "n_same_as_fit": "int",
+             "n_in_alternatives": "int", "n_not_better_elsewhere": "int", "not_better_chi2r": ("list", "num"),
+             "fit": {"chi2r": "num", "largest_centre_shift_from_start": _MOVE_T,
+                     "components": ("list", {"id": _ID_T, "area_percent": "num", "center_shift_from_start": "num"})},
+             "alternatives": ("list", {"chi2r": "num", "n_starts": "int",
+                                       "components": ("list", {"id": _ID_T, "area": "num", "params": ("map", "num"),
+                                                               "area_percent": "num", "center_shift_from_start": "num"}),
+                                       "largest_centre_shift_from_start": _MOVE_T,
+                                       "largest_fraction_difference_pp": "num"})}
+_REQUIRED_T = {"ran": "true", "required": ("null", "bool"), "f": ("null", "num"), "chi2_with": "num",
+               "chi2_without_refit": "num", "refit_converged": "bool", "?reason": "str", "?message": "str"}
+_CERTIFICATE_T = {"certified": "bool", "restarts": "int", "moved": "bool", "optimiser_flag": "bool",
+                  "centre_moves": ("list", _MOVE_T), "largest_centre_move": ("null", _MOVE_T)}
+_SUPPORT_T = {"f": ("null", "num"), "delta_chi2": "num", "supported": "bool", "?follows": _ID_T}
+_STATISTICS_T = {"chi_square": "num", "reduced_chi_square": "num", "r_factor": ("null", "num"), "n_data": "int",
+                 "n_free_params": "int", "aic": "num", "bic": "num", "rmse": "num"}
+
+
+def _typed(v, spec) -> bool:
+    if isinstance(spec, str):
+        return {"bool": lambda: isinstance(v, bool), "true": lambda: v is True, "false": lambda: v is False,
+                "int": lambda: isinstance(v, int) and not isinstance(v, bool), "num": lambda: _is_number(v),
+                "str": lambda: isinstance(v, str),
+                "id": lambda: isinstance(v, str) or (isinstance(v, int) and not isinstance(v, bool))}[spec]()
+    if isinstance(spec, tuple):
+        kind, inner = spec
+        if kind == "null":
+            return v is None or _typed(v, inner)
+        if kind == "list":
+            return isinstance(v, list) and all(_typed(e, inner) for e in v)
+        if kind == "map":
+            return isinstance(v, dict) and all(isinstance(k, str) and _typed(e, inner) for k, e in v.items())
+    if isinstance(spec, dict):
+        if not isinstance(v, dict):
+            return False
+        required = {k for k in spec if not k.startswith("?")}
+        allowed = required | {k[1:] for k in spec if k.startswith("?")}
+        if not required <= set(v) <= allowed:
+            return False
+        return all(_typed(v[k], spec[k] if k in spec else spec["?" + k]) for k in v)
+    return False
 
 
 def verify_fit(O, *, energy, counts, peak_specs, background_method="shirley", bg_start_idx=None,
@@ -3241,13 +3284,15 @@ def _verify(O, *, energy, counts, peak_specs, background_method, bg_start_idx, b
         raise _Mismatch("schema", f"the recorded result's fields differ from a response's (extra {extra}, missing {missing})")
     if not isinstance(O["success"], bool) or not isinstance(O["message"], str):
         raise _Mismatch("schema", "success / message are not a flag and a text")
-    for k in ("starts", "required", "certificate"):
-        if O[k] is not None and not isinstance(O[k], dict):
-            raise _Mismatch("schema", f"{k} is neither null nor an object")
+    for k, spec in (("starts", ("null", _STARTS_T)), ("required", ("null", _REQUIRED_T)),
+                    ("certificate", ("null", _CERTIFICATE_T))):
+        if not (_typed(O[k], spec) or (O[k] is not None and _typed(O[k], _NOT_RUN_T) and k != "certificate")):
+            raise _Mismatch("schema", f"{k} is not of a response's form")
+    if not _typed(O["statistics"], _STATISTICS_T):
+        raise _Mismatch("schema", "the recorded statistics are not of a response's form")
     if not _is_number(O["charge_shift_applied"]) or not isinstance(O["random_seed"], int) \
             or isinstance(O["random_seed"], bool) or not isinstance(O["fit_method"], str) \
-            or not isinstance(O["seed_source"], str) or not isinstance(O["statistics"], dict) \
-            or not isinstance(O["background_verdict"], dict):
+            or not isinstance(O["seed_source"], str) or not isinstance(O["background_verdict"], dict):
         raise _Mismatch("schema", "a recorded field is not of its type")
 
     # ── the request, read as run_fit reads it (a request run_fit refuses has no response) ──
@@ -3276,11 +3321,17 @@ def _verify(O, *, energy, counts, peak_specs, background_method, bg_start_idx, b
     unstable = sorted({s.get("shape", "pseudo_voigt_gl") for s in peak_specs} & NOT_BIT_STABLE_SHAPES)
 
     def arr(value, name):
+        """O's array as recorded — JSON numbers, n of them — never converted: a recorded number is
+        compared EXACTLY with a computed float (Python compares int and float exactly), so two
+        different JSON integers can never round into one (Codex round 2)."""
         if not isinstance(value, list) or len(value) != n or not all(_is_number(v) for v in value):
             raise _Mismatch("schema", f"{name} is not {n} numbers")
-        return np.asarray(value, dtype=float)
+        return value
 
-    if not np.array_equal(arr(O["energy"], "energy"), x) or not np.array_equal(arr(O["counts"], "counts"), y):
+    def equal(recorded, computed):
+        return all(r == c for r, c in zip(recorded, np.asarray(computed, dtype=float).tolist()))
+
+    if not equal(arr(O["energy"], "energy"), x) or not equal(arr(O["counts"], "counts"), y):
         raise _Mismatch("data", "the recorded energies or counts are not the request's")
     if O["fit_method"] != method:
         raise _Mismatch("method", f"recorded method {O['fit_method']!r}, requested {method!r}")
@@ -3293,7 +3344,7 @@ def _verify(O, *, energy, counts, peak_specs, background_method, bg_start_idx, b
             x, y, background_method, bg_start_idx, bg_end_idx, endpoint_avg, manual_bg)
     except Exception as exc:
         raise _Mismatch("background", f"the request's background cannot be computed ({exc})")
-    if not np.array_equal(arr(O["background_y"], "background_y"), bg):
+    if not equal(arr(O["background_y"], "background_y"), bg):
         raise _Mismatch("background", "the recorded background is not the request's")
     if not _same(O["background_verdict"], _as_json(_background_verdict(bg_method, bg_cert, bg_effect))):
         raise _Mismatch("background", "the recorded background verdict is not the request's")
@@ -3319,7 +3370,7 @@ def _verify(O, *, energy, counts, peak_specs, background_method, bg_start_idx, b
         comp, prefix, own = _component_of(composite_model, spec)
         owned.append((comp, prefix, own))
         if not isinstance(ip, dict) or set(ip) != _PEAK_KEYS or not isinstance(ip["params"], dict) \
-                or not isinstance(ip["support"], dict):
+                or not _typed(ip["support"], _SUPPORT_T):
             raise _Mismatch("schema", "a recorded component's fields differ from a response's")
         if not _same(ip["id"], _as_json(spec["id"])) or ip["shape"] != spec.get("shape", "pseudo_voigt_gl"):
             raise _Mismatch("schema", f"component {spec['id']!r}: the recorded id or lineshape is not the request's")
@@ -3368,32 +3419,49 @@ def _verify(O, *, energy, counts, peak_specs, background_method, bg_start_idx, b
                 check = "expressions" if params[name].expr is not None else "roles"
                 raise _Mismatch(check, f"{name}: the recorded value is not the value evaluated")
 
-    try:
-        _verify_curves(O, peaks, peak_specs, owned, composite_model, params, x, bg, y_sub, weights, n_varys, arr)
-    except _Mismatch as exc:
-        if unstable and exc.check in _CURVE_CHECKS:
-            raise _Unverifiable(exc.check, f"{exc.reason} — the request holds a lineshape this server does not "
-                                           f"evaluate bit-identically ({', '.join(unstable)}), so it cannot be "
-                                           f"verified exactly")
-        raise
+    # ── the arrays' relations, EXACTLY, from the RECORDED arrays — no evaluator involved ──
+    rec_sub = arr(O["fitted_sub"], "fitted_sub")
+    rec_ys = [arr(ip["y"], f"component {spec['id']!r} curve") for spec, ip in zip(peak_specs, peaks)]
+    arr(O["fitted_y"], "fitted_y")
+    arr(O["residuals"], "residuals")
+    _verify_relations(O, peaks, peak_specs, owned, params, x, bg, y_sub, weights, n_varys, rec_sub, rec_ys, equal)
 
-
-def _verify_curves(O, peaks, peak_specs, owned, composite_model, params, x, bg, y_sub, weights, n_varys, arr):
-    """The curves, in run_fit's own evaluations and associations; the statistics; the support."""
-    fitted_sub = composite_model.eval(params, x=x)
-    comp_ys = []
-    for (comp, prefix, own), spec, ip in zip(owned, peak_specs, peaks):
-        cy = comp.eval(params, x=x)
-        if not np.array_equal(arr(ip["y"], f"component {spec['id']!r} curve"), cy):
+    # ── the evaluations: each recorded curve and the model sum ARE the parameters' ──
+    # A lineshape not evaluated bit-identically here (NOT_BIT_STABLE_SHAPES, owner Q7) makes ONLY these
+    # identities unjudgeable — unconfirmed, never a tolerance; every relation above stays exact
+    def unverifiable(what, shapes):
+        return _Unverifiable("components" if what != "fitted_sub" else "fitted_sub",
+                             f"{what}: the recorded curve is not this server's evaluation of its parameters, and "
+                             f"the lineshape ({', '.join(shapes)}) is not evaluated bit-identically here, so it "
+                             f"cannot be verified exactly")
+    for (comp, prefix, own), spec, rec_y in zip(owned, peak_specs, rec_ys):
+        if not equal(rec_y, comp.eval(params, x=x)):
+            shape = spec.get("shape", "pseudo_voigt_gl")
+            if shape in NOT_BIT_STABLE_SHAPES:
+                raise unverifiable(f"component {spec['id']!r}", [shape])
             raise _Mismatch("components", f"component {spec['id']!r}: the recorded curve is not its parameters'")
+    if not equal(rec_sub, composite_model.eval(params, x=x)):
+        if unstable:
+            raise unverifiable("the model sum", unstable)
+        raise _Mismatch("fitted_sub", "the recorded model sum is not its components'")
+
+
+def _verify_relations(O, peaks, peak_specs, owned, params, x, bg, y_sub, weights, n_varys, rec_sub, rec_ys, equal):
+    """Every relation of the recorded arrays, in run_fit's own associations, computed FROM the
+    recorded curves (exact; independent of any lineshape evaluator): areas, fitted_y, residuals,
+    the statistics and each component's support."""
+    # each recorded number exactly a float (an integer beyond 2**53 is not): Python's float / int
+    # comparison is exact, numpy's would convert first
+    if any(float(v) != v for curve in [rec_sub, *rec_ys] for v in curve):
+        raise _Mismatch("schema", "a recorded curve holds a number no float represents")
+    fitted_sub = np.asarray(rec_sub, dtype=float)
+    comp_ys = [np.asarray(r, dtype=float) for r in rec_ys]
+    for spec, ip, cy in zip(peak_specs, peaks, comp_ys):
         if ip["params"]["area"]["value"] != float(abs(trapezoid(cy, x))):
             raise _Mismatch("components", f"component {spec['id']!r}: the recorded area is not its curve's")
-        comp_ys.append(cy)
-    if not np.array_equal(arr(O["fitted_sub"], "fitted_sub"), fitted_sub):
-        raise _Mismatch("fitted_sub", "the recorded model sum is not its components'")
-    if not np.array_equal(arr(O["fitted_y"], "fitted_y"), fitted_sub + bg):
+    if not equal(O["fitted_y"], fitted_sub + bg):
         raise _Mismatch("fitted_y", "the recorded fitted curve is not the model sum plus the background")
-    if not np.array_equal(arr(O["residuals"], "residuals"), y_sub - fitted_sub):
+    if not equal(O["residuals"], y_sub - fitted_sub):
         raise _Mismatch("residuals", "the recorded residuals are not the data less the background and the model")
     if not _same(O["statistics"], _as_json(_fit_statistics(y_sub, fitted_sub, weights, n_varys))):
         raise _Mismatch("statistics", "the recorded statistics are not the ones its arrays give")

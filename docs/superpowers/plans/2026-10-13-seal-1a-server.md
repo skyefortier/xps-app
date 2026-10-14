@@ -67,6 +67,21 @@ server; the page is not changed in this unit except the provenance meta tag it i
 - Parameter membership is EXACT (`_component_of`: the component model's own `param_names`) in
   the response, the support, the scattered starts, the required refit and the verifier — ids "1"
   and "1_x" no longer echo each other's parameters (a page's integer ids never overlapped).
+  (Find Peaks' archived engine, `autofit/`, keeps its own prefix readers; not on a seal's path.)
+
+## Round-2 fixes (Codex NO-GO ×2)
+
+- O's arrays are never converted before comparison: each recorded number is compared EXACTLY with
+  the computed float (two JSON integers beyond 2⁵³ no longer round into one); a curve holding a
+  number no float represents is a schema mismatch.
+- The non-bit-stable rule is scoped to the two EVALUATION identities only (a recorded curve is the
+  server's evaluation of its parameters; the recorded model sum is the composite's). Every relation
+  of the recorded arrays — areas, fitted_y, residuals, statistics, support — is computed from the
+  recorded curves and stays an exact mismatch; a stable component's curve stays a mismatch.
+- The recorded-only objects (`certificate`, `starts`, `required`), the statistics and the support
+  have a typed schema: their truth is not recomputed (option (b)), their form is the producer's.
+- Only a float can be non-finite (an id of 10**400 no longer answers 500).
+- `_component_required` takes the removed components' own parameter names only.
 - A link's splitting / ratio is written into its expression with −0.0 folded to 0.0 (a JSON
   writer spells −0 as 0); requests the page can send are unchanged.
 - The verifier reads the parameters as the fitter holds them (Model.fit's deep copy orders
