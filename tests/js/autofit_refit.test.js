@@ -64,7 +64,7 @@ async function runAutoFit({ replies, refuseFinal = false, refuseAnchor = false, 
   };
   deps.setTimeout = (f, ms) => { if (!(ms >= 60000)) f(); return 1; };
   deps.DOMException = class extends Error { constructor(m, k) { super(m); this.name = k; } };
-  const src = KEY_SRC + '\n' + ['runAutoFitC1sGraphite', '_autoFitRequest', '_buildFitRequest', '_liveFitContext', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure', '_readFitReply',
+  const src = KEY_SRC + '\n' + ['runAutoFitC1sGraphite', '_autoFitRequest', '_buildFitRequest', '_liveFitContext', '_sealR', '_makeSeal', '_deepFreeze', '_pageIdentity', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure', '_readFitReply',
     '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey'].map(extractFn).join('\n');
   await new Function(...Object.keys(deps), src + '\n' + POLL_SRC + '\nreturn runAutoFitC1sGraphite;')(...Object.values(deps))();
   // the page waits for exactly this one transaction: the overlay goes up once and comes down once, on every exit

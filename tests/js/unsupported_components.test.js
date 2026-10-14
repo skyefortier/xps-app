@@ -300,8 +300,10 @@ test('Auto-Fit finalisation (locks, charge shift) keeps its own verdicts: _resta
   // them, and its publication re-stamps the verdicts before anything renders
   assert.ok(extractFn('applyAutoFitResult').indexOf('for (const p of state.peaks) p.fixCenter = true;') > 0, 'the locks');
   const run = extractFn('runAutoFitC1sGraphite');
-  assert.ok(run.indexOf('applyAutoFitResult(json,') < run.indexOf('const req2 = _autoFitRequest(anchorId);') &&
-            run.indexOf('applyBackendResult(json2);') < run.indexOf('_autoFitPublish(json2)'), 'locks, then the final fit, then its publication');
+  // each position must EXIST (an indexOf of -1 is "before" everything: this check went vacuous once, seal 1c step 3)
+  const at = s => { const i = run.indexOf(s); assert.ok(i > 0, 'runAutoFitC1sGraphite: ' + s); return i; };
+  assert.ok(at('applyAutoFitResult(json,') < at('const req2 = _autoFitRequest(anchorId);') &&
+            at('applyBackendResult(json2, req2.pageModel);') < at('_autoFitPublish(json2,'), 'locks, then the final fit, then its publication');
   const src = extractFn('_autoFitPublish');
   assert.ok(src.indexOf('_restampSupport()') > 0 && src.indexOf('_restampSupport()') < src.indexOf('renderPeakList()'), 're-stamped before anything renders');
   const c = core();

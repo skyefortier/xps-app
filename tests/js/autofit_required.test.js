@@ -69,7 +69,7 @@ test('the request asks for the Graphite anchor by id, and the gate precedes the 
   assert.ok(gate > 0);
   // Q8: the final fit's anchor is held to the same gates before anything is published
   assert.ok(run.indexOf('const refusal2 = _autoFitAnchorRefusal(json2);') > 0 &&
-            run.indexOf('const refusal2 = _autoFitAnchorRefusal(json2);') < run.indexOf('_autoFitPublish(json2)'));
+            run.indexOf('const refusal2 = _autoFitAnchorRefusal(json2);') < run.indexOf('_autoFitPublish(json2'));
   for (const m of ["getElementById('cc-method')", "getElementById('cc-obs')", 'updateChargeCorrection()']) assert.ok(apply.indexOf(m) > gate, m);
 });
 

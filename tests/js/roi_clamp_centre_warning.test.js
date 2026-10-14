@@ -133,7 +133,7 @@ test('the fit and Find Peaks still read the ROI exactly as before (getROIData / 
   assert.match(extractFn('_roiSelect'), /const c = rawBE\[i\] - shift;\s*\n?\s*if \(c >= roiMin && c <= roiMax\)/, 'inclusive filter unchanged');
   assert.match(html, /roi: \{ be_min: parseFloat\(document\.getElementById\('roi-min'\)\.value\),\s*\n\s*be_max: parseFloat\(document\.getElementById\('roi-max'\)\.value\) \}/, 'Find Peaks payload unchanged');
   const rp = extractFn('runPropagation');
-  assert.match(rp, /const roiSt = _roiWindowStatus\(\);[^\n]*\n\s*const \{ be, inten \} = getROIData\(\);/, 'Batch Fit reads the status beside, not instead of, getROIData');
+  assert.match(rp, /const roiSt = _roiWindowStatus\(\);[^\n]*\n\s*const \{ be, inten, idx: roiIdx \} = getROIData\(\);/, 'Batch Fit reads the status beside, not instead of, getROIData');
 });
 
 test('an unsupported component: the badge warns without reporting its suppressed centre', () => {

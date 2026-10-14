@@ -7095,6 +7095,75 @@ function _sameModel(a, b) {
   const strip = p => { const q = { ...p }; for (const k of _MODEL_EVIDENCE_FIELDS) delete q[k]; return q; };
   return Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((p, i) => eq(strip(p), strip(b[i])));
 }
+// ── Seal 1c step 3 (plan §1, §5.4, §7): the sealed fit record, created BESIDE today's result. Nothing reads it
+// yet — it becomes the authority in step 7; until then the tests compare its view with today's fitResult.
+
+// The page that produced a fit: the software that served it and the digests of what it was rendered from
+// (the `xps-software` and `xps-page` meta tags, seal 1a′). Null fields where a tag is missing.
+function _pageIdentity() {
+  const meta = name => { try { const m = document.querySelector('meta[name="' + name + '"]');
+    const v = m && JSON.parse(m.getAttribute('content')); return v && typeof v === 'object' ? v : null; } catch (e) { return null; } };
+  return { software: meta('xps-software'), page: meta('xps-page') };
+}
+function _deepFreeze(o) {
+  if (o && typeof o === 'object' && !Object.isFrozen(o)) { Object.freeze(o); for (const k of Object.keys(o)) _deepFreeze(o[k]); }
+  return o;
+}
+// A seal: its own deep copy of every part, deep-frozen (shared by snapshots, never mutated).
+function _makeSeal(parts) { return _deepFreeze(structuredClone({ v: 'xps-seal-1', ...parts })); }
+// R as plan §1: the start model, the context (live controls / producer settings), the samples the fit received
+// (`_roiSelect`'s indices, the corrected energies, the raw counts), the producing page and — server — the wire body.
+function _sealR(pageModel, ctxLive, producerCtx, roi, request) {
+  const R = { pageModel, context0: { live: ctxLive, producer: producerCtx }, idx: roi.idx, energies: roi.be,
+              counts: roi.inten, page: _pageIdentity() };
+  if (request) R.request = request;
+  return R;
+}
+
+// The VIEW of a seal (plan §7): every number a consumer shows for a sealed fit, from O alone (server) or the
+// local O. Pure; memoised per seal.
+const _sealViews = new WeakMap();
+function _sealView(seal) {
+  if (!seal) return null;
+  if (_sealViews.has(seal)) return _sealViews.get(seal);
+  const R = seal.R, O = seal.O;
+  let v;
+  if (seal.engine === 'server') {
+    const bg = O.background_y;
+    const model = project(R.pageModel, O);
+    const st = O.statistics;
+    v = { engine: 'server', energies: O.energy, counts: O.counts, background: bg, fittedY: O.fitted_y,
+          fittedSub: O.fitted_sub, residuals: O.residuals, model,
+          components: O.individual_peaks.map(ip => ({ id: ip.id, shape: ip.shape, y: ip.y, area: ip.params.area.value,
+                                                    support: ip.support, params: ip.params })),
+          statistics: { chi2: st.chi_square, chi2r: st.reduced_chi_square, rmse: st.rmse, rFactor: st.r_factor,
+                        nData: st.n_data, nFree: st.n_free_params },
+          starts: O.starts, certificate: O.certificate, required: O.required, success: O.success, message: O.message,
+          designation: { engine: 'server', objective: 'poisson_weighted_chi_square', weighting: '1/sqrt(max(counts,1))',
+                         reportable: true, caveat: null, iterations: null } };
+  } else {
+    const bgv = O.background.values;
+    v = { engine: 'local', energies: O.energies, counts: R.counts, background: bgv,
+          fittedY: O.modelSum.map((m, i) => m + bgv[i]), fittedSub: O.modelSum,
+          residuals: O.net.map((n, i) => n - O.modelSum[i]), model: O.model,
+          components: O.model.map((p, k) => ({ id: p.id, shape: p.shape, y: O.curves[k], area: O.areas[k],
+                                               support: O.support[String(p.id)] || null, params: null })),
+          statistics: { chi2: O.chi2, chi2r: O.chi2r, rmse: O.rmse, rFactor: O.rFactor, nData: O.energies.length, nFree: O.nVaried },
+          starts: null, certificate: O.certificate, required: null, success: true, message: '',
+          designation: { engine: 'local', objective: 'poisson_weighted_chi_square', weighting: '1/sqrt(max(counts,1))',
+                         reportable: false, caveat: _LOCAL_FIT_CAVEAT, iterations: O.iterations } };
+  }
+  // the R panel's presentation of the recorded R-factor ratio: never recomputed; null stays null, 0 stays 0
+  const r = v.statistics.rFactor;
+  v.rPanel = r === null || r === undefined ? null : { rPct: r * 100, level: r * 100 < 5 ? 'good' : (r * 100 <= 10 ? 'amber' : 'red') };
+  v.initialValues = R.pageModel;
+  v.chosenAlternative = (seal.D && seal.D.chosenAlternative) || null;
+  v.producer = seal.producer;
+  _deepFreeze(v);
+  _sealViews.set(seal, v);
+  return v;
+}
+
 function peakToBackendSpec(p) {
   // All initial values go at top level — fitting.py reads spec.get("center") etc.
   const spec = {
@@ -8092,7 +8161,7 @@ function deriveAutoFit(pageModel1, ctx1, O1) {
 // Publish Auto-Fit's FINAL fit — made in the corrected frame on exactly the points, background and
 // model it shows (Q8) — as runFit() publishes a result: the statistics, the record, the Results, one
 // history snapshot, the 40 % graphite warning. Returns false (nothing published) on a refused background.
-function _autoFitPublish(json) {
+function _autoFitPublish(json, sealParts = null) {
   // Build state.fitResult exactly as runFit() does.
   const { be: be2, inten: inten2 } = getROIData();
   const bgR2 = _bgOrFailure(() => computeBackground(be2, inten2));
@@ -8116,6 +8185,7 @@ function _autoFitPublish(json) {
     roiRange,
     record: _fitRecordFrom(json),       // recording only (owner 2026-10-10)
     startsModelKey: _startsLiveKey(),   // F1: binds the statistics to this model; re-stamped below with the locks
+    seal: sealParts ? _makeSeal(sealParts) : null,   // seal 1c step 3: beside the fields above (not yet read)
   };
   state.fitResult.rFactor = _computeRFactor(state.fitResult);
 
@@ -8378,11 +8448,14 @@ async function _serverFitJob(fitReq, guard) {
 // model with the per-peak bounds buildAutoFitModel attached, the method, three perturbed restarts and
 // the anchor check. The anchor fit and the final fit (Q8) read it the same way.
 function _autoFitRequest(anchorId) {
-  const { be, inten } = getROIData();
+  const { be, inten, idx } = getROIData();
   // the model snapshot the request is built from — and the model its result is projected onto (plan §4)
   const pageModel = structuredClone(state.peaks);
   const ctx = _liveFitContext();
-  return { be, inten, pageModel, ctx, body: _buildFitRequest('autoFit', pageModel, ctx, be, { requireComponent: anchorId }) };
+  const body = _buildFitRequest('autoFit', pageModel, ctx, be, { requireComponent: anchorId });
+  // seal 1c step 3: the fit's R, from the same snapshot, context and samples
+  const sealR = _sealR(pageModel, ctx, { n_perturb: body.n_perturb, require_component: anchorId }, { idx, be, inten }, body);
+  return { be, inten, idx, pageModel, ctx, body, sealR };
 }
 
 async function runAutoFitC1sGraphite() {
@@ -8601,7 +8674,9 @@ async function runAutoFitC1sGraphite() {
       notify('After the refit in the corrected frame — ' + refusal2, 'red', true);
       return;
     }
-    if (!_autoFitPublish(json2)) {
+    // seal 1c step 3: the final fit's seal, with the anchor fit as its evidence E (not yet read)
+    if (!_autoFitPublish(json2, { engine: 'server', producer: 'autoFit', R: req2.sealR, O: json2, D: {},
+                                  E: { R: req1.sealR, O: json } })) {
       _hideFitSpinnerFor(afOp);
       _autoFitRestore(snap, fittingTab);
       return;
@@ -9180,7 +9255,7 @@ async function runFit(opts = {}) {
   if (avgFail) { notify('Fit not run: ' + avgFail, 'red', true); return; }
   const linkFail = _linkGraphFailure(opts.startPeaks || state.peaks);   // refused, never dropped (Q10 0c′)
   if (linkFail) { notify('Fit not run: ' + linkFail, 'red', true); return; }
-  const { be, inten } = getROIData();
+  const { be, inten, idx } = getROIData();
   const bgPre = _bgOrFailure(() => computeBackground(be, inten));
   if (bgPre.failure) { notify('Fit not run: ' + bgPre.failure, 'red', true); return; }
   const bgIntensity = bgPre.bg;
@@ -9200,6 +9275,7 @@ async function runFit(opts = {}) {
   let backendResult = null;
   let ctxAtRequest = null;   // set with the other request inputs; read again by the local fallback
   let fitOp = null;         // unit 2: this tab's fit operation, claimed before the first await
+  let sealR = null, sealProducer = null;   // seal 1c step 3: what the fit was made from
   try {
     // EVERY request input is read from the owner before the upload await:
     // peaks, method, endpoint averaging and manual anchors (Codex round 2: a
@@ -9211,7 +9287,12 @@ async function runFit(opts = {}) {
     const pageModel = structuredClone(startModel);
     // the whole request, scattered-starts decision included, built HERE, before the first await (a tab
     // switch during the upload must not change it): the one builder (seal 1c step 2)
-    const reqBody = _buildFitRequest(opts.startPeaks ? 'useSolution' : 'runFit', pageModel, _liveFitContext(), be);
+    const producer = opts.startPeaks ? 'useSolution' : 'runFit';
+    const fitCtx = _liveFitContext();
+    const reqBody = _buildFitRequest(producer, pageModel, fitCtx, be);
+    // the seal's R (seal 1c step 3), from the same snapshot, context and samples, before the first await
+    sealR = _sealR(pageModel, fitCtx, { n_perturb: reqBody.n_perturb, n_starts: reqBody.n_starts }, { idx, be, inten }, reqBody);
+    sealProducer = producer;
     // the live model and its fit context as the student pressed the button: a
     // result must not be written over a model that was edited while it ran
     ctxAtRequest = _startsLiveKey();
@@ -9308,7 +9389,10 @@ async function runFit(opts = {}) {
                         certificateMove: _certificateMoveFrom(backendResult.certificate),
                         record: _fitRecordFrom(backendResult),   // recording only (owner 2026-10-10)
                         startsModelKey: _startsLiveKey(),     // model + context, taken AFTER the result was applied
-                        chosenAlternative: opts.chosenAlternative || null };
+                        chosenAlternative: opts.chosenAlternative || null,
+                        // seal 1c step 3: the sealed record of this fit, beside the fields above (not yet read)
+                        seal: _makeSeal({ engine: 'server', producer: sealProducer, R: sealR, O: backendResult,
+                                          D: { chosenAlternative: opts.chosenAlternative || null }, E: null }) };
     // a preview of an alternative always belongs to the PREVIOUS result (an identical
     // key does not make it this one's): clear it unconditionally
     if (_historyPreview && typeof _historyPreview.snapId === 'string' && _historyPreview.snapId.startsWith('alt:')) _historyPreview = null;
@@ -9349,7 +9433,9 @@ async function runFit(opts = {}) {
       // Server unreachable: the local optimiser is the honest fallback, and
       // the overlay saying so opens only if it actually converged.
       if (e.message) console.warn('Backend unreachable, falling back to local LM:', e.message);
-      const local = runFitLocal(be, bgSubtracted, bgIntensity, { spinnerOp: fitOp });
+      const local = runFitLocal(be, bgSubtracted, bgIntensity, { spinnerOp: fitOp,
+        // seal 1c step 3: the samples and context this fit was asked for (the fallback's own model is its start)
+        seal: sealR && { producer: 'local', context: sealR.context0.live, roi: { idx: sealR.idx, be: sealR.energies, inten: sealR.counts } } });
       if (local && local.success && !_snapshotSuppressed) {
         document.getElementById('localfit-warn-overlay').classList.add('open');
       }
@@ -9535,6 +9621,7 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
   const _w = be.map((_, i) => 1 / Math.sqrt(Math.max(bgSubtracted[i] + bgIntensity[i], 1)));
   // Work on copies: live peaks are touched only on success.
   const work = state.peaks.map(p => ({ ...p }));
+  const sealStart = options.seal ? structuredClone(state.peaks) : null;   // seal 1c step 3: the model this fit starts from
   if (!work.length) return fail('no peaks to fit.');
   { const linkFail = _linkGraphFailure(work); if (linkFail) return fail(linkFail); }   // Q10 0c′
   const workPeak = id => work.find(q => q.id === id);
@@ -9879,9 +9966,9 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
   // "Not supported by the data": the same removal statistic the server
   // computes, from this engine's own residuals and weights (a component driven
   // to the zero floor is an outcome here too, not something to hide).
+  const verdicts = {};
   {
     const model = evalAllPeaks(be, work);
-    const verdicts = {};
     for (const wp of work) {
       if (wp.linked) continue;
       const comp = evalPeakArray(be, wp);
@@ -9908,6 +9995,26 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
                                               bgIntensity),
                       startsModelKey: _startsLiveKey() };   // F1: the statistics describe the committed model
   state.fitResult.rFactor = _computeRFactor(state.fitResult);
+  if (options.seal) {
+    // seal 1c step 3: the LOCAL O (plan §1, §6.4), every number from the ONE snapshot committed above, in the
+    // engine's own arithmetic; the background's certificate and effect as ordinary fields
+    const snap = structuredClone(work);
+    const curves = snap.map(p => evalPeakArray(be, p));
+    const modelSum = evalAllPeaks(be, snap);
+    let sumAbsResid = 0, sumAbsData = 0;
+    for (let i = 0; i < be.length; i++) { sumAbsResid += Math.abs(bgSubtracted[i] - modelSum[i]); sumAbsData += Math.abs(bgSubtracted[i]); }
+    const O = { engine: 'local', success: true, energies: be.slice(), net: bgSubtracted.slice(),
+                background: { values: Array.from(bgIntensity), bgType: bgIntensity.bgType || null,
+                              converged: bgIntensity.converged === true, certificate: bgIntensity.certificate || null,
+                              effect: bgIntensity.effect || null },
+                weights: _w.slice(), paramMap: structuredClone(paramMap), model: snap, curves, modelSum,
+                chi2: chi, chi2r: chiReduced, rmse, rFactor: sumAbsData === 0 ? null : sumAbsResid / sumAbsData,
+                areas: curves.map(c => _trapezoidArea(c, be)), nVaried, iterations,
+                certificate: state.fitResult.record.certificate, support: verdicts, reportable: false };
+    state.fitResult.seal = _makeSeal({ engine: 'local', producer: options.seal.producer || 'local',
+      R: _sealR(sealStart, options.seal.context, { engine_options: { maxIterations: maxIter } }, options.seal.roi, null),
+      O, D: {}, E: null });
+  }
 
   _applyStatDisplay(state.fitResult);
   document.getElementById('sb-msg').textContent = 'Fit complete (local)';
@@ -14365,7 +14472,8 @@ async function runPropagation() {
 
     // Run local fit
     const roiSt = _roiWindowStatus();    // warn only: the fit below uses getROIData() exactly as before
-    const { be, inten } = getROIData();
+    const { be, inten, idx: roiIdx } = getROIData();
+    const batchCtx = _liveFitContext();   // seal 1c step 3: this target's context, after propagation
     // a background that does not satisfy its statement is never fitted against
     // (background math, 2026-10-01): this target is NOT fitted, and says why
     // and an averaging outside the field's 1–50 is refused, never clamped (owner 2026-10-11)
@@ -14374,7 +14482,8 @@ async function runPropagation() {
     const bgFail = bgR.failure;
     const bgI = bgR.bg || new Array(be.length).fill(NaN);
     const bgSub = inten.map((v, idx) => v - bgI[idx]);
-    const outcome = bgFail ? { success: false, message: bgFail } : runFitLocal(be, bgSub, bgI);
+    const outcome = bgFail ? { success: false, message: bgFail }
+      : runFitLocal(be, bgSub, bgI, { seal: { producer: 'batch', context: batchCtx, roi: { idx: roiIdx, be, inten } } });
 
     // Sync result back to record
     tabManager._syncActiveToRecord();

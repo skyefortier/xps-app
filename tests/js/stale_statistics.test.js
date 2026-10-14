@@ -405,7 +405,7 @@ test('Auto-Fit discards (and rolls back) a response when the model or context wa
       uploadToBackend: async () => { if (editDuringUpload) document.getElementById('bg-type').value = 'linear'; return 'sid'; },
       fetch: async () => ({ text: async () => JSON.stringify({ success: true, statistics: { reduced_chi_square: 1 }, fitted_y: [10, 20, 10], residuals: [0, 0, 0] }) }),
       applyBackendResult: () => { out.applied++; }, applyAutoFitResult: () => true, _autoFitAnchorRefusal: () => null, _autoFitPublish: () => true, _autoFitBusyBegin() {}, _autoFitBusyLabel() {}, _autoFitBusyEnd() {} };
-    const src = constants + '\n' + ['runAutoFitC1sGraphite', '_autoFitRequest', '_buildFitRequest', '_liveFitContext', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey'].map(extractFn).join('\n');
+    const src = constants + '\n' + ['runAutoFitC1sGraphite', '_autoFitRequest', '_buildFitRequest', '_liveFitContext', '_sealR', '_makeSeal', '_deepFreeze', '_pageIdentity', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey'].map(extractFn).join('\n');
     await new Function(...Object.keys(pollify(deps)), src + '\n' + POLL_SRC + '\nreturn runAutoFitC1sGraphite;')(...Object.values(deps))();
     return out;
   };
@@ -455,7 +455,7 @@ test('F2: Auto-Fit on a 200 reply containing NaN fails closed with the reply mes
     peakToBackendSpec: p => ({ ...p }), _getManualAnchors: () => [], uploadToBackend: async () => 'sid',
     fetch: async () => ({ text: async () => '{"success": true, "statistics": {"reduced_chi_square": NaN}}' }),
     applyBackendResult: () => { out.applied++; }, applyAutoFitResult: () => true, _autoFitAnchorRefusal: () => null, _autoFitPublish: () => true, _autoFitBusyBegin() {}, _autoFitBusyLabel() {}, _autoFitBusyEnd() {}, console: { warn() {} } };
-  const src = constants + '\n' + ['runAutoFitC1sGraphite', '_autoFitRequest', '_buildFitRequest', '_liveFitContext', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey'].map(extractFn).join('\n');
+  const src = constants + '\n' + ['runAutoFitC1sGraphite', '_autoFitRequest', '_buildFitRequest', '_liveFitContext', '_sealR', '_makeSeal', '_deepFreeze', '_pageIdentity', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey'].map(extractFn).join('\n');
   await new Function(...Object.keys(pollify(deps)), src + '\n' + POLL_SRC + '\nreturn runAutoFitC1sGraphite;')(...Object.values(deps))();
   assert.strictEqual(out.applied, 0);
   assert.strictEqual(out.restored, true);
@@ -482,7 +482,7 @@ for (const [label, reply, expect] of [
     peakToBackendSpec: p => ({ ...p }), _getManualAnchors: () => [], uploadToBackend: async () => 'sid',
     fetch: async () => reply,
     applyBackendResult: () => { out.applied++; }, applyAutoFitResult: () => true, _autoFitAnchorRefusal: () => null, _autoFitPublish: () => true, _autoFitBusyBegin() {}, _autoFitBusyLabel() {}, _autoFitBusyEnd() {}, console: { warn() {} } };
-  const src = constants + '\n' + ['runAutoFitC1sGraphite', '_autoFitRequest', '_buildFitRequest', '_liveFitContext', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey'].map(extractFn).join('\n');
+  const src = constants + '\n' + ['runAutoFitC1sGraphite', '_autoFitRequest', '_buildFitRequest', '_liveFitContext', '_sealR', '_makeSeal', '_deepFreeze', '_pageIdentity', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey'].map(extractFn).join('\n');
   await new Function(...Object.keys(pollify(deps)), src + '\n' + POLL_SRC + '\nreturn runAutoFitC1sGraphite;')(...Object.values(deps))();
   assert.strictEqual(out.applied, 0);
   assert.strictEqual(out.restored, true);

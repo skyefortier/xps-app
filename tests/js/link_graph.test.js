@@ -44,7 +44,7 @@ test('a link to a peak that is gone, a self-link, a cycle, a link across linesha
 
 test('the request names each peak\'s page lineshape, and every fit path refuses an invalid graph first', () => {
   assert.match(extractFn('peakToBackendSpec'), /frontend_shape: p\.shape,/);
-  assert.match(extractFn('runFit'), /const linkFail = _linkGraphFailure\(opts\.startPeaks \|\| state\.peaks\);[^\n]*\n\s+if \(linkFail\) \{ notify\('Fit not run: ' \+ linkFail, 'red', true\); return; \}\n\s+const \{ be, inten \} = getROIData\(\);/,
+  assert.match(extractFn('runFit'), /const linkFail = _linkGraphFailure\(opts\.startPeaks \|\| state\.peaks\);[^\n]*\n\s+if \(linkFail\) \{ notify\('Fit not run: ' \+ linkFail, 'red', true\); return; \}\n\s+const \{ be, inten, idx \} = getROIData\(\);/,
     'Run Fit and Use this solution: before the background, the undo entry and any request');
   assert.match(extractFn('runFitLocal'), /\{ const linkFail = _linkGraphFailure\(work\); if \(linkFail\) return fail\(linkFail\); \}/, 'the local engine');
   assert.match(extractFn('runPropagation'), /const batchLinkFail = _linkGraphFailure\(state\.peaks\);[^\n]*\n\s+if \(batchLinkFail\) \{ notify\('Batch fit not run: ' \+ batchLinkFail, 'red', true\); return; \}/,

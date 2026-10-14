@@ -379,10 +379,14 @@ test("runFitLocal hides only its caller's spinner: Batch Fit (no operation) neve
   const src = extractFn('runFitLocal');
   assert.ok(!/_hideFitSpinner\(\)/.test(src), 'no unowned hide inside runFitLocal');
   assert.match(src, /const hideSpinner = \(\) => \{ if \(options\.spinnerOp\) _hideFitSpinnerFor\(options\.spinnerOp\); \};/);
-  assert.match(extractFn('runFit'), /runFitLocal\(be, bgSubtracted, bgIntensity, \{ spinnerOp: fitOp \}\)/, "Run Fit's fallback passes its operation");
+  assert.match(extractFn('runFit'), /runFitLocal\(be, bgSubtracted, bgIntensity, \{ spinnerOp: fitOp,/, "Run Fit's fallback passes its operation");
   // (since 2026-10-01 behind the background's convergence check: `bgFail ? {...} : runFitLocal(...)`)
-  const batchCall = html.match(/const outcome = (?:bgFail \? \{[^}]*\} : )?runFitLocal\(([^)]*)\);/);
-  assert.ok(batchCall && batchCall[1] === 'be, bgSub, bgI', 'Batch Fit passes no operation: ' + (batchCall && batchCall[1]));
+  // (since seal 1c step 3 it also passes its seal inputs: `runFitLocal(be, bgSub, bgI, { seal: {...} })` — never an operation)
+  const at = html.indexOf('const outcome = bgFail ? { success: false, message: bgFail }');
+  assert.ok(at > 0, 'Batch Fit\'s call');
+  const batchCall = html.slice(at, html.indexOf(');\n', at) + 2);
+  assert.match(batchCall, /runFitLocal\(be, bgSub, bgI(?:, \{ seal: )?/, 'Batch Fit calls the local engine on its target');
+  assert.ok(!/spinnerOp/.test(batchCall), 'Batch Fit passes no operation: ' + batchCall);
   // behaviour on the failure path (invalid data returns before any fitting)
   for (const [label, opts, owned, want] of [['Batch Fit (no op)', {}, 'RUN', 0], ['another op', { spinnerOp: 'B' }, 'RUN', 0], ['its own op', { spinnerOp: 'RUN' }, 'RUN', 1]]) {
     let hides = 0, spinnerOp = owned;

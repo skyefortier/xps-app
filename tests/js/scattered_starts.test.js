@@ -251,7 +251,8 @@ test('wiring: the trigger is decided with the other request inputs, BEFORE the f
   const runFit = extractFn('runFit');
   // seal 1c step 2: decided by the one request builder, on the snapshot the request is built from, and the
   // request is built before the first await
-  const decided = runFit.indexOf("const reqBody = _buildFitRequest(opts.startPeaks ? 'useSolution' : 'runFit', pageModel, _liveFitContext(), be);");
+  const decided = runFit.indexOf("const reqBody = _buildFitRequest(producer, pageModel, fitCtx, be);");
+  assert.ok(runFit.indexOf('const fitCtx = _liveFitContext();') > 0 && runFit.indexOf('const fitCtx = _liveFitContext();') < decided);
   assert.ok(decided > 0);
   assert.ok(decided < runFit.indexOf('await uploadToBackend('), 'a tab switch during the upload must not turn the check off');
   assert.match(extractFn('_buildFitRequest'), /n_starts: _startsUnlinkedCount\(pageModel\) >= 2 \? _STARTS_N : 0/);
