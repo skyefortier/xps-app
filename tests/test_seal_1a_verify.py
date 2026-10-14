@@ -500,11 +500,13 @@ def test_parameters_that_cannot_be_evaluated_are_a_mismatch_never_a_500(client, 
     assert v["state"] == "mismatch", v
 
 
-def test_an_inline_array_beyond_any_float_is_a_400(client, sealed):
+def test_an_inline_array_beyond_any_float_is_unconfirmed_never_a_500(client, sealed):
+    # a JSON number no finite float represents: the saved data cannot be read exactly (round 7c's rule for R)
     R, O = sealed
     for key in ("energies", "counts"):
         bad = {**R, key: [10 ** 400] + R[key][1:]}
-        assert client.post("/api/verify-fit", json={"R": bad, "O": O}).status_code == 400
+        v = _verify(client, bad, O)
+        assert v["state"] == "unconfirmed" and v["check"] == "non_finite", v
 
 
 def test_an_error_inside_the_verifier_is_unconfirmed_never_a_500(client, sealed, monkeypatch):
@@ -563,3 +565,38 @@ def test_an_infinite_bound_is_an_open_side_and_verifies(client):
     x, y, specs = SS._well_posed()
     R, O = _seal(client, x, y, [{**specs[0], "shape": "gaussian", "amplitude_max": 1e400}], background={"method": "none"})
     _consistent(client, R, O)
+
+
+def test_the_saved_data_are_read_as_saved(client):
+    # Codex round 7c: R's arrays were converted before comparison — an integer that rounds to O's value, or
+    # numeric strings, read consistent
+    R, O = _big_seal(client)
+    _consistent(client, R, O)
+    honest = R["counts"][0]
+    assert float(int(honest) + 1) == honest
+    R2 = copy.deepcopy(R); R2["counts"][0] = int(honest) + 1
+    v = _verify(client, R2, O)
+    assert v["state"] == "unconfirmed" and v["check"] == "non_finite", v
+    R3 = copy.deepcopy(R); R3["counts"][0] = int(honest)                    # the same number as an integer
+    _consistent(client, R3, O)
+    for key in ("counts", "energies"):
+        R4 = copy.deepcopy(R); R4[key] = [repr(v) for v in R[key]]
+        assert client.post("/api/verify-fit", json={"R": R4, "O": O}).status_code == 400
+
+
+@pytest.mark.parametrize("method", ["leastsq", "least_squares", "nelder"])
+def test_a_start_the_fit_cannot_evaluate_has_no_consistent_record(client, method):
+    # Codex round 7c: a finite start the fit's first evaluation overflows on (the routes answer 422) paired with
+    # an honest record read consistent once the record's values replaced the start
+    x = np.linspace(280.0, 290.0, 101)
+    y = 20.0 + 300.0 / (1.0 + ((x - 285.0) / 0.5) ** 2)
+    specs = [{"id": 1, "shape": "lorentzian", "center": 285.0, "amplitude": 280.0, "fwhm": 1.0,
+              "fwhm_min": None, "fwhm_max": None}]
+    R, O = _seal(client, x, y, specs, background={"method": "none"}, fit_method=method, seed=12345)
+    _consistent(client, R, O)
+    R2 = copy.deepcopy(R)
+    R2["request"]["peaks"][0]["fwhm"] = 1e160
+    sid = _upload(client, x, y)
+    assert client.post("/api/fit", json={**R2["request"], "session_id": sid}).status_code == 422
+    v = _verify(client, R2, O)
+    assert v["state"] == "mismatch" and v["check"] == "request", v

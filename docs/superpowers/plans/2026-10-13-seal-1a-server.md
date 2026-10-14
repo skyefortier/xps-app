@@ -142,3 +142,12 @@ both labelled "GL" now names the backend shapes (bfca83a).
 - The non-finite request check runs before the parameters are built (an infinite centre was refused
   as a mismatch first).
 - The docs say exactly what Q7 exempts: the two evaluation identities, not every curve-derived check.
+
+## Round-7c fixes (both runs NO-GO, one MAJOR each; no false stale, no 500)
+
+- R's saved arrays are read as saved: JSON numbers only (a numeric string is the route's 400), each
+  exactly a finite float, else `unconfirmed` — never rounded into agreement with O.
+- The verifier performs the fit's FIRST step, the evaluation of the START model on the fitter's copy
+  (nothing fitted): a start the routes refuse (a Lorentzian fwhm of 1e160 overflows; HTTP 422) has
+  no response — `mismatch / request`.
+- The verifier's docstring states Q7's exact scope.

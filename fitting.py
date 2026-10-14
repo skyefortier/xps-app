@@ -3274,8 +3274,10 @@ def verify_fit(O, *, energy, counts, peak_specs, background_method="shirley", bg
 
     ``{"state": "consistent" | "mismatch" | "unconfirmed", "check", "reason", "software"}``.
     ``unconfirmed`` = it cannot be judged exactly here: O was computed by other software, holds a
-    non-finite number, or a curve-derived check failed on a request with a lineshape that is not
-    evaluated bit-identically (``NOT_BIT_STABLE_SHAPES``, owner Q7). CONSISTENT is consistency under
+    non-finite number, or one of the two EVALUATION identities (a recorded curve / the model sum is this
+    server's evaluation of the parameters) failed on a request with a lineshape that is not evaluated
+    bit-identically (``NOT_BIT_STABLE_SHAPES``, owner Q7); every relation of the recorded arrays stays
+    exact. CONSISTENT is consistency under
     this verifier's code, not acceptance: ``success``, ``message``, the σ, ``certificate``,
     ``starts`` and ``required`` are the producer's statements, shown AS RECORDED (option (b),
     owner 2026-10-11) — a re-run is what tests them."""
@@ -3354,6 +3356,15 @@ def _verify(O, *, energy, counts, peak_specs, background_method, bg_start_idx, b
         params = copy.deepcopy(start_params)
     except Exception as exc:
         raise _Mismatch("request", f"the request is not one a fit accepts: {exc}")
+    # the fit's first step evaluates the START model (Model.fit, before any optimisation): a start that cannot be
+    # evaluated (a Lorentzian fwhm of 1e160 overflows) is refused by the fit routes, so it has no response
+    # (Codex round 7c). Evaluated on the fitter's copy, nothing fitted.
+    try:
+        with np.errstate(all="ignore"):
+            composite_model.eval(copy.deepcopy(params), x=energy)
+    except Exception as exc:
+        raise _Mismatch("request", f"the request's starting model cannot be evaluated ({type(exc).__name__}): "
+                                   f"no fit has this response")
     x, y, n = energy, counts, len(energy)
     unstable = sorted({s.get("shape", "pseudo_voigt_gl") for s in peak_specs} & NOT_BIT_STABLE_SHAPES)
 

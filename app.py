@@ -1396,14 +1396,18 @@ def _register_routes(app: Flask) -> None:
         req = R.get("request")
         if not isinstance(req, dict):
             return _err("R.request must be the fit request object")
-        try:
-            energy = np.asarray(R.get("energies"), dtype=float)
-            counts = np.asarray(R.get("counts"), dtype=float)
-            if energy.ndim != 1 or counts.shape != energy.shape or not np.all(np.isfinite(energy)) \
-                    or not np.all(np.isfinite(counts)):
-                raise ValueError
-        except (TypeError, ValueError, OverflowError):
+        # R's arrays as SAVED — JSON numbers, read before any conversion (Codex round 7c: a numeric string, or an
+        # integer that rounds to O's value, read consistent once converted)
+        raw_e, raw_c = R.get("energies"), R.get("counts")
+        if not isinstance(raw_e, list) or not isinstance(raw_c, list) or len(raw_e) != len(raw_c) or not raw_e \
+                or not all(fitting._is_number(v) for v in raw_e + raw_c):
             return _err("R.energies and R.counts must be equal-length arrays of finite numbers")
+        if any(fitting._exact_float(v) is None or not np.isfinite(fitting._exact_float(v)) for v in raw_e + raw_c):
+            return jsonify({"state": "unconfirmed", "check": "non_finite",
+                            "reason": "the saved data hold a number no finite float represents; it cannot be verified exactly",
+                            "software": fitting.SOFTWARE})
+        energy = np.asarray(raw_e, dtype=float)
+        counts = np.asarray(raw_c, dtype=float)
         def mismatch(reason):
             return jsonify({"state": "mismatch", "check": "request", "reason": reason, "software": fitting.SOFTWARE})
         try:
