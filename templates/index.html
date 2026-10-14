@@ -7108,7 +7108,8 @@ function _applyProjected(livePeaks, projected, O) {
     const q = projected.find(x => x.id === Number(ip.id)) || projected.find(x => x.id === ip.id);
     if (!p || !q) continue;
     for (const name of Object.keys(ip.params)) {
-      for (const k of (Object.hasOwn(_PARAM_FIELDS, name) ? _PARAM_FIELDS[name] : [])) if (p[k] !== q[k]) p[k] = q[k];
+      // Object.is, not !==: a -0 / +0 change is applied as the old loop applied it (Codex step 2 round 2)
+      for (const k of (Object.hasOwn(_PARAM_FIELDS, name) ? _PARAM_FIELDS[name] : [])) if (!Object.is(p[k], q[k])) p[k] = q[k];
     }
     p._backendParams = structuredClone(q._backendParams);
   }

@@ -195,3 +195,15 @@ test('_sameModel compares fields, not JSON text: NaN is not null, key order does
   assert.ok(!S._sameModel([{ id: 1, c: [1, 2] }], [{ id: 1, c: { 0: 1, 1: 2 } }]));
   assert.ok(!S._sameModel([{ id: 1 }], [{ id: 1, extra: undefined }]));
 });
+
+
+test('a signed-zero change is applied exactly as the old application (Codex step 2 round 2)', () => {
+  for (const [start, fitted] of [[-0, 0], [0, -0]]) {
+    const model = [{ id: 1, shape: 'Gaussian', center: start, fwhm: 1, amplitude: 10 }];
+    const O = { individual_peaks: [{ id: '1', params: { center: par(fitted), amplitude: par(10), fwhm: par(1) } }] };
+    const before = structuredClone(model); applyLikeBefore(before, O);
+    const live = structuredClone(model); S._applyProjected(live, S.project(model, O), O);
+    assert.ok(Object.is(live[0].center, before[0].center) && Object.is(live[0].center, fitted), `${start} -> ${fitted}`);
+    assert.ok(S._sameModel(live, before));
+  }
+});
