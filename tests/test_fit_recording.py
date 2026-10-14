@@ -58,7 +58,8 @@ def test_the_response_records_method_seed_background_certificate_and_software(bg
     sw = r["software"]
     assert sw == {"git_commit": sw["git_commit"], "git_dirty": sw["git_dirty"], "python": platform.python_version(),
                   "numpy": np.__version__, "scipy": scipy.__version__, "lmfit": lmfit.__version__,
-                  "numerics": fitting.NUMERICS_VERSION, "seed_derivation": "xps-fit-seed-v2"}
+                  "numerics": fitting.NUMERICS_VERSION, "seed_derivation": "xps-fit-seed-v2",
+                  "env_sha256": fitting._env_sha256()}      # the installed environment (seal 1a′)
     assert fitting.fit_record(r) == {k: r[k] for k in fitting.RECORD_KEYS}
     assert isinstance(sw["git_commit"], str) and len(sw["git_commit"]) == 40 and isinstance(sw["git_dirty"], bool)
 

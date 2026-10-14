@@ -1,0 +1,15 @@
+{"id": "6798d9f6aaf8", "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip", "tab": "U4f Scan_0", "shapes": ["LACX", "Voigt"], "identical": true, "differ": [], "added": [], "removed": []}
+{"id": "02b3907459f1", "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip", "tab": "U4f Scan_6", "shapes": ["LACX", "Voigt"], "identical": false, "differ": ["individual_peaks"], "added": [], "removed": []}
+{"id": "63984b13bba4", "project": "4-GTA UCl4-BN.proj.zip", "tab": "U4f Scan_1", "shapes": ["LACX", "Voigt", "asym-GL"], "identical": false, "differ": ["individual_peaks"], "added": [], "removed": []}
+{"id": "c270a276c09a", "project": "4-GTA UCl4-BN.proj.zip", "tab": "U4f Scan_8", "shapes": ["LACX", "Voigt", "asym-GL"], "identical": true, "differ": [], "added": [], "removed": []}
+{"id": "574ece1ffb18", "project": "8-JT Graphite.proj.zip", "tab": "C1s Scan_4", "shapes": ["GL", "asym-GL"], "identical": false, "differ": ["certificate", "fitted_y", "individual_peaks", "residuals", "statistics"], "added": [], "removed": []}
+{"id": "d3f78df20301", "project": "8-JT Graphite.proj.zip", "tab": "C1s Scan_5", "shapes": ["GL", "asym-GL"], "identical": false, "differ": ["certificate", "fitted_y", "individual_peaks", "residuals", "statistics"], "added": [], "removed": []}
+{"id": "890b08d6576d", "project": "8-JT Graphite.proj.zip", "tab": "C1s Scan_6", "shapes": ["GL", "asym-GL"], "identical": false, "differ": ["certificate", "fitted_y", "individual_peaks", "residuals", "statistics"], "added": [], "removed": []}
+{"id": "8fd67742c144", "project": "B4C-UCl4.proj.zip", "tab": "U4f Scan_7", "shapes": ["LACX", "Voigt"], "identical": false, "differ": ["individual_peaks"], "added": [], "removed": []}
+{"id": "f562abf3e911", "project": "Cl2p_projfit_test.proj.zip", "tab": "U4f Scan", "shapes": ["LACX", "Voigt"], "identical": false, "differ": ["certificate", "fitted_y", "individual_peaks", "residuals", "statistics"], "added": [], "removed": []}
+{"id": "81c4c43afcae", "project": "Cl2p_projfit_test.proj.zip", "tab": "U4f Scan_0", "shapes": ["LACX", "Voigt"], "identical": false, "differ": ["individual_peaks"], "added": [], "removed": []}
+{"id": "ac030a078000", "project": "Cl2p_projfit_test.proj.zip", "tab": "U4f Scan_2", "shapes": ["LACX", "Voigt"], "identical": true, "differ": [], "added": [], "removed": []}
+{"id": "2fb4550e5db8", "project": "Cl2p_projfit_test.proj.zip", "tab": "U4f Scan_3", "shapes": ["LACX", "Voigt"], "identical": true, "differ": [], "added": [], "removed": []}
+{"id": "58e6dcb51ccc", "project": "Cl2p_projfit_test.proj.zip", "tab": "U4f Scan_4", "shapes": ["LACX", "Voigt"], "identical": false, "differ": ["individual_peaks"], "added": [], "removed": []}
+{"id": "edf39ecb66ce", "project": "UCl4_on_graphite.proj.zip", "tab": "C1s Scan_4", "shapes": ["GL", "asym-GL"], "identical": false, "differ": ["fitted_y", "individual_peaks", "residuals", "statistics"], "added": [], "removed": []}
+{"id": "005c6346813e", "project": "UCl4_on_graphite.proj.zip", "tab": "U4f Scan_8", "shapes": ["LACX", "Voigt"], "identical": true, "differ": [], "added": [], "removed": []}

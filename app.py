@@ -20,6 +20,7 @@ REST API
 POST /api/upload            Upload a data file; returns session_id + preview data
 POST /api/background        Compute background for a session
 POST /api/fit               Run peak fitting; returns full result
+POST /api/verify-fit        Recompute a recorded fit from its request; consistent / mismatch / unconfirmed
 GET  /api/peak-shapes       List available lineshape names
 GET  /api/elements          List built‑in spin‑orbit element presets
 GET  /api/xps-reference     Validated periodic-table reference dataset (data/xps/)
@@ -74,7 +75,14 @@ def _prepare_fit_request(app, body):
         energy, counts = _load_session(session_id, app.config["UPLOAD_FOLDER"])
     except KeyError:
         return None, _err(f"Session '{session_id}' not found", 404)
+    return _normalise_fit_request(body, energy, counts)
 
+
+def _normalise_fit_request(body, energy, counts):
+    """The fit request's validation and normalisation with the data EXPLICIT (seal 1a′, V6.2): the
+    fit routes call it after loading the upload, ``/api/verify-fit`` with a sealed request's inline
+    arrays — one reading of a request. ``session_id`` is transport only and is not read here.
+    Returns ``(kwargs_for_run_fit, None)`` or ``(None, error_response)``."""
     # Background config
     bg_cfg = body.get("background", {})
     bg_method = bg_cfg.get("method", "shirley")
@@ -197,6 +205,9 @@ def create_app(upload_folder: str = "uploads", data_folder: str = "data/xps") ->
     app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 MB hard limit
 
     Path(upload_folder).mkdir(parents=True, exist_ok=True)
+    # the digest of each template's source AS COMPILED (seal 1a′, V6.7): Jinja caches a compiled
+    # template per worker, so a file read at render time could name bytes that were not rendered
+    app.jinja_env.loader = _DigestingLoader(app.jinja_env.loader)
 
     logging.basicConfig(
         level=logging.INFO,
@@ -213,6 +224,35 @@ def create_app(upload_folder: str = "uploads", data_folder: str = "data/xps") ->
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
+
+class _DigestingLoader:
+    """Wraps the app's Jinja loader and records the SHA-256 of each template's source each time
+    Jinja (re)loads it — the source the cached compiled template was built from."""
+
+    def __init__(self, inner):
+        self.inner = inner
+        self.digests: dict = {}
+
+    def get_source(self, environment, template):
+        import hashlib
+        source, filename, uptodate = self.inner.get_source(environment, template)
+        self.digests[template] = hashlib.sha256(source.encode("utf-8")).hexdigest()
+        return source, filename, uptodate
+
+    def load(self, environment, name, globals=None):
+        from jinja2 import BaseLoader
+        return BaseLoader.load(self, environment, name, globals)
+
+    def list_templates(self):
+        return self.inner.list_templates()
+
+
+def _reference_sha256(legacy) -> str:
+    """SHA-256 of the reference data injected into a page, as canonical JSON (seal 1a′, V6.7)."""
+    import hashlib
+    canon = json.dumps(legacy, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(canon.encode("utf-8")).hexdigest()
+
 
 def _json_sanitize(obj):
     """Defensive numpy→native + non-finite→None conversion for
@@ -824,7 +864,12 @@ def _register_routes(app: Flask) -> None:
                 legacy = None
             # the software that serves the page (fit recording, owner 2026-10-10): a local-engine
             # fit records it, since the browser has no identity of its own
-            return render_template("index.html", legacy_reference=legacy, software=fitting.SOFTWARE)
+            # and what THIS page was rendered from (seal 1a′, V6.7): the template source as compiled and the
+            # reference data injected — digests of the render's inputs, so the page never hashes itself
+            tmpl = app.jinja_env.get_template("index.html")
+            page = {"page_sha256": app.jinja_env.loader.digests.get("index.html"),
+                    "reference_sha256": _reference_sha256(legacy)}
+            return render_template(tmpl, legacy_reference=legacy, software=fitting.SOFTWARE, page=page)
         if static.exists() and (static / "index.html").exists():
             return send_from_directory(str(static), "index.html")
         return (
@@ -1318,6 +1363,45 @@ def _register_routes(app: Flask) -> None:
         hb = data.get("heartbeat")
         data["heartbeat_age_sec"] = round(time.time() - hb, 1) if isinstance(hb, (int, float)) else None
         return jsonify(data)
+
+    # ── Verification of a recorded fit (seal 1a′; sealed fit record v6, option (b)) ──
+    # {R: {request, energies, counts}, O} → {state: consistent | mismatch | unconfirmed, check,
+    # reason, software}. R.request is the wire body the fit was started with (its session_id is
+    # transport and is not read); energies / counts the uploaded arrays, inline. The request is
+    # normalised by the fit routes' own reader; fitting.verify_fit recomputes O from it, exactly,
+    # and never fits. Consistency under this server's code — acceptance stays as recorded.
+
+    @app.post("/api/verify-fit")
+    @_require_json
+    def verify_fit():
+        body = request.get_json(silent=True)
+        if not isinstance(body, dict) or not isinstance(body.get("R"), dict) or "O" not in body:
+            return _err("request body must be {R: {request, energies, counts}, O}")
+        R = body["R"]
+        req = R.get("request")
+        if not isinstance(req, dict):
+            return _err("R.request must be the fit request object")
+        try:
+            energy = np.asarray(R.get("energies"), dtype=float)
+            counts = np.asarray(R.get("counts"), dtype=float)
+            if energy.ndim != 1 or counts.shape != energy.shape or not np.all(np.isfinite(energy)) \
+                    or not np.all(np.isfinite(counts)):
+                raise ValueError
+        except (TypeError, ValueError):
+            return _err("R.energies and R.counts must be equal-length arrays of finite numbers")
+        def mismatch(reason):
+            return jsonify({"state": "mismatch", "check": "request", "reason": reason, "software": fitting.SOFTWARE})
+        try:
+            fit_args, error = _normalise_fit_request(req, energy, counts)
+        except Exception as exc:                       # a request the fit routes could not have read
+            return mismatch(f"the request is not one a fit accepts: {exc}")
+        if error is not None:
+            return mismatch("the request is not one a fit accepts: " + error[0].get_json()["error"])
+        try:
+            return jsonify(fitting.verify_fit(body["O"], **fit_args))
+        except Exception:
+            app.logger.exception("verification failed")
+            return _err("Internal verification error — see server log.", 500)
 
     # ── Long fits via start-then-poll (unit 2, 2026-09-27) ───────────────────
     # The public URL ends a proxied request at ~100 s (Cloudflare 524; 88 s

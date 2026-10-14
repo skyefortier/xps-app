@@ -43,8 +43,9 @@ SEED_TAG = "xps-fit-seed-v2"                      # _request_seed's derivation t
 # The version of the NUMERICS: bumped whenever a change can move a fitted number for the same
 # request (the background arithmetic, the optimiser path, the certificate, the seed derivation).
 # Recorded with every fit (owner 2026-10-10). History: "2026-10-09" — background math
-# (levels-only averaging, certified backgrounds, full-precision upload, seed v2), deployed then.
-NUMERICS_VERSION = "2026-10-09"
+# (levels-only averaging, certified backgrounds, full-precision upload, seed v2), deployed then;
+# "2026-10-13" — the reported statistics formed from the returned arrays (seal 1a′, V6.6).
+NUMERICS_VERSION = "2026-10-13"
 # The fields every fit response RECORDS (owner 2026-10-10); fit_record() copies them.
 RECORD_KEYS = ("fit_method", "random_seed", "seed_source", "background_verdict", "certificate", "software")
 
@@ -55,28 +56,48 @@ def fit_record(res: dict) -> dict:
     return {k: res.get(k) for k in RECORD_KEYS}
 
 
-def _software_identity() -> dict[str, Any]:
-    """The code that computes a fit, read ONCE at import — so it names what this worker process
-    loaded, not what is on disk later (fit recording, owner 2026-10-10): the git commit of
-    this checkout and whether tracked files differed from it, and the numerical libraries.
-    Recorded only; nothing reads it to decide anything."""
-    import os
-    import platform
+def _git_state(here):
+    """``(commit, dirty)`` of the checkout at ``here``: dirty when a tracked file differs from the
+    commit OR an untracked file is present (seal 1a′, V6.7: an untracked module can be imported, so
+    a checkout with one is not the commit). ``(None, None)`` when it is not a git checkout."""
     import subprocess
-    import lmfit
-    import scipy
-    here = os.path.dirname(os.path.abspath(__file__))
-    commit = dirty = None
     try:
         commit = subprocess.run(["git", "-C", here, "rev-parse", "HEAD"], capture_output=True, text=True,
                                 timeout=10, check=True).stdout.strip() or None
-        dirty = bool(subprocess.run(["git", "-C", here, "status", "--porcelain", "--untracked-files=no"],
+        dirty = bool(subprocess.run(["git", "-C", here, "status", "--porcelain"],
                                     capture_output=True, text=True, timeout=10, check=True).stdout.strip())
     except Exception:                                      # no git, not a checkout: said as null
-        commit = dirty = None
+        return None, None
+    return commit, dirty
+
+
+def _env_sha256():
+    """SHA-256 of the installed distributions, one ``name==version`` line each, sorted — the
+    environment's identity (seal 1a′, V6.7; a lockfile's, not an execution proof)."""
+    import hashlib
+    from importlib import metadata
+    lines = sorted(f"{d.metadata['Name']}=={d.version}" for d in metadata.distributions())
+    return hashlib.sha256("\n".join(lines).encode()).hexdigest()
+
+
+def _software_identity() -> dict[str, Any]:
+    """The code that computes a fit, read ONCE at import — so it names what this worker process
+    loaded, not what is on disk later (fit recording, owner 2026-10-10): the git commit of
+    this checkout and whether it differed from it (tracked or untracked files, seal 1a′), the
+    numerical libraries and the installed environment's digest. Recorded; the verification
+    (``/api/verify-fit``) compares it whole with the fit's."""
+    import os
+    import platform
+    import lmfit
+    import scipy
+    commit, dirty = _git_state(os.path.dirname(os.path.abspath(__file__)))
+    try:
+        env = _env_sha256()
+    except Exception:
+        env = None
     return {"git_commit": commit, "git_dirty": dirty, "python": platform.python_version(),
             "numpy": np.__version__, "scipy": scipy.__version__, "lmfit": lmfit.__version__,
-            "numerics": NUMERICS_VERSION, "seed_derivation": SEED_TAG}
+            "numerics": NUMERICS_VERSION, "seed_derivation": SEED_TAG, "env_sha256": env}
 
 
 SOFTWARE = _software_identity()
@@ -2369,55 +2390,9 @@ def _component_required(fit_reduced, params_full, removed_prefixes, y_sub, weigh
 # Main fitting API
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _run_fit_impl(
-    energy: np.ndarray,
-    counts: np.ndarray,
-    peak_specs: list[dict[str, Any]],
-    background_method: str = "shirley",
-    bg_start_idx: int | None = None,
-    bg_end_idx: int | None = None,
-    charge_shift_ev: float = 0.0,
-    fit_kws: dict | None = None,
-    n_perturb: int = 0,
-    manual_bg: list | None = None,
-    endpoint_avg: int = 1,
-    n_starts: int = 0,
-    require_component=None,
-) -> dict[str, Any]:
-    """
-    Run XPS peak fitting and return a serialisable result dict.
-
-    Parameters
-    ----------
-    energy            : 1‑D array of binding energies (eV)
-    counts            : 1‑D array of intensities (counts / CPS)
-    peak_specs        : list of peak specification dicts (see _make_peak_params)
-    background_method : 'shirley' | 'linear' | 'none'
-    bg_start_idx      : slice start for background region (None → 0)
-    bg_end_idx        : slice end for background region   (None → len)
-    charge_shift_ev   : shift to apply to energy axis before fitting
-    fit_kws           : extra kwargs forwarded to lmfit minimize
-
-    Returns
-    -------
-    dict with keys: energy, fitted_y, background_y, residuals,
-                    individual_peaks, statistics, charge_shift_applied, success
-    """
-    # One computation dtype: the weights are a function of the counts AND of
-    # the precision they are held in (float32 counts give weights that differ
-    # at 1e-8 and a different fit), and the seed hashes float64.
-    energy = np.asarray(energy, dtype=float)
-    counts = np.asarray(counts, dtype=float)
-    if len(energy) != len(counts):
-        raise ValueError("energy and counts must have the same length")
-    if not peak_specs:
-        raise ValueError("At least one peak specification is required")
-    # Reject self/cyclic spin-orbit constraints before building lmfit exprs (F11)
-    _validate_constraint_graph(peak_specs)
-
-    # Apply charge correction
-    energy = energy + charge_shift_ev
-
+def _normalise_fit_kws(fit_kws):
+    """``(fit_kws, caller_seed, method)``: the method case-folded and checked, a caller's seed taken
+    out of the solver options and checked. Shared by ``run_fit`` and the verification (seal 1a′)."""
     fit_kws = dict(fit_kws or {})
     method = str(fit_kws.get("method", "leastsq")).lower()
     if method not in _FIT_METHODS:
@@ -2434,8 +2409,14 @@ def _run_fit_impl(
             isinstance(caller_seed, (bool, np.bool_)) or not isinstance(caller_seed, (int, np.integer))
             or not 0 <= int(caller_seed) < 2 ** 32):
         raise ValueError("fit_kws.fit_kws.seed must be an integer in [0, 2**32)")
-    endpoint_avg = check_endpoint_avg(endpoint_avg)
+    return fit_kws, caller_seed, method
 
+
+def _assemble_background(energy, counts, background_method, bg_start_idx, bg_end_idx, endpoint_avg, manual_bg):
+    """run_fit's WHOLE background over the fitted region (seal 1a′, V6.5: one function, called by
+    ``run_fit`` and by the verification): the window normalisation, every method, the flat hold
+    beyond the window, and the background BY ITS EFFECT. Returns ``(bg, bg_cert, bg_effect,
+    bg_method)``; raises ``BackgroundNotConverged`` / ``ValueError`` exactly as the fit did."""
     # The fit runs on the ENTIRE incoming ROI; bg_start_idx / bg_end_idx
     # narrow only the anchor window used to construct the background
     # curve. Reusing the slice for both was the bug where putting bg
@@ -2525,20 +2506,16 @@ def _run_fit_impl(
             if i1 < len(y):
                 bg[i1:] = bg_inner[-1]
 
-    y_sub = y - bg
     # the background BY ITS EFFECT — one reading, for the seed and for the recorded verdict;
     # taken once the background exists (its anchors have been checked: a malformed one refuses
     # the fit above, never here)
     bg_effect = _background_effect(background_method, len(y), i0, i1, endpoint_avg, manual_bg)
+    return bg, bg_cert, bg_effect, bg_method
 
-    # Poisson weights: σ = √(raw counts), weight = 1/σ
-    # Use raw counts (before background subtraction) for uncertainty estimate,
-    # since the noise comes from the total photon counting statistics.
-    # Floor at 1.0 to avoid division by zero for zero-count channels.
-    sigma = np.sqrt(np.maximum(y, 1.0))
-    weights = 1.0 / sigma
 
-    # ── Build composite lmfit model ───────────────────────────────────────────
+def _build_model(peak_specs):
+    """``(ordered, composite_model, all_params)``: the lmfit model of a request, masters first —
+    the fit's own construction, shared with the verification (seal 1a′)."""
     # Sort so unconstrained (master) peaks come before constrained ones
     ordered = sorted(
         peak_specs,
@@ -2561,6 +2538,76 @@ def _run_fit_impl(
 
     if composite_model is None:
         raise RuntimeError("No peaks were built")
+    return ordered, composite_model, all_params
+
+
+def _run_fit_impl(
+    energy: np.ndarray,
+    counts: np.ndarray,
+    peak_specs: list[dict[str, Any]],
+    background_method: str = "shirley",
+    bg_start_idx: int | None = None,
+    bg_end_idx: int | None = None,
+    charge_shift_ev: float = 0.0,
+    fit_kws: dict | None = None,
+    n_perturb: int = 0,
+    manual_bg: list | None = None,
+    endpoint_avg: int = 1,
+    n_starts: int = 0,
+    require_component=None,
+) -> dict[str, Any]:
+    """
+    Run XPS peak fitting and return a serialisable result dict.
+
+    Parameters
+    ----------
+    energy            : 1‑D array of binding energies (eV)
+    counts            : 1‑D array of intensities (counts / CPS)
+    peak_specs        : list of peak specification dicts (see _make_peak_params)
+    background_method : 'shirley' | 'linear' | 'none'
+    bg_start_idx      : slice start for background region (None → 0)
+    bg_end_idx        : slice end for background region   (None → len)
+    charge_shift_ev   : shift to apply to energy axis before fitting
+    fit_kws           : extra kwargs forwarded to lmfit minimize
+
+    Returns
+    -------
+    dict with keys: energy, fitted_y, background_y, residuals,
+                    individual_peaks, statistics, charge_shift_applied, success
+    """
+    # One computation dtype: the weights are a function of the counts AND of
+    # the precision they are held in (float32 counts give weights that differ
+    # at 1e-8 and a different fit), and the seed hashes float64.
+    energy = np.asarray(energy, dtype=float)
+    counts = np.asarray(counts, dtype=float)
+    if len(energy) != len(counts):
+        raise ValueError("energy and counts must have the same length")
+    if not peak_specs:
+        raise ValueError("At least one peak specification is required")
+    # Reject self/cyclic spin-orbit constraints before building lmfit exprs (F11)
+    _validate_constraint_graph(peak_specs)
+
+    # Apply charge correction
+    energy = energy + charge_shift_ev
+
+    fit_kws, caller_seed, method = _normalise_fit_kws(fit_kws)
+    endpoint_avg = check_endpoint_avg(endpoint_avg)
+
+    x = energy
+    y = counts
+    bg, bg_cert, bg_effect, bg_method = _assemble_background(
+        x, y, background_method, bg_start_idx, bg_end_idx, endpoint_avg, manual_bg)
+    y_sub = y - bg
+
+    # Poisson weights: σ = √(raw counts), weight = 1/σ
+    # Use raw counts (before background subtraction) for uncertainty estimate,
+    # since the noise comes from the total photon counting statistics.
+    # Floor at 1.0 to avoid division by zero for zero-count channels.
+    sigma = np.sqrt(np.maximum(y, 1.0))
+    weights = 1.0 / sigma
+
+    # ── Build composite lmfit model ───────────────────────────────────────────
+    ordered, composite_model, all_params = _build_model(peak_specs)
     if require_component is not None:
         ids = [str(spec["id"]) for spec in peak_specs]
         if str(require_component) not in ids:
@@ -2870,16 +2917,10 @@ def _run_fit_impl(
             ip["support"]["supported"] = by_id[root]["support"]["supported"]
 
     # ── Statistics ────────────────────────────────────────────────────────────
-    n_data = len(y_sub)
-    n_free = result.nvarys
-    chi_sq = float(result.chisqr) if result.chisqr is not None else None
-    red_chi_sq = float(result.redchi) if result.redchi is not None else None
-
+    # formed from the arrays returned (seal 1a′, V6.6), so the verification recomputes them exactly
+    n_varys = sum(1 for par in result.params.values() if par.vary and par.expr is None)
+    statistics = _fit_statistics(y_sub, fitted_sub, weights, n_varys)
     residuals = (y_sub - fitted_sub).tolist()
-
-    # R‑factor (like in crystallography: sum|obs-calc| / sum|obs|)
-    r_factor = (float(np.sum(np.abs(y_sub - fitted_sub)) / np.sum(np.abs(y_sub)))
-                if np.sum(np.abs(y_sub)) > 0 else None)
 
     success, message = result.success, result.message
     if getattr(result, "box_unverified", False):
@@ -2898,18 +2939,13 @@ def _run_fit_impl(
         "energy": x.tolist(),
         "counts": y.tolist(),
         "fitted_y": fitted_y.tolist(),
+        # the model sum (seal 1a′): fitted_y is fitted_sub + background_y in that association, and
+        # fitted_y − background_y does not recover it exactly
+        "fitted_sub": fitted_sub.tolist(),
         "background_y": bg.tolist(),
         "residuals": residuals,
         "individual_peaks": individual_peaks,
-        "statistics": {
-            "chi_square": chi_sq,
-            "reduced_chi_square": red_chi_sq,
-            "r_factor": r_factor,
-            "n_data": n_data,
-            "n_free_params": n_free,
-            "aic": float(result.aic) if result.aic is not None else None,
-            "bic": float(result.bic) if result.bic is not None else None,
-        },
+        "statistics": statistics,
         "charge_shift_applied": charge_shift_ev,
         "random_seed": random_seed,
         # RECORDING (owner 2026-10-10; additive — nothing here changes a fitted number or decides
@@ -2924,6 +2960,36 @@ def _run_fit_impl(
         # the returned fit's certificate (unit A2): None for differential
         # evolution / basinhopping, whose verdict is their own refinement
         "certificate": _certificate_report(result, peak_specs),
+    }
+
+
+def _fit_statistics(y_sub, fitted_sub, weights, n_varys):
+    """The reported statistics, formed from the returned arrays (seal 1a′, V6.6 — one association):
+    lmfit's denominators and floor, but over ``fitted_sub`` (lmfit's ``best_fit``, a fresh
+    evaluation at the returned parameters) rather than the residual of the minimiser's last
+    evaluation, so ``/api/verify-fit`` recomputes every one exactly from the response.
+
+    chi2_raw = Σ(((y_sub − fitted_sub)·w)²) (NumPy's pairwise sum, as lmfit's ``(residual**2).sum()``);
+    reduced = chi2_raw / max(1, n − n_varys); chi_square = max(chi2_raw, 1e-250·n); aic / bic by
+    lmfit's formulas from that chi_square; rmse = √(Σ r² / n), r = y_sub − fitted_sub; the R-factor
+    Σ|r| / Σ|y_sub| (null when Σ|y_sub| = 0). Every internal decision (restart ranking, the
+    certificate, the scattered starts, the required refit) keeps lmfit's own value."""
+    n = len(y_sub)
+    r = y_sub - fitted_sub
+    chi2_raw = ((r * weights) ** 2).sum()
+    red = chi2_raw / max(1, n - n_varys)
+    chi2 = max(chi2_raw, 1.e-250 * n)
+    n2ll = n * np.log(chi2 / n)
+    denom = np.sum(np.abs(y_sub))
+    return {
+        "chi_square": float(chi2),
+        "reduced_chi_square": float(red),
+        "r_factor": float(np.sum(np.abs(r)) / denom) if denom > 0 else None,
+        "n_data": n,
+        "n_free_params": n_varys,
+        "aic": float(n2ll + 2 * n_varys),
+        "bic": float(n2ll + np.log(n) * n_varys),
+        "rmse": float(np.sqrt(np.sum(r * r) / n)),
     }
 
 
@@ -3022,3 +3088,228 @@ def run_fit(*args, cancel=None, **kwargs):
 
 run_fit.__wrapped__ = _run_fit_impl
 
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Verification of a recorded fit (seal 1a′; sealed fit record v6, option (b))
+# ─────────────────────────────────────────────────────────────────────────────
+# The keys of a fit response, exactly: a recorded O with more or fewer is not a response.
+RESPONSE_KEYS = frozenset({
+    "success", "message", "energy", "counts", "fitted_y", "fitted_sub", "background_y", "residuals",
+    "individual_peaks", "statistics", "charge_shift_applied", "random_seed", "fit_method", "seed_source",
+    "background_verdict", "software", "starts", "required", "certificate"})
+_PEAK_KEYS = frozenset({"id", "shape", "y", "params", "support"})
+_PARAM_KEYS = frozenset({"value", "stderr", "vary", "expr", "min", "max"})
+
+
+class _Mismatch(Exception):
+    def __init__(self, check, reason):
+        super().__init__(reason)
+        self.check, self.reason = check, reason
+
+
+def _as_json(value):
+    """``value`` as a JSON reader of the response holds it (tuples → lists, numpy → Python)."""
+    return json.loads(json.dumps(value, default=lambda o: o.item() if hasattr(o, "item") else o.tolist()))
+
+
+def verify_fit(O, *, energy, counts, peak_specs, background_method="shirley", bg_start_idx=None,
+               bg_end_idx=None, charge_shift_ev=0.0, fit_kws=None, n_perturb=0, manual_bg=None,
+               endpoint_avg=1, n_starts=0, require_component=None) -> dict[str, Any]:
+    """Is the recorded response ``O`` what THIS server's code computes from the request? (seal 1a′,
+    V6.5 step 2; the keyword arguments are ``run_fit``'s, as ``/api/verify-fit`` normalises them.)
+
+    Recomputes — never fits — and compares EXACTLY, no tolerance anywhere: the parameters' roles
+    as the request builds them, every held value, every expression from O's free values, the
+    method, the shift, the seed, the whole background and its verdict, each component's curve and
+    area, the model sum, ``fitted_y`` and the residuals in their associations, the statistics
+    (``_fit_statistics``) and each component's support. ``{"state": "consistent" | "mismatch" |
+    "unconfirmed", "check", "reason", "software"}``. ``unconfirmed`` = O was computed by other
+    software (it cannot be judged here). CONSISTENT is consistency under this verifier's code, not
+    acceptance: ``success``, ``message``, the σ, ``certificate``, ``starts`` and ``required`` are
+    the producer's statements, shown AS RECORDED (option (b), owner 2026-10-11) — a re-run is what
+    tests them."""
+    def answer(state, check=None, reason=""):
+        return {"state": state, "check": check, "reason": reason, "software": SOFTWARE}
+
+    try:
+        if not isinstance(O, dict):
+            raise _Mismatch("schema", "the recorded result is not an object")
+        if O.get("software") != SOFTWARE:
+            return answer("unconfirmed", "software", "computed by different software")
+        _verify(O, energy=energy, counts=counts, peak_specs=peak_specs, background_method=background_method,
+                bg_start_idx=bg_start_idx, bg_end_idx=bg_end_idx, charge_shift_ev=charge_shift_ev, fit_kws=fit_kws,
+                n_perturb=n_perturb, manual_bg=manual_bg, endpoint_avg=endpoint_avg, n_starts=n_starts,
+                require_component=require_component)
+    except _Mismatch as exc:
+        return answer("mismatch", exc.check, exc.reason)
+    return answer("consistent")
+
+
+def _verify(O, *, energy, counts, peak_specs, background_method, bg_start_idx, bg_end_idx, charge_shift_ev,
+            fit_kws, n_perturb, manual_bg, endpoint_avg, n_starts, require_component):
+    if set(O) != RESPONSE_KEYS:
+        extra, missing = sorted(set(O) - RESPONSE_KEYS), sorted(RESPONSE_KEYS - set(O))
+        raise _Mismatch("schema", f"the recorded result's fields differ from a response's (extra {extra}, missing {missing})")
+    if not isinstance(O["success"], bool) or not isinstance(O["message"], str):
+        raise _Mismatch("schema", "success / message are not a flag and a text")
+    for k in ("starts", "required", "certificate"):
+        if O[k] is not None and not isinstance(O[k], dict):
+            raise _Mismatch("schema", f"{k} is neither null nor an object")
+
+    # the request, read as run_fit reads it (a request run_fit refuses has no response)
+    try:
+        energy = np.asarray(energy, dtype=float)
+        counts = np.asarray(counts, dtype=float)
+        if energy.ndim != 1 or len(energy) != len(counts) or not peak_specs:
+            raise ValueError("energy and counts must be one-dimensional, of the same length, with a peak")
+        _validate_constraint_graph(peak_specs)
+        energy = energy + charge_shift_ev
+        fit_kws, caller_seed, method = _normalise_fit_kws(fit_kws)
+        endpoint_avg = check_endpoint_avg(endpoint_avg)
+        if isinstance(n_starts, bool) or not isinstance(n_starts, (int, np.integer)) or not 0 <= n_starts <= MAX_N_STARTS:
+            raise ValueError("n_starts out of range")
+        ordered, composite_model, params = _build_model(peak_specs)
+        if require_component is not None and (str(require_component) not in [str(s["id"]) for s in peak_specs]
+                                              or len(peak_specs) < 2):
+            raise ValueError("require_component is not one of two or more peaks")
+    except _Mismatch:
+        raise
+    except Exception as exc:
+        raise _Mismatch("request", f"the request is not one a fit accepts: {exc}")
+    x, y, n = energy, counts, len(energy)
+
+    def arr(key, src=O, name=None):
+        try:
+            a = np.asarray(src[key], dtype=float)
+        except Exception:
+            raise _Mismatch("schema", f"{name or key} is not an array of numbers")
+        if a.shape != (n,) or not np.all(np.isfinite(a)):
+            raise _Mismatch("schema", f"{name or key} is not {n} finite numbers")
+        return a
+
+    O_energy, O_counts = arr("energy"), arr("counts")
+    if not np.array_equal(O_energy, x) or not np.array_equal(O_counts, y):
+        raise _Mismatch("data", "the recorded energies or counts are not the request's")
+    if O["fit_method"] != method:
+        raise _Mismatch("method", f"recorded method {O['fit_method']!r}, requested {method!r}")
+    if O["charge_shift_applied"] != charge_shift_ev:
+        raise _Mismatch("shift", "the recorded charge shift is not the request's")
+
+    # the background: run_fit's one assembly, on the request's data
+    try:
+        bg, bg_cert, bg_effect, bg_method = _assemble_background(
+            x, y, background_method, bg_start_idx, bg_end_idx, endpoint_avg, manual_bg)
+    except Exception as exc:
+        raise _Mismatch("background", f"the request's background cannot be computed ({exc})")
+    if not np.array_equal(arr("background_y"), bg):
+        raise _Mismatch("background", "the recorded background is not the request's")
+    if O["background_verdict"] != _as_json(_background_verdict(bg_method, bg_cert, bg_effect)):
+        raise _Mismatch("background", "the recorded background verdict is not the request's")
+    y_sub = y - bg
+    weights = 1.0 / np.sqrt(np.maximum(y, 1.0))
+
+    # the seed — from the request's STARTING parameters, before O's values are set
+    if caller_seed is not None:
+        if O["random_seed"] != int(caller_seed) or O["seed_source"] != "caller":
+            raise _Mismatch("seed", "the recorded seed is not the caller's")
+    else:
+        seed = _request_seed(x, y, bg_effect, [s.get("shape", "pseudo_voigt_gl") for s in ordered],
+                             [f"p{s['id']}_" for s in ordered], params, fit_kws=fit_kws, n_perturb=n_perturb)
+        if O["random_seed"] != seed or O["seed_source"] != "request":
+            raise _Mismatch("seed", "the recorded seed is not the one the request derives")
+
+    # each component, in request order, with the parameters the request builds
+    peaks = O["individual_peaks"]
+    if not isinstance(peaks, list) or len(peaks) != len(peak_specs):
+        raise _Mismatch("schema", "one recorded component per requested peak")
+    components = {c.prefix: c for c in composite_model.components}
+    free = []
+    for spec, ip in zip(peak_specs, peaks):
+        if not isinstance(ip, dict) or set(ip) != _PEAK_KEYS:
+            raise _Mismatch("schema", "a recorded component's fields differ from a response's")
+        if _as_json(ip["id"]) != _as_json(spec["id"]) or ip["shape"] != spec.get("shape", "pseudo_voigt_gl"):
+            raise _Mismatch("schema", f"component {spec['id']!r}: the recorded id or lineshape is not the request's")
+        prefix = f"p{spec['id']}_"
+        names = [p for p in params if p.startswith(prefix)]
+        rp = ip["params"]
+        if not isinstance(rp, dict) or set(rp) != {p[len(prefix):] for p in names} | {"area"}:
+            raise _Mismatch("schema", f"component {spec['id']!r}: the recorded parameters are not the model's")
+        for name in names:
+            par, rec = params[name], rp[name[len(prefix):]]
+            if not isinstance(rec, dict) or set(rec) != _PARAM_KEYS:
+                raise _Mismatch("schema", f"{name}: the recorded parameter's fields differ from a response's")
+            v = rec["value"]
+            if isinstance(v, bool) or not isinstance(v, (int, float)) or not np.isfinite(v):
+                raise _Mismatch("schema", f"{name}: the recorded value is not a finite number")
+            if (rec["stderr"] is not None and (isinstance(rec["stderr"], bool) or not isinstance(rec["stderr"], (int, float)))):
+                raise _Mismatch("schema", f"{name}: the recorded uncertainty is not a number or null")
+            lo = float(par.min) if np.isfinite(par.min) else None
+            hi = float(par.max) if np.isfinite(par.max) else None
+            if rec["vary"] is not par.vary or rec["expr"] != par.expr or rec["min"] != lo or rec["max"] != hi:
+                raise _Mismatch("roles", f"{name}: the recorded role (vary / expression / bounds) is not the request's")
+            if par.expr is None and not par.vary:
+                if float(v) != par.value:
+                    raise _Mismatch("held", f"{name}: the recorded held value is not the request's")
+            elif par.expr is None:
+                if not par.min <= float(v) <= par.max:
+                    raise _Mismatch("roles", f"{name}: the recorded value lies outside the request's bounds")
+                free.append((name, float(v)))
+        area = rp["area"]
+        if not isinstance(area, dict) or set(area) != {"value", "stderr"}:
+            raise _Mismatch("schema", f"component {spec['id']!r}: the recorded area's fields differ from a response's")
+
+    n_varys = sum(1 for par in params.values() if par.vary and par.expr is None)
+    if n_varys >= int(np.count_nonzero(np.isfinite(y_sub))):
+        raise _Mismatch("determinacy", "the request is not determined by its data: no fit has this response")
+
+    for name, v in free:
+        params[name].value = v
+    params.update_constraints()
+    for spec, ip in zip(peak_specs, peaks):
+        prefix = f"p{spec['id']}_"
+        for name in params:
+            if name.startswith(prefix) and params[name].expr is not None:
+                if ip["params"][name[len(prefix):]]["value"] != params[name].value:
+                    raise _Mismatch("expressions", f"{name}: the recorded value is not its expression's")
+
+    # the curves, in run_fit's own evaluations and associations
+    fitted_sub = composite_model.eval(params, x=x)
+    comp_ys = []
+    for spec, ip in zip(peak_specs, peaks):
+        prefix = f"p{spec['id']}_"
+        cy = components[prefix].eval(params, x=x)
+        if not np.array_equal(arr("y", ip, f"component {spec['id']!r} curve"), cy):
+            raise _Mismatch("components", f"component {spec['id']!r}: the recorded curve is not its parameters'")
+        if ip["params"]["area"]["value"] != float(abs(trapezoid(cy, x))):
+            raise _Mismatch("components", f"component {spec['id']!r}: the recorded area is not its curve's")
+        comp_ys.append(cy)
+    if not np.array_equal(arr("fitted_sub"), fitted_sub):
+        raise _Mismatch("fitted_sub", "the recorded model sum is not its components'")
+    if not np.array_equal(arr("fitted_y"), fitted_sub + bg):
+        raise _Mismatch("fitted_y", "the recorded fitted curve is not the model sum plus the background")
+    if not np.array_equal(arr("residuals"), y_sub - fitted_sub):
+        raise _Mismatch("residuals", "the recorded residuals are not the data less the background and the model")
+    if O["statistics"] != _as_json(_fit_statistics(y_sub, fitted_sub, weights, n_varys)):
+        raise _Mismatch("statistics", "the recorded statistics are not the ones its arrays give")
+
+    # support, as run_fit forms it (a linked component follows its root)
+    supports = []
+    for spec, cy in zip(peak_specs, comp_ys):
+        prefix = f"p{spec['id']}_"
+        n_free_comp = sum(1 for nm, par in params.items() if nm.startswith(prefix) and par.vary and par.expr is None)
+        supports.append(_component_support(y_sub, fitted_sub, cy, weights, n_free_comp, n_varys))
+    by_id = {str(s["id"]): sup for s, sup in zip(peak_specs, supports)}
+    master_of = {str(s["id"]): s.get("constrain_to") for s in peak_specs}
+    ids = {str(s["id"]): s["id"] for s in peak_specs}
+    for s, sup in zip(peak_specs, supports):
+        pid, seen = str(s["id"]), set()
+        while master_of.get(pid) is not None and str(master_of[pid]) in by_id and pid not in seen:
+            seen.add(pid)
+            pid = str(master_of[pid])
+        if pid != str(s["id"]):
+            sup["follows"] = ids[pid]
+            sup["supported"] = by_id[pid]["supported"]
+    for spec, ip, sup in zip(peak_specs, peaks, supports):
+        if ip["support"] != _as_json(sup):
+            raise _Mismatch("support", f"component {spec['id']!r}: the recorded support is not the one its fit gives")
