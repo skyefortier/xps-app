@@ -42,7 +42,7 @@ function makeEnv({ peaks, starts, confirmAnswer = true, staleKey = false }) {
   const fieldsStart = lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS'));
   const fields = lines.slice(fieldsStart, lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n');
   const src = [constLine('_STARTS_N'), constLine('_STARTS_SHIFT_AMBER_EV'), constLine('_STARTS_TOOLTIP'), constLine('_STARTS_STALE_MSG'), constLine('_UNSUPPORTED_LABEL'), constLine('_UNSUPPORTED_TIP'), fields,
-    'let _historyPreview = null; const document = { querySelectorAll: () => [] };', ...FNS.map(extractFn)].join('\n');
+    'let _historyPreview = null; const document = { querySelectorAll: () => [] };', ...FNS.map(extractFn), require('./_seal_readers.js')(extractFn)].join('\n');
   const factory = new Function('state', 'getPeak', '_escHtml', 'confirm', 'pushUndo', 'runFit', 'notify', 'updatePlot',
     'renderPeakList', '_updateLocalModelBanner', '_historyClearPreview', 'tabManager', '_getManualAnchors',
     src + '\nreturn { ' + FNS.join(', ') + ', preview: () => _historyPreview, clear: () => { _historyPreview = null; } };');

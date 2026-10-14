@@ -42,7 +42,7 @@ function makeEnv({ cert, stale = false }) {
   const ui = { bgType: 'shirley', bgStart: '281.0', bgEnd: '294.0', shirleyIter: '5', endpointAvg: '3', roiMin: '280', roiMax: '295' };
   const fieldsStart = lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS'));
   const fields = lines.slice(fieldsStart, lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n');
-  const src = [constStmt('_STARTS_SHIFT_AMBER_EV'), fields, ...FNS.map(extractFn)].join('\n');
+  const src = [constStmt('_STARTS_SHIFT_AMBER_EV'), fields, ...FNS.map(extractFn), require('./_seal_readers.js')(extractFn)].join('\n');
   const api = new Function('state', 'getPeak', '_escHtml', '_escAttr', 'tabManager', '_getManualAnchors',
     src + '\nreturn { ' + FNS.join(', ') + ', TIP: _certificateMoveTip() };')(
     state, id => peaks.find(p => String(p.id) === String(id)),

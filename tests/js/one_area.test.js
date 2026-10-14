@@ -45,7 +45,7 @@ test('the page\'s trapezoid is scipy\'s, bit for bit, on every grid shape', () =
 test('the one grid: the fit\'s own energies while it is current (a restored fit\'s _modelBe first), else the live ROI grid', () => {
   const run = (fitResult, stats) => {
     const state = { fitResult, rawBE: [1, 2, 3] };
-    return new Function('state', '_statsLiveState', 'getROIData', extractFn('_areaGrid') + '\nreturn _areaGrid;')(
+    return new Function('state', '_statsLiveState', 'getROIData', extractFn('_areaGrid') + '\n' + require('./_seal_readers.js')(extractFn) + '\nreturn _areaGrid;')(
       state, () => stats, () => ({ be: ['ROI'] , inten: [] }))();
   };
   assert.deepStrictEqual(run({ be: [1, 2, 3] }, 'current'), [1, 2, 3], 'a fresh fit: the energies it was fitted on');

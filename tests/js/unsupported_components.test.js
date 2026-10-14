@@ -32,7 +32,7 @@ const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(
 
 const CORE = ['_componentSupportCore', '_componentSupportFromResponse', '_supportRootOf', '_applySupportVerdicts', '_applySupport', '_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey', '_isUnsupported', '_currentSupport', '_restampSupport', '_unsupportedBadge'];
 function core() {
-  const src = [constLine('_SUPPORT_MIN_F'), constLine('_UNSUPPORTED_LABEL'), constLine('_UNSUPPORTED_TIP'), ...CORE.map(extractFn)].join('\n');
+  const src = [constLine('_SUPPORT_MIN_F'), constLine('_UNSUPPORTED_LABEL'), constLine('_UNSUPPORTED_TIP'), ...CORE.map(extractFn), require('./_seal_readers.js')(extractFn)].join('\n');
   return new Function('_escAttr', '_startsLiveKey', 'state', src + '\nreturn { ' + CORE.join(', ') + ' };')(esc, () => 'KEY', { peaks: [] });
 }
 
@@ -107,7 +107,7 @@ function pageEnv(fns, extraArgs = {}) {
       amplitude: { value: p.amplitude, stderr: 3, vary: true, min: 0, max: null } } })) } } };
   const names = [...CORE, ...fns];
   const src = [constLine('_SUPPORT_MIN_F'), constLine('_UNSUPPORTED_LABEL'), constLine('_UNSUPPORTED_TIP'), constLine('_OUTSIDE_WINDOW_NOTE'),
-    ...[...names, '_centredOutsideWindow', '_outsideWindowNoteHtml', '_areaGrid', '_areaSignature', '_arrMin', '_arrMax'].map(extractFn)].join('\n');
+    ...[...names, '_centredOutsideWindow', '_outsideWindowNoteHtml', '_areaGrid', '_areaSignature', '_arrMin', '_arrMax'].map(extractFn), require('./_seal_readers.js')(extractFn)].join('\n');
   const args = { _escAttr: esc, _escHtml: esc, document, state, getPeak: id => state.peaks.find(p => p.id === Number(id)),
     _startsLiveKey: () => 'KEY',
     _peakArea: p => p.amplitude * p.fwhm, getROIData: () => ({ be: [280, 285, 290] }), _autoFitBlocks: () => false, _buildStderrMap: fr => Object.fromEntries(fr.backendResult.individual_peaks.map(ip => [ip.id, ip.params])),
@@ -221,8 +221,8 @@ test('publication figure: no label at the (zero) component, legend entry says so
   const fig = extractFn('_doPublicationExport');
   assert.match(fig, /if \(!p\.visible \|\| _isUnsupported\(p\)\) continue;\s*\/\/ no label/);
   assert.match(fig, /label: _isUnsupported\(p\) \? p\.name \+ ' \(not supported by the data\)' : p\.name, type: 'fill'/);
-  assert.match(extractFn('updatePlot'), /label: _isUnsupported\(p\) \? p\.name \+ ' \(' \+ _UNSUPPORTED_LABEL \+ '\)' : p\.name,/);
-  assert.match(extractFn('_buildStackDatasets'), /_isUnsupported\(pc\.peak, _startsRecordKey\(src\)\) \? ' \(' \+ _UNSUPPORTED_LABEL \+ '\)' : ''/);
+  assert.match(extractFn('updatePlot'), /const unsup = sv \? _sealUnsupported\(sv, p\) : _isUnsupported\(p\);[\s\S]*?label: unsup \? p\.name \+ ' \(' \+ _UNSUPPORTED_LABEL \+ '\)' : p\.name,/);
+  assert.match(extractFn('_buildStackDatasets'), /_isUnsupported\(pc\.peak, _startsRecordKey\(src\), src\) \? ' \(' \+ _UNSUPPORTED_LABEL \+ '\)' : ''/);
   assert.match(extractFn('exportResults'), /_isUnsupported\(p\) \? p\.name \+ ' \(not supported by the data\)' : p\.name/);
 });
 
@@ -347,7 +347,7 @@ test('a key change re-renders every consumer of the verdict — each compared wi
 });
 
 test('stack tabs judge a source component against the SOURCE record\'s key', () => {
-  assert.match(extractFn('_buildStackDatasets'), /_isUnsupported\(pc\.peak, _startsRecordKey\(src\)\)/);
+  assert.match(extractFn('_buildStackDatasets'), /_isUnsupported\(pc\.peak, _startsRecordKey\(src\), src\)/);
   const c = core();
   const p = { id: 1, support: { supported: false, fitKey: 'SRC' } };
   assert.strictEqual(c._isUnsupported(p, 'SRC'), true);
@@ -384,7 +384,7 @@ test('the sidebar is patched in place (header, summary, badge) — the centre in
   state.peaks.push({ id: 1, center: 284.4, fwhm: 0.64, support: { supported: true, fitKey: 'KEY' } });
   state.rawBE = [1, 2, 3];
   const fn = new Function('state', 'document', '_startsLiveKey', '_isUnsupported', '_unsupportedBadge', 'getROIData', '_peakArea', '_areaGrid', '_areaSignature',
-    extractFn('_patchPeakCardsForSupport') + '\nreturn _patchPeakCardsForSupport;')(
+    extractFn('_patchPeakCardsForSupport') + '\n' + require('./_seal_readers.js')(extractFn) + '\nreturn _patchPeakCardsForSupport;')(
     state, { getElementById: id => id === 'peak-item-2' ? card : (id === 'peak-list' ? { setAttribute() {} } : other) }, () => 'KEY', c._isUnsupported, c._unsupportedBadge, () => ({ be: [280, 285, 290] }), p => p.id === 2 ? 10 : 90,
     () => [280, 285, 290], () => 'SIG');
   fn();

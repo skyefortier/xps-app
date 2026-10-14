@@ -55,7 +55,7 @@ function makeEnv() {
   const notify = (msg, kind) => calls.notify.push({ msg, kind });
   const noop = () => {};
   // the page's background section comes whole (shared helper: its twins share helpers and constants)
-  const src = CAVEAT_CONST + '\n' + LINK_KEYS_CONST + '\nconst _SUPPORT_MIN_F = 10; const _startsLiveKey = () => "KEY";\n' + NAMES.map(extractFn).join('\n\n') +
+  const src = CAVEAT_CONST + '\n' + LINK_KEYS_CONST + '\nconst _SUPPORT_MIN_F = 10; const _startsLiveKey = () => "KEY";\n' + NAMES.map(extractFn).join('\n\n') + '\n' + require('./_seal_readers.js')(extractFn) +
     '\n' + require('./_page_background_source.js')({ manual: 'none' });
   const factory = new Function('document', 'state', 'notify', '_CHISQ_TOOLTIP', '_LOCALFIT_TOOLTIP', '_activeTab', '_escHtml', '_historyPreview', 'tabManager', '_updateRFactorUI', '_updateROIDisplay',
     'renderPeakList', 'updatePlot', 'renderResults', '_hideFitSpinner', '_autoSnapshot', 'manualAnchorBackground',

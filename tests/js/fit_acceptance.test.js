@@ -68,7 +68,7 @@ function makeEnv({ fetchImpl, uploadImpl, specImpl, ownerActive }) {
     peaks: [{ id: 1, name: 'p', shape: 'Gaussian', center: 285, fwhm: 1.2, amplitude: 50, glMix: 50, asymmetry: 0 }] };
   const owner = { id: 7 };
   const calls = { notify: [], local: 0, applied: 0, undo: 0, spinner: 0 };
-  const src = 'const _STARTS_N = 3;\n' + lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\n' + lines.find(l => l.startsWith('const _SEAL_CTX_FIELDS')) + '\n' + lines.find(l => l.startsWith('const LEGACY_ENDPOINT_AVG')) + '\nlet _historyPreview = null;\n' + ['runFit', '_linkGraphFailure', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsUnlinkedCount', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey', '_startsIfCurrent', '_certificateMoveFrom', '_fitRecordFrom', '_localFitRecord', '_isFitRecord', '_buildFitRequest', '_liveFitContext', '_contextOf', '_uiFromDom', '_sealR', '_makeSeal', '_deepFreeze', '_pageIdentity'].map(extractFn).join('\n') + '\n' + POLL_SRC;
+  const src = 'const _STARTS_N = 3;\n' + lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\n' + lines.find(l => l.startsWith('const _SEAL_CTX_FIELDS')) + '\n' + lines.find(l => l.startsWith('const LEGACY_ENDPOINT_AVG')) + '\nlet _historyPreview = null;\n' + ['runFit', '_linkGraphFailure', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsUnlinkedCount', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey', '_startsIfCurrent', '_certificateMoveFrom', '_fitRecordFrom', '_localFitRecord', '_isFitRecord', '_buildFitRequest', '_liveFitContext', '_contextOf', '_uiFromDom', '_sealR', '_makeSeal', '_deepFreeze', '_pageIdentity'].map(extractFn).join('\n') + '\n' + require('./_seal_readers.js')(extractFn) + '\n' + POLL_SRC;
   const factory = new Function('setTimeout', 'document', 'state', 'fetch', 'uploadToBackend', 'notify', 'pushUndo', '_showFitSpinner', '_hideFitSpinner',
     '_opOwner', '_ownerActive', 'getROIData', 'computeBackground', 'peakToBackendSpec', '_getManualAnchors', 'applyBackendResult',
     '_computeRFactor', '_CHISQ_TOOLTIP', '_updateRFactorUI', '_updateROIDisplay', 'renderPeakList', 'updatePlot', 'renderResults',
@@ -131,7 +131,7 @@ test('a transport failure whose local fallback does NOT converge shows no "local
   failing.calls.local = 0;
   // rebuild with a failing runFitLocal
   const dom = failing.dom;
-  const src = 'const _STARTS_N = 3;\n' + lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\n' + lines.find(l => l.startsWith('const _SEAL_CTX_FIELDS')) + '\n' + lines.find(l => l.startsWith('const LEGACY_ENDPOINT_AVG')) + '\nlet _historyPreview = null;\n' + ['runFit', '_linkGraphFailure', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsUnlinkedCount', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey', '_startsIfCurrent', '_certificateMoveFrom', '_fitRecordFrom', '_localFitRecord', '_isFitRecord', '_buildFitRequest', '_liveFitContext', '_contextOf', '_uiFromDom', '_sealR', '_makeSeal', '_deepFreeze', '_pageIdentity'].map(extractFn).join('\n') + '\n' + POLL_SRC;
+  const src = 'const _STARTS_N = 3;\n' + lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\n' + lines.find(l => l.startsWith('const _SEAL_CTX_FIELDS')) + '\n' + lines.find(l => l.startsWith('const LEGACY_ENDPOINT_AVG')) + '\nlet _historyPreview = null;\n' + ['runFit', '_linkGraphFailure', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsUnlinkedCount', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey', '_startsIfCurrent', '_certificateMoveFrom', '_fitRecordFrom', '_localFitRecord', '_isFitRecord', '_buildFitRequest', '_liveFitContext', '_contextOf', '_uiFromDom', '_sealR', '_makeSeal', '_deepFreeze', '_pageIdentity'].map(extractFn).join('\n') + '\n' + require('./_seal_readers.js')(extractFn) + '\n' + POLL_SRC;
   const noop = () => {};
   const owner = { id: 1 };
   const state = failing.state;
@@ -241,7 +241,7 @@ test('a local (unweighted) result is labelled a STARTING POINT, not a reportable
 
 // ── Codex round-7: the starting-point designation at every site, behaviourally ──
 test('starting-point helpers: keyed on the persisted objective, weighted results untouched', () => {
-  const src = ['_fitStatLabel', '_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_localFitCaveat', '_fitStatusText'].map(extractFn).join('\n');
+  const src = ['_fitStatLabel', '_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_localFitCaveat', '_fitStatusText'].map(extractFn).join('\n') + '\n' + require('./_seal_readers.js')(extractFn);
   const constLine = [html.match(/^const _LOCAL_FIT_CAVEAT\w* = .*$/mg).join('\n')]; assert.ok(constLine[0], '_LOCAL_FIT_CAVEAT constants');
   const h = new Function(constLine[0] + '\n' + src + '\nreturn { _fitStatLabel, _isLocalFit, _localFitCaveat, _fitStatusText };')();
   const local = { objective: 'unweighted_residual_variance', chiReduced: 34523.31 };
@@ -255,7 +255,7 @@ test('starting-point helpers: keyed on the persisted objective, weighted results
 });
 
 test('Quantify shows the starting-point banner for a local result and not for a weighted one', () => {
-  const src = 'const _UNSUPPORTED_LABEL = "not supported by the data"; const _UNSUPPORTED_TIP = "";\n' + ['renderQuantify', '_fitStatLabel', '_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_localFitCaveat', '_isUnsupported'].map(extractFn).join('\n');
+  const src = 'const _UNSUPPORTED_LABEL = "not supported by the data"; const _UNSUPPORTED_TIP = "";\n' + ['renderQuantify', '_fitStatLabel', '_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_localFitCaveat', '_isUnsupported'].map(extractFn).join('\n') + '\n' + require('./_seal_readers.js')(extractFn);
   const constLine = html.match(/^const _LOCAL_FIT_CAVEAT\w* = .*$/mg).join('\n');
   const rsf = html.match(/^const SCOFIELD_RSF = \{[\s\S]*?^\};/m); assert.ok(rsf, 'SCOFIELD_RSF table');
   const run = (fitResult) => {
@@ -280,9 +280,10 @@ test('every remaining site carries the designation: TSV export, saves, activatio
   assert.match(grab("// Update chi-squared display for this tab's fit result", 300), /_applyStatDisplay\(/, 'tab activation');
   assert.match(html, /id="sb-chi-caption"/, 'status-bar caption element');
   assert.match(grab('function _renderHistoryList(', 3000), /starting point/, 'history rows');
-  assert.match(grab("label: _isLocalModel() ? 'Fit (local, starting point)' : 'Fit'", 100), /Fit \(local/, 'chart envelope label');
+  // seal step 5: a sealed fit's designation is its view's; an unsealed one keeps _isLocalModel()
+  assert.match(grab("label: (sv ? !sv.designation.reportable : _isLocalModel()) ? 'Fit (local, starting point)' : 'Fit'", 120), /Fit \(local/, 'chart envelope label');
   const fig = grab('function exportFigure()', 60000);
-  assert.match(fig, /label: _isLocalModel\(\) \? 'Fit \(local, starting point\)' : 'Fit'/, 'figure legend label');
+  assert.match(fig, /label: \(_fv \? !_fv\.designation\.reportable : _isLocalModel\(\)\) \? 'Fit \(local, starting point\)' : 'Fit'/, 'figure legend label');
   // the local fit result itself declares it
   const rfl = extractFn('runFitLocal');   // the whole function (a fixed-length slice broke when it grew)
   assert.match(rfl, /reportable: false, caveat: _LOCAL_FIT_CAVEAT/, 'runFitLocal marks its result');
@@ -296,7 +297,7 @@ test('project save derives the designation from the objective for an older local
   const src = html.slice(start, end) + ';';
   const constLine = html.match(/^const _LOCAL_FIT_CAVEAT\w* = .*$/mg).join('\n');
   const fieldsAt = lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS'));
-  const helpers = lines.slice(fieldsAt, lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\n' + lines.find(l => l.startsWith('const _SEAL_CTX_FIELDS')) + '\n' + lines.find(l => l.startsWith('const LEGACY_ENDPOINT_AVG')) + '\n' + ['_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_localFitCaveat', '_startsForSave', '_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey', '_startsIfCurrent', '_startsModelKey', '_startsRecordKey', '_statsState', '_statsRecordState', '_statsNote', '_statsSaveFields', '_certificateMoveIfCurrent', '_isFitRecord', '_buildFitRequest', '_liveFitContext', '_contextOf', '_uiFromDom', '_sealR', '_makeSeal', '_deepFreeze', '_pageIdentity'].map(extractFn).join('\n');
+  const helpers = lines.slice(fieldsAt, lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\n' + lines.find(l => l.startsWith('const _SEAL_CTX_FIELDS')) + '\n' + lines.find(l => l.startsWith('const LEGACY_ENDPOINT_AVG')) + '\n' + ['_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_localFitCaveat', '_startsForSave', '_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey', '_startsIfCurrent', '_startsModelKey', '_startsRecordKey', '_statsState', '_statsRecordState', '_statsNote', '_statsSaveFields', '_certificateMoveIfCurrent', '_isFitRecord', '_buildFitRequest', '_liveFitContext', '_contextOf', '_uiFromDom', '_sealR', '_makeSeal', '_deepFreeze', '_pageIdentity'].map(extractFn).join('\n') + '\n' + require('./_seal_readers.js')(extractFn);
   const statsConsts = html.match(/^const _STATS_\w+_NOTE = .*$/mg).join('\n');
   const build = new Function('RefCore', '_roundBE', '_roundIntensity', constLine + '\n' + statsConsts + '\n' + helpers + '\n' + src + '\nreturn buildTabData;')(
     { serializeRefOverlays: () => null }, a => a, a => a);
@@ -312,9 +313,9 @@ test('project save derives the designation from the objective for an older local
 
 test('stack envelope/legend, history preview and auto-fit caption carry the designation; CSV and XLSX warnings asserted separately', () => {
   const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
-  assert.match(html, /_isLocalFit\(src\.fitResult\) \? ' \(fit: local, starting point\)' : ' \(fit\)'/, 'stack envelope dataset label');
+  assert.match(html, /\(rd && rd\.sealState \? !rd\.reportable : _isLocalFit\(src\.fitResult\)\) \? ' \(fit: local, starting point\)' : ' \(fit\)'/, 'stack envelope dataset label');
   assert.match(html, /local fit: starting point/, 'stack legend row name');
-  assert.match(html, /label: _isLocalFit\(_historyPreview\.fitResult\) \? 'Preview \(local, starting point\)' : 'Preview'/, 'history preview label');
+  assert.match(html, /label: \(_isLocalFit\(_historyPreview\.fitResult\) \? 'Preview \(local, starting point\)' : 'Preview'\)/, 'history preview label');
   assert.match(grab('function applyAutoFitResult(', 12000), /_applyStatDisplay\(state\.fitResult\)/, 'auto-fit refreshes the statistic display');
   assert.match(grab('function renderResults()', 800), /_applyStatDisplay\(state\.fitResult\)/, 'renderResults refreshes the statistic display on every result change');
   const spec = grab('function _doSaveSpectrum()', 8000);
@@ -330,7 +331,7 @@ test('stack envelope/legend, history preview and auto-fit caption carry the desi
 
 // ── Codex round-9: header, tooltip, caption and value move as one unit ──
 test('_applyStatDisplay keeps header, tooltip, caption and value consistent through local → weighted → none', () => {
-  const src = ['_fitStatLabel', '_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_fitStatusText', '_applyStatCaption', '_applyStatDisplay'].map(extractFn).join('\n');
+  const src = ['_fitStatLabel', '_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_fitStatusText', '_applyStatCaption', '_applyStatDisplay'].map(extractFn).join('\n') + '\n' + require('./_seal_readers.js')(extractFn);
   const constLine = html.match(/^const _LOCAL_FIT_CAVEAT\w* = .*$/mg).join('\n');
   const dom = {}; const el = id => (dom[id] ||= { textContent: '', innerHTML: '', tip: null, setAttribute(k, v) { this.tip = v; }, removeAttribute() { this.tip = null; } });
   const apply = new Function('document', '_CHISQ_TOOLTIP', '_LOCALFIT_TOOLTIP', '_updateLocalModelBanner', 'state', constLine + '\n' + src + '\nreturn _applyStatDisplay;')({ getElementById: el }, 'CHI', 'LOCAL', () => {}, { fitResult: null });
@@ -357,13 +358,13 @@ test('spectrum load renders the Results panel after restoring a saved result, an
   const tail = load.slice(load.indexOf("notify('Spectrum loaded as new tab") - 200, load.indexOf("notify('Spectrum loaded as new tab"));
   assert.match(tail, /renderResults\(\)/, 'Results (and the statistic display) must be rendered after the restored result is installed');
   const save = grab('function _doSaveFit()', 3000);
-  assert.match(save, /fitStatistics: state\.fitResult \? \{/, 'Save Fit writes a fitStatistics block');
+  assert.match(save, /fitStatistics: state\.fitResult \? \(\(sd, sv\) => \(\{/, 'Save Fit writes a fitStatistics block');
   assert.match(save, /caveat: _localFitCaveat\(state\.fitResult\)/, 'Save Fit derives the caveat');
   assert.match(save, /reportable: _isLocalFit\(state\.fitResult\) \? false/, 'Save Fit derives reportable');
 });
 
 test('_applyStatDisplay clears header, tooltip, caption and value together on local → none', () => {
-  const src = ['_fitStatLabel', '_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_fitStatusText', '_applyStatCaption', '_applyStatDisplay'].map(extractFn).join('\n');
+  const src = ['_fitStatLabel', '_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_fitStatusText', '_applyStatCaption', '_applyStatDisplay'].map(extractFn).join('\n') + '\n' + require('./_seal_readers.js')(extractFn);
   const constLine = html.match(/^const _LOCAL_FIT_CAVEAT\w* = .*$/mg).join('\n');
   const dom = {}; const el = id => (dom[id] ||= { textContent: '', innerHTML: '', tip: null, setAttribute(k, v) { this.tip = v; }, removeAttribute() { this.tip = null; } });
   const apply = new Function('document', '_CHISQ_TOOLTIP', '_LOCALFIT_TOOLTIP', '_updateLocalModelBanner', 'state', constLine + '\n' + src + '\nreturn _applyStatDisplay;')({ getElementById: el }, 'CHI', 'LOCAL', () => {}, { fitResult: null });
@@ -375,7 +376,7 @@ test('_applyStatDisplay clears header, tooltip, caption and value together on lo
 
 // ── Codex round-11: the designation follows the MODEL through a .fit.json round trip ──
 test('_isLocalModel: a model imported from a local .fit.json is a starting point even with no fit result', () => {
-  const src = ['_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_isLocalModel'].map(extractFn).join('\n');
+  const src = ['_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_isLocalModel'].map(extractFn).join('\n') + '\n' + require('./_seal_readers.js')(extractFn);
   const mk = (fitResult, tab) => new Function('state', '_activeTab', src + '\nreturn _isLocalModel;')({ fitResult }, () => tab);
   assert.equal(mk(null, { modelProvenance: { objective: 'unweighted_residual_variance' } })(), true);
   assert.equal(mk(null, { modelProvenance: null })(), false);
@@ -399,7 +400,7 @@ test('fit.json round trip: fromJSON keeps the provenance, Save Fit and the TSV e
 
 // ── Codex round-12: provenance survives undo/redo and spectrum save/load; import refreshes Results; figure/chart key on the model; Find Peaks clears it ──
 test('undo/redo snapshots carry and restore model provenance', () => {
-  const src = ['_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_localFitCaveat', '_provenanceOf', '_peaksSnapshot', '_restoreSnapshotEndpointAvg', '_restoreSnapshotProvenance'].map(extractFn).join('\n');
+  const src = ['_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_localFitCaveat', '_provenanceOf', '_peaksSnapshot', '_restoreSnapshotEndpointAvg', '_restoreSnapshotProvenance'].map(extractFn).join('\n') + '\n' + require('./_seal_readers.js')(extractFn);
   const constLine = html.match(/^const _LOCAL_FIT_CAVEAT\w* = .*$/mg).join('\n');
   const tab = { modelProvenance: { objective: 'unweighted_residual_variance', caveat: 'x' }, ui: {} };
   const fns = new Function('state', '_historyTab', 'document', constLine + '\n' + src + '\nreturn { _peaksSnapshot, _restoreSnapshotProvenance };')(
@@ -426,13 +427,13 @@ test('round-12 sites: undo/redo restore provenance, spectrum save/load carry it,
   const fj = grab('  fromJSON(data) {', 7000);
   assert.match(fj.slice(fj.indexOf('this._restoreUI(active.ui);')), /renderResults\(\)/, 'import renders Results');
   assert.match(grab('function exportFigure()', 60000), /if \(state\.fitResult \|\| _isLocalModel\(\)\)/, 'figure annotation keys on the model');
-  assert.match(html, /label: _isLocalModel\(\) \? 'Fit \(local, starting point\)' : 'Fit'/, 'chart/figure envelope labels key on the model');
+  assert.match(html, /label: \((sv|_fv) \? !\1\.designation\.reportable : _isLocalModel\(\)\) \? 'Fit \(local, starting point\)' : 'Fit'/, 'chart/figure envelope labels key on the model (a sealed fit on its view)');
   assert.match(grab('async function applyFindPeaks()', 6000), /modelProvenance = null/, 'Find Peaks apply clears superseded provenance');
 });
 
 // ── Codex round-13: provenance derived from a LIVE local result for undo snapshots; batch clones carry the source's ──
 test('_provenanceOf derives a designation from a live local result, and undo snapshots use it', () => {
-  const src = ['_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_localFitCaveat', '_provenanceOf', '_peaksSnapshot'].map(extractFn).join('\n');
+  const src = ['_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_localFitCaveat', '_provenanceOf', '_peaksSnapshot'].map(extractFn).join('\n') + '\n' + require('./_seal_readers.js')(extractFn);
   const constLine = html.match(/^const _LOCAL_FIT_CAVEAT\w* = .*$/mg).join('\n');
   const tab = { modelProvenance: null, fitResult: null };
   const state = { peaks: [{ id: 1 }], fitResult: { objective: 'unweighted_residual_variance', engine: 'local', chiReduced: 3e4, status: 'converged' } };
@@ -455,7 +456,7 @@ test('batch propagation copies the source model provenance onto each target (cle
 
 // ── Codex round-14: persistent designation in the Peaks sidebar; undo/redo re-render; auto-fit rollback carries provenance ──
 test('the Peaks sidebar banner shows for a local result or a local-derived model and hides otherwise', () => {
-  const src = ['_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_isLocalModel', '_governingProvenance', '_updateLocalModelBanner'].map(extractFn).join('\n');
+  const src = ['_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_isLocalModel', '_governingProvenance', '_updateLocalModelBanner'].map(extractFn).join('\n') + '\n' + require('./_seal_readers.js')(extractFn);
   const run = (fitResult, tab) => {
     const el = { style: { display: 'block' } };
     new Function('state', '_activeTab', 'document', '_historyPreview', src + '\n_updateLocalModelBanner();')({ fitResult }, () => tab, { getElementById: id => id === 'local-model-banner' ? el : null }, null);
@@ -483,7 +484,7 @@ test('round-14 sites: banner element and refresh hooks, undo/redo re-render Resu
 test('the sidebar banner sits outside the switchable tab panels and also shows for an active local history preview', () => {
   const bannerAt = html.indexOf('id="local-model-banner"'), tabsAt = html.indexOf('<div class="tabs">'), peaksPanelAt = html.indexOf('id="tab-peaks"');
   assert.ok(bannerAt > 0 && bannerAt < tabsAt && bannerAt < peaksPanelAt, 'banner precedes the tab bar and every panel');
-  const src = ['_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_isLocalModel', '_governingProvenance', '_updateLocalModelBanner'].map(extractFn).join('\n');
+  const src = ['_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_isLocalModel', '_governingProvenance', '_updateLocalModelBanner'].map(extractFn).join('\n') + '\n' + require('./_seal_readers.js')(extractFn);
   const run = (fitResult, preview) => {
     const el = { style: { display: 'block' }, innerHTML: '' };
     new Function('state', '_activeTab', 'document', '_historyPreview', src + '\n_updateLocalModelBanner();')({ fitResult }, () => ({ modelProvenance: null }), { getElementById: id => id === 'local-model-banner' ? el : null }, preview);
@@ -510,7 +511,7 @@ test('the sidebar banner is sticky at the top of the scrolling panel body', () =
 
 // ── Codex round-17: a stack view showing a local source's fit curves is designated too ──
 test('the sidebar banner shows on a stack tab whose visible entries draw a local source fit', () => {
-  const src = ['_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_isLocalModel', '_governingProvenance', '_updateLocalModelBanner'].map(extractFn).join('\n');
+  const src = ['_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_isLocalModel', '_governingProvenance', '_updateLocalModelBanner'].map(extractFn).join('\n') + '\n' + require('./_seal_readers.js')(extractFn);
   const local = { id: 2, fitResult: { objective: 'unweighted_residual_variance', chiReduced: 1 }, name: 'C1s local' };
   const weighted = { id: 3, fitResult: { chiReduced: 2 }, name: 'C1s server' };
   const tabManager = { _getTab: id => ({ 2: local, 3: weighted })[id] };
@@ -551,7 +552,7 @@ test('closeTab rebuilds the active stack chart when it prunes entries that refer
 
 // ── Unit W1: designation helpers are objective-aware (weighted local vs legacy unweighted vs server) ──
 test('W1 helpers: weighted local results are chi-square but still designated; legacy unweighted keep Residual variance; server untouched', () => {
-  const src = ['_isUnweightedLocal', '_fitStatLabel', '_isLocalProvenance', '_isLocalFit', '_localFitDetail', '_localFitCaveat', '_fitStatusText'].map(extractFn).join('\n');
+  const src = ['_isUnweightedLocal', '_fitStatLabel', '_isLocalProvenance', '_isLocalFit', '_localFitDetail', '_localFitCaveat', '_fitStatusText'].map(extractFn).join('\n') + '\n' + require('./_seal_readers.js')(extractFn);
   const consts = html.match(/^const _LOCAL_FIT_CAVEAT\w* = .*$/mg).join('\n');
   const h = new Function(consts + '\n' + src + '\nreturn { _fitStatLabel, _isLocalFit, _localFitCaveat, _fitStatusText, _localFitDetail };')();
   const weighted = { engine: 'local', objective: 'poisson_weighted_chi_square', chiReduced: 4.353 };
@@ -569,7 +570,7 @@ test('W1 helpers: weighted local results are chi-square but still designated; le
 
 // ── W1 Codex round 1: the TSV export's warning follows the GOVERNING objective (behavioural) ──
 test('TSV export warning is objective-aware: legacy result, legacy imported model, weighted result, server result', () => {
-  const src = ['_isUnweightedLocal', '_isLocalProvenance', '_isLocalFit', '_isLocalModel', '_localFitCaveat', '_governingProvenance', 'exportResults', '_isFitRecord', '_fitRecordRows', '_fitRecordTextLines', '_b64Utf8', '_recordParts', '_fitRecordXlsxRows', '_isUnsupported', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure'].map(extractFn).join('\n')
+  const src = ['_isUnweightedLocal', '_isLocalProvenance', '_isLocalFit', '_isLocalModel', '_localFitCaveat', '_governingProvenance', 'exportResults', '_isFitRecord', '_fitRecordRows', '_fitRecordTextLines', '_b64Utf8', '_recordParts', '_fitRecordXlsxRows', '_isUnsupported', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure'].map(extractFn).join('\n') + '\n' + require('./_seal_readers.js')(extractFn)
     + '\nconst _statsLiveState = () => "current";'   // F1's stale note is pinned in stale_statistics.test.js
     + '\nconst _autoFitBlocks = () => false;';     // Q8's Auto-Fit transaction guard: tests/test_browser_autofit_refit.py
   const consts = html.match(/^const _LOCAL_FIT_CAVEAT\w* = .*$/mg).join('\n');

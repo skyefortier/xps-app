@@ -51,7 +51,7 @@ function sandbox({ liveKey = 'K1' } = {}) {
   const fns = [...STATE_FNS, '_fitStatLabel', '_isUnweightedLocal', '_fitStatusText', '_applyStatCaption', '_applyStatDisplay',
     '_updateRFactorUI', '_renderRFactorPanel', 'renderResults', '_validateUncertainties', '_centredOutsideWindow', '_outsideWindowNoteHtml', '_areaGrid', '_areaSignature', '_arrMin', '_arrMax'];
   const src = [...STATE_CONSTS.map(constLine), constLine('_RFACTOR_TOOLTIP'), constLine('_LOCALFIT_TOOLTIP'), constLine('_CHISQ_TOOLTIP'), constLine('_OUTSIDE_WINDOW_NOTE'),
-    ...fns.map(extractFn)].join('\n');
+    ...fns.map(extractFn), require('./_seal_readers.js')(extractFn)].join('\n');
   const state = { peaks: [], fitResult: null, rawBE: [1] };
   const api = new Function('document', 'state', 'env', `
     const _startsLiveKey = () => env.key;
@@ -189,7 +189,7 @@ test('status-bar R: the previous model\'s R is not shown on a stale result; an u
 
 test('the stored fitted curve is never drawn, saved or stacked as the fit once stale', () => {
   const up = extractFn('updatePlot');
-  assert.match(up, /fittedYBacked = haveFit[\s\S]*?_statsLiveState\(\) !== 'stale'/, 'chart envelope / residuals');
+  assert.match(up, /fittedYBacked = sv \? sv\.fittedY[\s\S]*?: haveFit[\s\S]*?_statsLiveState\(\) !== 'stale'/, 'chart envelope / residuals (a sealed fit draws its record, step 5)');
   assert.match(up, /_refreshStartsEvidence\(false, true\)/, 'every repaint reaches the refresh');
   assert.match(extractFn('_refreshStartsEvidence'), /^function _refreshStartsEvidence[^\n]*\n(\s*\/\/[^\n]*\n)*\s*_refreshStatsState\(\);/, 'first thing, for EVERY caller (lock toggles, Lock All, updatePlot)');
   for (const fn of ['toggleLock', 'toggleAllLocks']) assert.match(extractFn(fn), /_refreshStartsEvidence\(true\);/, fn + ' reaches the statistics refresh');
@@ -208,7 +208,7 @@ test('saves keep the key and say plainly when the statistics are stale or unveri
 // ── CSV / XLSX / TSV: run the real exporters on stubs ───────────────────────
 function exportSandbox(liveKey, fr) {
   const out = {};
-  const src = [...STATE_CONSTS.map(constLine), ...STATE_FNS.map(extractFn), extractFn('exportFitTable'), extractFn('exportResults'), ['BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure'].map(extractFn).join('\n')].join('\n');
+  const src = [...STATE_CONSTS.map(constLine), ...STATE_FNS.map(extractFn), require('./_seal_readers.js')(extractFn), extractFn('exportFitTable'), extractFn('exportResults'), ['BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure'].map(extractFn).join('\n')].join('\n');
   const state = { peaks: [{ ...PEAK }], fitResult: fr, ccShift: 0 };
   const api = new Function('state', 'out', `
     const _startsLiveKey = () => ${JSON.stringify(liveKey)};
@@ -278,7 +278,7 @@ test('TSV: stale says the Model / Residual columns are the current, unfitted mod
 });
 
 test('the refresh re-renders Results only when its rendered state differs', () => {
-  const src = [...STATE_CONSTS.map(constLine), ...STATE_FNS.map(extractFn), extractFn('_refreshStatsState')].join('\n');
+  const src = [...STATE_CONSTS.map(constLine), ...STATE_FNS.map(extractFn), require('./_seal_readers.js')(extractFn), extractFn('_refreshStatsState')].join('\n');
   const doc = makeDoc();
   const env = { key: 'K1', renders: 0, applied: 0 };
   const state = { fitResult: serverResult('K1') };
@@ -368,7 +368,7 @@ test('an equivalent spelling of a form number ("280" / "280.0") is the same fit;
 });
 
 test('Clear All (result -> none) re-renders Results back to its empty state; a page that never had a result is left alone', () => {
-  const src = [...STATE_CONSTS.map(constLine), ...['_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey', ...STATE_FNS].map(extractFn), extractFn('_refreshStatsState')].join('\n');
+  const src = [...STATE_CONSTS.map(constLine), ...['_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey', ...STATE_FNS].map(extractFn), require('./_seal_readers.js')(extractFn), extractFn('_refreshStatsState')].join('\n');
   const doc = makeDoc();
   const env = { renders: 0 };
   const state = { fitResult: null };

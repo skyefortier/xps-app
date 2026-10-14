@@ -7135,6 +7135,18 @@ function _sealR(pageModel, ctxLive, producerCtx, roi, request) {
   return R;
 }
 
+// The local engine's fit record (as `_localFitRecord` writes it) from its sealed O: the certificate it ran, the
+// background verdict its own certificate gave, the software that served the producing page.
+function _localRecordOf(R, O) {
+  const bg = O.background || {}, cert = bg.certificate, explicit = ['linear', 'manual', 'none'].includes(bg.bgType);
+  const sw = R.page && R.page.software;
+  return { engine: 'local', fitMethod: 'local_lm', seed: null, seedSource: null,
+           backgroundVerdict: { method: bg.bgType || null, effect: bg.effect || null, check: explicit ? 'explicit' : 'page_certificate',
+                                converged: typeof bg.converged === 'boolean' ? bg.converged : null,
+                                residual: cert && Number.isFinite(cert.residual) ? cert.residual : null,
+                                reason: cert ? cert.reason || '' : '' },
+           certificate: O.certificate, software: sw && typeof sw === 'object' ? { ...sw, role: 'served_the_page' } : null };
+}
 // The VIEW of a seal (plan §7): every number a consumer shows for a sealed fit, from O alone (server) or the
 // local O. Pure; memoised per seal.
 const _sealViews = new WeakMap();
@@ -7171,6 +7183,7 @@ function _sealView(seal) {
   // the R panel's presentation of the recorded R-factor ratio: never recomputed; null stays null, 0 stays 0
   const r = v.statistics.rFactor;
   v.rPanel = r === null || r === undefined ? null : { rPct: r * 100, level: r * 100 < 5 ? 'good' : (r * 100 <= 10 ? 'amber' : 'red') };
+  v.record = seal.engine === 'server' ? _fitRecordFrom(O) : _localRecordOf(R, O);
   v.initialValues = R.pageModel;
   v.chosenAlternative = (seal.D && seal.D.chosenAlternative) || null;
   v.producer = seal.producer;
@@ -9330,7 +9343,9 @@ function sealedState(fr, owner) {
 // preview, labelled by the state readers).
 function _sealedDisplay(fr, owner) {
   if (!_SEAL_AUTHORITATIVE || !fr || !fr.seal || owner === null) return null;   // an owner that cannot be found: nothing to judge against
-  const s = sealedState(fr, owner === undefined ? _activeTab() : owner);
+  const o = owner === undefined ? _ownerOfFit(fr) : owner;   // (the active tab's result lives in `state`)
+  if (!o) return null;
+  const s = sealedState(fr, o);
   return (s.state === 'current' || s.state === 'pending' || s.state === 'unconfirmed') ? s : null;
 }
 // A view's component for a live peak (ids are strings on the wire, numbers on the page).
@@ -9348,6 +9363,12 @@ function _ownerOfFit(fr) {
   if (!fr || fr === state.fitResult) return _activeTab();
   return (typeof tabManager !== 'undefined' && tabManager) ? (tabManager.tabs.find(t => t.fitResult === fr) || null) : null;
 }
+// A sealed fit's state judged against the tab it belongs to (a result on no open tab cannot be judged: nothing is
+// established).
+function _sealStateOf(fr) {
+  const o = _ownerOfFit(fr);
+  return o ? sealedState(fr, o) : { state: 'stale', check: 'owner', reason: 'the fit belongs to no open tab', view: null };
+}
 // F1's accessor as a thin reader of the seal (plan §5): 'current' | 'pending' | 'unconfirmed' | 'stale' for a
 // sealed fit — a record that cannot be read establishes nothing ('stale'); undefined for an unsealed fit (LEGACY:
 // today's rule decides).
@@ -9361,7 +9382,7 @@ function _sealStatsState(fr, owner) {
 // The statistics a reader shows: a sealed fit's RECORDED ones (the R panel's ratio never recomputed), else the
 // result's own fields.
 function _shownStats(fr) {
-  const s = fr && _sealedDisplay(fr, _ownerOfFit(fr));
+  const s = fr && _sealedDisplay(fr);
   if (s) return { chiReduced: s.view.statistics.chi2r, rmse: s.view.statistics.rmse, rFactor: s.view.rPanel,
                   sealState: s.state, sealReason: s.reason };
   return { chiReduced: fr ? fr.chiReduced : null, rmse: fr ? fr.rmse : null, rFactor: fr ? fr.rFactor : null, sealState: null, sealReason: '' };
@@ -9373,7 +9394,7 @@ let _sealIdSeq = 0;
 function _sealSig(fr) {
   if (!_SEAL_AUTHORITATIVE || !fr || !fr.seal) return '';
   if (!_sealIds.has(fr.seal)) _sealIds.set(fr.seal, ++_sealIdSeq);
-  const s = sealedState(fr, _ownerOfFit(fr));
+  const s = _sealStateOf(fr);
   return _sealIds.get(fr.seal) + '|' + s.state + '|' + (s.check || '') + '|' + s.reason;
 }
 // The visible state text of a recorded fit not yet confirmed (plan §5: text, never only a tooltip).
@@ -9382,7 +9403,7 @@ function _sealStateText(st, reason) {
 }
 // Why a sealed fit is STALE, in the readers' words.
 function _sealStaleNote(fr) {
-  const s = sealedState(fr, _ownerOfFit(fr));
+  const s = _sealStateOf(fr);
   if (s.check === 'edited') return _STATS_STALE_NOTE;
   return 'This fit\'s record does not hold together (' + (s.check || 'record') + ': ' + s.reason + '): its \u03c7\u00b2, R-factor, RMSE and uncertainties are not reported. Run Fit to fit it again.';
 }
@@ -9392,6 +9413,17 @@ function _componentArea(p, grid) {
   const s = _sealedDisplay(state.fitResult);
   const c = s && _sealComponent(s.view, p);
   return c ? c.area : _peakArea(p, grid);
+}
+// What an export writes about a sealed fit's state (plan §5): the state and, until confirmed, why — '' for an
+// unsealed fit (today's lines), and the record it carries (the view's for a sealed fit).
+function _exportSealState(fr) {
+  if (!_SEAL_AUTHORITATIVE || !fr || !fr.seal) return '';
+  const s = _sealStateOf(fr);
+  return s.state.toUpperCase() + (s.state === 'current' ? '' : ': ' + (s.state === 'pending' ? 'confirming\u2026 (the server has not yet checked this record)' : s.reason));
+}
+function _exportRecordOf(fr) {
+  if (_SEAL_AUTHORITATIVE && fr && fr.seal) { const st = _sealStateOf(fr); return st.view ? st.view.record : null; }
+  return fr ? fr.record : null;
 }
 // The fitted values a reader shows for a live peak: the sealed view's model entry (names, colours and visibility
 // stay the live peak's), else the peak.
@@ -9404,7 +9436,7 @@ function _shownPeak(p) {
 // The starts evidence of `fr` if it still describes the fit whose key is `key`, else null.
 function _startsIfCurrent(fr, key) {
   // seal step 5: a sealed fit's starts are O's, while its record describes the model shown (plan §5)
-  if (_SEAL_AUTHORITATIVE && fr && fr.seal) { const s = _sealedDisplay(fr, _ownerOfFit(fr)); return (s && s.view.starts) || null; }
+  if (_SEAL_AUTHORITATIVE && fr && fr.seal) { const s = _sealedDisplay(fr); return (s && s.view.starts) || null; }
   const st = fr && fr.starts;
   if (!st || fr.backgroundStale || fr.voigtStale || !fr.startsModelKey || !_sameFitKey(fr.startsModelKey, key)) return null;   // (_restoredStale)
   return st;
@@ -9426,7 +9458,7 @@ function _statsState(fr, key) {
   if (!fr.startsModelKey) return 'unverified';
   return _sameFitKey(fr.startsModelKey, key) ? 'current' : 'stale';
 }
-function _statsLiveState() { const s = _sealStatsState(state.fitResult, _activeTab()); return s !== undefined ? s : _statsState(state.fitResult, _startsLiveKey()); }
+function _statsLiveState() { const s = _sealStatsState(state.fitResult); return s !== undefined ? s : _statsState(state.fitResult, _startsLiveKey()); }
 // A record's result judged against the RECORD's key (project save, stack tabs).
 function _statsRecordState(t) { const s = t ? _sealStatsState(t.fitResult, t) : undefined; return s !== undefined ? s : _statsState(t && t.fitResult, t ? _startsRecordKey(t) : ''); }
 const _STATS_STALE_NOTE = 'The model or its fit settings changed after this fit: its \u03c7\u00b2, R-factor, RMSE and uncertainties belong to the previous model and are not reported. Run Fit to obtain statistics for this model.';
@@ -9666,7 +9698,7 @@ function _certificateMoveFrom(cert) {
 }
 function _certificateMoveIfCurrent(fr, key) {
   if (_SEAL_AUTHORITATIVE && fr && fr.seal) {   // seal step 5: from O's certificate (the server's; the local engine's moves nothing)
-    const s = _sealedDisplay(fr, _ownerOfFit(fr));
+    const s = _sealedDisplay(fr);
     return s && s.view.engine === 'server' && s.view.certificate ? _certificateMoveFrom(s.view.certificate) : null;
   }
   if (!fr || !fr.certificateMove || fr.backgroundStale || fr.voigtStale || !fr.startsModelKey || !_sameFitKey(fr.startsModelKey, key)) return null;   // (_restoredStale)
@@ -9690,7 +9722,7 @@ function _certificateNoticeHtml(fr) {
 
 // The recorded adoption: a sealed fit's is its record's D (plan §7), else the result's field.
 function _chosenOf(fr) {
-  if (_SEAL_AUTHORITATIVE && fr && fr.seal) { const s = _sealedDisplay(fr, _ownerOfFit(fr)); return (s && s.view.chosenAlternative) || null; }
+  if (_SEAL_AUTHORITATIVE && fr && fr.seal) { const s = _sealedDisplay(fr); return (s && s.view.chosenAlternative) || null; }
   return (fr && fr.chosenAlternative) || null;
 }
 // What identifies the evidence an alternative preview was drawn from: the seal, else the fit key.
@@ -9716,12 +9748,12 @@ function _startsShiftHtml(shift) {
 }
 
 function _startsPanelHtml(fr) {
-  const recorded = !fr ? null : (_SEAL_AUTHORITATIVE && fr.seal) ? ((sealedState(fr, _ownerOfFit(fr)).view || {}).starts || null) : fr.starts;
+  const recorded = !fr ? null : (_SEAL_AUTHORITATIVE && fr.seal) ? ((_sealStateOf(fr).view || {}).starts || null) : fr.starts;
   if (!recorded || !recorded.ran) return '';
   const st = _startsIfCurrent(fr, _startsLiveKey());
   // seal step 5 (plan §5): the panel distinguishes "confirming…", "unconfirmed: …" and "model changed"; adopting
   // an alternative needs a CURRENT record (Preview does not)
-  const sealSt = _SEAL_AUTHORITATIVE && fr.seal ? sealedState(fr, _ownerOfFit(fr)) : null;
+  const sealSt = _SEAL_AUTHORITATIVE && fr.seal ? _sealStateOf(fr) : null;
   if (!st) {
     const why = sealSt && sealSt.state === 'stale' && sealSt.check !== 'edited' ? 'This fit\'s record does not hold together' : 'The model has changed since this fit';
     return `<div class="starts-panel" style="margin-top:10px;font-size:11px;line-height:1.5;color:var(--text3)">&#8635; ${why}, so its scattered-starts comparison no longer applies. Run the fit again to compare starts.</div>`;
@@ -10685,7 +10717,7 @@ function solveLinear(A, b, n) {
 // Build {peakId: paramMap} from backend fit result (null-safe)
 function _buildStderrMap(fitResult) {
   const m = {};
-  const s = fitResult && _sealedDisplay(fitResult, _ownerOfFit(fitResult));
+  const s = fitResult && _sealedDisplay(fitResult);
   if (s) { for (const c of s.view.components) if (c.params) m[c.id] = c.params; return m; }   // O's sigma (local: none)
   const peaks = fitResult?.backendResult?.individual_peaks;
   if (peaks) for (const ip of peaks) m[ip.id] = ip.params || {};
@@ -13017,13 +13049,16 @@ function _doSaveFit() {
     manualAnchors: _getManualAnchors(),
     // Provenance of the parameters being saved: a local (unweighted) result
     // is a starting point, not a reportable result (unit A0).
-    fitStatistics: state.fitResult ? {
-      record: _isFitRecord(state.fitResult.record) ? state.fitResult.record : null,   // the parameters' provenance (recording only)
-      chiReduced: state.fitResult.chiReduced ?? null,
-      engine: state.fitResult.engine || null,
-      objective: state.fitResult.objective || null,
-      weighting: state.fitResult.weighting || null,
+    // seal step 5 (plan §7): a sealed fit's statistics, record and designation come from its view (the same field
+    // names, so the importer, which reads fitStatistics, is unchanged); its state rides beside them
+    fitStatistics: state.fitResult ? ((sd, sv) => ({
+      record: (r => _isFitRecord(r) ? r : null)(_exportRecordOf(state.fitResult)),   // the parameters' provenance (recording only)
+      chiReduced: _shownStats(state.fitResult).chiReduced ?? null,
+      engine: sd ? sd.engine : (state.fitResult.engine || null),
+      objective: sd ? sd.objective : (state.fitResult.objective || null),
+      weighting: sd ? sd.weighting : (state.fitResult.weighting || null),
       status: state.fitResult.status || null,
+      ...(sv ? { sealState: sv } : {}),
       starts: _startsForSave(_startsIfCurrent(state.fitResult, _startsLiveKey())),
       startsModelKey: state.fitResult.startsModelKey || null,
       chosenAlternative: _startsIfCurrent(state.fitResult, _startsLiveKey()) ? (state.fitResult.chosenAlternative || null) : null,
@@ -13031,7 +13066,7 @@ function _doSaveFit() {
       reportable: _isLocalFit(state.fitResult) ? false : (state.fitResult.reportable ?? null),
       caveat: _localFitCaveat(state.fitResult) || state.fitResult.caveat || null,
       ..._statsSaveFields(_statsLiveState(), state.fitResult),   // F1: says plainly when the statistics belong to the previous model
-    } : ((_activeTab() && _activeTab().modelProvenance) ? (_isLocalProvenance(_activeTab().modelProvenance) ? {
+    }))(_sealDesignation(state.fitResult), _exportSealState(state.fitResult)) : ((_activeTab() && _activeTab().modelProvenance) ? (_isLocalProvenance(_activeTab().modelProvenance) ? {
       ..._activeTab().modelProvenance, reportable: false, caveat: _localFitCaveat(_activeTab().modelProvenance),
     } : { ..._activeTab().modelProvenance }) : null),
   };
@@ -13835,6 +13870,10 @@ async function _loadZipProject(file) {
 // ═══════════════════════════════════════════════════
 function exportResults() {
   if (_autoFitBlocks()) return;   // Q8: nothing is written during an Auto-Fit
+  // seal step 5 (plan §7): a sealed fit that describes the model shown exports its RECORD — O's samples,
+  // background, envelope, residuals and components, never recomputed; STALE / LEGACY the live recompute, labelled
+  const sealed = _sealedDisplay(state.fitResult);
+  if (sealed) { _exportSealedTsv(sealed); return; }
   const { be, inten } = getROIData();
   if (!be.length) { notify('No data to export.', 'red'); return; }
 
@@ -13883,6 +13922,29 @@ function exportResults() {
   notify('Exported TSV file', 'green');
 }
 
+function _exportSealedTsv(sealed) {
+  const v = sealed.view;
+  const comps = state.peaks.map(p => _sealComponent(v, p));
+  const rows = [['BE (eV)', 'Intensity', 'Background', 'BG-subtracted', 'Model', 'Residual',
+    ...state.peaks.map(p => _isUnsupported(p) ? p.name + ' (not supported by the data)' : p.name)]];
+  for (let i = 0; i < v.energies.length; i++) {
+    rows.push([v.energies[i].toFixed(4), v.counts[i].toFixed(2), v.background[i].toFixed(2),
+               (v.counts[i] - v.background[i]).toFixed(2), v.fittedSub[i].toFixed(2), v.residuals[i].toFixed(2),
+               ...comps.map(c => c ? c.y[i].toFixed(2) : '')]);
+  }
+  const warning = (_isLocalFit(state.fitResult) ? '# WARNING: ' + _localFitCaveat(state.fitResult) + '\n' : '');
+  const stateLine = '# Fit state: ' + _exportSealState(state.fitResult) + ' (the columns are this fit as recorded)\n';
+  const recLines = _fitRecordTextLines(v.record);
+  const tsv = warning + stateLine + rows.map(r => r.join('\t')).join('\n') + (recLines.length ? '\n\n' + recLines.join('\n') : '');
+  const blob = new Blob([tsv], { type: 'text/tab-separated-values' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'xps_fit_result.tsv';
+  a.click();
+  URL.revokeObjectURL(url);
+  notify('Exported TSV file', 'green');
+}
+
 // ═══════════════════════════════════════════════════
 // EXPORT PUBLICATION FIGURE
 // ═══════════════════════════════════════════════════
@@ -13904,18 +13966,23 @@ function _doPublicationExport() {
   const inclLabels = document.getElementById('expfig-peaklabels').checked;
   document.getElementById('export-figure-modal-overlay').classList.remove('open');
 
-  const { be, inten } = getROIData();
+  // seal step 5 (plan §7): a sealed fit that describes the model shown is drawn from its RECORD — O's samples,
+  // background, envelope, residuals and components; otherwise today's live figure
+  const _figSeal = _sealedDisplay(state.fitResult);
+  const _fv = _figSeal && _figSeal.view;
+  const { be, inten } = _fv ? { be: _fv.energies, inten: _fv.counts } : getROIData();
   if (!be.length) { notify('No data in ROI.', 'red'); return; }
 
   // every component is drawn on the background: one that does not satisfy its
   // statement makes no figure (background math, 2026-10-01)
-  const bgR = _bgOrFailure(() => computeBackground(be, inten));
+  const bgR = _fv ? { bg: _fv.background, failure: null } : _bgOrFailure(() => computeBackground(be, inten));
   if (bgR.failure) { notify('Figure not exported: ' + bgR.failure, 'red', true); return; }
   const bgArr = bgR.bg;
   // F1: a stale result's fitted curve is the previous model's: not drawn as "Fit"
   const _figStats = _statsLiveState();
-  const fittedY = (_figStats !== 'stale' && state.fitResult?.fittedY?.length === be.length) ? state.fitResult.fittedY : null;
-  const residArr = fittedY ? inten.map((v, i) => v - fittedY[i]) : null;
+  const fittedY = _fv ? _fv.fittedY : (_figStats !== 'stale' && state.fitResult?.fittedY?.length === be.length) ? state.fitResult.fittedY : null;
+  const residArr = _fv ? _fv.residuals : fittedY ? inten.map((v, i) => v - fittedY[i]) : null;
+  const _figCurve = p => { if (!_fv) return evalPeakArray(be, p); const c = _sealComponent(_fv, p); return c ? c.y : new Array(be.length).fill(0); };
   const invert   = document.getElementById('invert-be').checked;
   const showIndiv = document.getElementById('show-individual').checked;
 
@@ -14010,7 +14077,7 @@ function _doPublicationExport() {
       if (!p.visible) continue;
       // evalPeakArray(), not per-point evalPeak: applies Gaussian
       // convolution for LACX with caM > 0, which evalPeak ignores.
-      const pkArr = evalPeakArray(be, p);
+      const pkArr = _figCurve(p);
       const pkY = pkArr.map((y, i) => y + bgArr[i]);
       ctx.fillStyle = hexRgba(p.color.length === 7 ? p.color : '#888888', 0.28);
       ctx.beginPath();
@@ -14042,7 +14109,7 @@ function _doPublicationExport() {
       if (!p.visible) continue;
       // evalPeakArray(), not per-point evalPeak: applies Gaussian
       // convolution for LACX with caM > 0, which evalPeak ignores.
-      const pkArr = evalPeakArray(be, p);
+      const pkArr = _figCurve(p);
       const pkY = pkArr.map((y, i) => y + bgArr[i]);
       ctx.strokeStyle = p.color.length === 7 ? p.color : '#888888';
       ctx.lineWidth = 1.2;
@@ -14128,7 +14195,8 @@ function _doPublicationExport() {
     } else if (state.fitResult) {
       const statLabel = !_isLocalFit(state.fitResult) ? '\u03c7\u00b2_r'
         : (_isUnweightedLocal(state.fitResult) ? 'Residual variance (local fit, not reportable)' : '\u03c7\u00b2_r (local fit, not reportable)');
-      ctx.fillText(statLabel + '\u2009=\u2009' + state.fitResult.chiReduced.toFixed(3) + (_figStats === 'unverified' ? ' (unverified)' : ''),
+      const _figSealState = _figSeal && _figSeal.state !== 'current' ? ' (' + (_figSeal.state === 'pending' ? 'not yet confirmed' : 'unconfirmed') + ')' : '';
+      ctx.fillText(statLabel + '\u2009=\u2009' + _shownStats(state.fitResult).chiReduced.toFixed(3) + (_figStats === 'unverified' ? ' (unverified)' : '') + _figSealState,
                    plotX + 14, mainTop + 14);
     } else {
       ctx.fillText('Imported local fit: starting point, not reportable', plotX + 14, mainTop + 14);
@@ -14142,7 +14210,7 @@ function _doPublicationExport() {
     for (const p of state.peaks) {
       if (!p.visible || _isUnsupported(p)) continue;     // no label on a component the fit did not determine
       // evalPeakArray(), not per-point evalPeak: see fill/outline loops above.
-      const pArr = evalPeakArray(be, p);
+      const pArr = _figCurve(p);
       let maxVal = -Infinity, maxBE = be[0];
       for (let i = 0; i < be.length; i++) {
         const v = pArr[i] + bgArr[i];
@@ -14156,7 +14224,7 @@ function _doPublicationExport() {
 
   // ── Legend ────────────────────────────────────────────────────────────────
   const lgItems = [{ label: 'Data', type: 'line', color: '#000000' }];
-  if (fittedY) lgItems.push({ label: _isLocalModel() ? 'Fit (local, starting point)' : 'Fit', type: 'line', color: '#cc0000' });
+  if (fittedY) lgItems.push({ label: (_fv ? !_fv.designation.reportable : _isLocalModel()) ? 'Fit (local, starting point)' : 'Fit', type: 'line', color: '#cc0000' });
   lgItems.push(              { label: 'Background', type: 'dash', color: '#999999' });
   if (showIndiv) {
     for (const p of state.peaks) {
@@ -14256,7 +14324,8 @@ function _doPublicationExport() {
 
   // ── Download ──────────────────────────────────────────────────────────────
   // the fit's record rides in the PNG itself (an iTXt chunk, keyword XPS-Fit-Record: recording only)
-  const rec = state.fitResult && _isFitRecord(state.fitResult.record) ? state.fitResult.record : null;
+  const _rec0 = _exportRecordOf(state.fitResult);
+  const rec = _isFitRecord(_rec0) ? (_figSeal ? { ..._rec0, sealState: _exportSealState(state.fitResult) } : _rec0) : null;
   canvas.toBlob(async blob => {
     if (!blob) { notify('Export failed.', 'red'); return; }
     _downloadBlob(rec ? await _pngWithText(blob, 'XPS-Fit-Record', JSON.stringify(rec)) : blob, fname + '.png');
@@ -14337,7 +14406,8 @@ function exportFitTable(fmt) {
 
   const date = new Date().toISOString().slice(0,10);
   const bgType = document.getElementById('bg-type')?.value || '';
-  const chiStr = state.fitResult.chiReduced.toFixed(4);
+  const chiStr = _shownStats(state.fitResult).chiReduced.toFixed(4);   // seal step 5: the record's statistic
+  const _sealLine = _exportSealState(state.fitResult);
   const _statName = !_isLocalFit(state.fitResult) ? 'Chi-squared reduced'
     : (_isUnweightedLocal(state.fitResult) ? 'Residual variance (local fit, unweighted)' : 'Chi-squared reduced (local fit, Poisson-weighted)');
 
@@ -14345,20 +14415,21 @@ function exportFitTable(fmt) {
     'Amplitude','Amplitude StdErr','Area','Line Shape','GL Ratio','Alpha','Beta','M_Gauss',
     'RSF','Norm Area','At%'];
 
-  const rows = state.peaks.map((p,i) => {
+  const rows = state.peaks.map((p0,i) => {
+    const p = _shownPeak(p0);   // seal step 5: the record's fitted values (name live)
     const par = stderrMap[String(p.id)] || {};
     const cse  = par.center?.stderr  ?? '';
     const fse  = (par.fwhm?.stderr ?? par.fwhm_l?.stderr) ?? '';
     const ase  = par.amplitude?.stderr ?? '';
     const sc = _shapeExportCols(p);
-    if (_isUnsupported(p)) {
+    if (_isUnsupported(p0)) {
       // the fit did not determine this component: no centre, width or sigma
       // beta (DS+G Lorentzian half-width) and m (Gaussian FWHM / LA kernel width) are widths too
       return [p.name, _UNSUPPORTED_LABEL, '', '', '', '', p.amplitude.toFixed(2), '', areas[i].toFixed(2),
               p.shape, sc.gl, sc.alpha, '', '', rsfVals[i].toFixed(4), '', ''];
     }
     return [
-      p.name, (_currentSupport(p) && _currentSupport(p).supported) ? 'supported' : '', p.center.toFixed(4), cse !== '' ? Number(cse).toFixed(5) : '',
+      p.name, (_currentSupport(p0) && _currentSupport(p0).supported) ? 'supported' : '', p.center.toFixed(4), cse !== '' ? Number(cse).toFixed(5) : '',
       p.fwhm.toFixed(4), fse !== '' ? Number(fse).toFixed(5) : '',
       p.amplitude.toFixed(2), ase !== '' ? Number(ase).toFixed(3) : '',
       areas[i].toFixed(2), p.shape, sc.gl, sc.alpha,
@@ -14373,6 +14444,7 @@ function exportFitTable(fmt) {
       ['XPS Fitting Studio Export'], ['Date', date],
       ...(_stats === 'stale' ? [['WARNING', _staleNoteOf(state.fitResult)]] : [[_statName, chiStr]]),
       ...(_stats === 'unverified' ? [['NOTE', _STATS_UNVERIFIED_NOTE]] : []),
+      ...(_sealLine ? [['Fit state', _sealLine]] : []),
       ['Background type', bgType],
       ...(_isLocalFit(state.fitResult) ? [['WARNING', _localFitCaveat(state.fitResult)]] : []),
       ...(unsupportedNames.length ? [['WARNING', 'Not supported by the data (centre, width, uncertainties and At% not reported): ' + unsupportedNames.join(', ')]] : []),
@@ -14381,7 +14453,7 @@ function exportFitTable(fmt) {
       ...(_certificateMoveText(state.fitResult) ? [['Fit continued', _certificateMoveText(state.fitResult)]] : []),
       ['Charge correction (eV)', state.ccShift.toFixed(3)], [],
       // the record FOLLOWS the existing rows: every one of them stays in place
-      ..._fitRecordXlsxRows(state.fitResult && state.fitResult.record)
+      ..._fitRecordXlsxRows(_exportRecordOf(state.fitResult))
     ]);
     XLSX.utils.book_append_sheet(wb, metaWS, 'Info');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([headers, ...rows]), 'Fit Results');
@@ -14391,6 +14463,7 @@ function exportFitTable(fmt) {
     let csv = `# XPS Fitting Studio Export\n# Date: ${date}\n`;
     csv += _stats === 'stale' ? `# WARNING: ${_staleNoteOf(state.fitResult)}\n` : `# ${_statName}: ${chiStr}\n`;
     if (_stats === 'unverified') csv += `# NOTE: ${_STATS_UNVERIFIED_NOTE}\n`;
+    if (_sealLine) csv += `# Fit state: ${_sealLine}\n`;
     csv += `# Background: ${bgType}\n`;
     if (_isLocalFit(state.fitResult)) csv += `# WARNING: ${_localFitCaveat(state.fitResult)}\n`;
     if (unsupportedNames.length) csv += `# WARNING: Not supported by the data (centre, width, uncertainties and At% not reported): ${unsupportedNames.join(', ')}\n`;
@@ -14401,7 +14474,7 @@ function exportFitTable(fmt) {
     csv += headers.join(',') + '\n';
     csv += rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
     // the record FOLLOWS the data (a blank line, then its lines): every existing line stays in place
-    const recLines = _fitRecordTextLines(state.fitResult && state.fitResult.record);
+    const recLines = _fitRecordTextLines(_exportRecordOf(state.fitResult));
     if (recLines.length) csv += '\n\n' + recLines.join('\n');
     _downloadBlob(new Blob([csv], { type: 'text/csv' }), 'fit_results.csv');
     notify('Exported CSV table', 'green');

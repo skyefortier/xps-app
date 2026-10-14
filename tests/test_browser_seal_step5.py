@@ -323,3 +323,64 @@ def test_the_designation_is_the_records_engine(browser, server):  # noqa: F811
         assert got == [True, True, True, True], got
     finally:
         pg.close()
+
+
+# ── group 4: exports ──
+CAPTURE = """() => { window.__files = {};
+  window._downloadBlob = (blob, name) => { blob.text().then(t => { window.__files[name] = t; }); };
+  URL.createObjectURL = b => { b.text().then(t => { window.__files['tsv'] = t; }); return 'blob:x'; };
+  HTMLAnchorElement.prototype.click = function () {};
+  window._pngWithText = async (blob, k, text) => { window.__files['png-record'] = text; return blob; }; }"""
+WAIT = "(name) => !!(window.__files && window.__files[name])"
+
+
+def _export(pg, call, name):
+    pg.evaluate("() => { window.__files = {}; }")
+    pg.evaluate(call)
+    pg.wait_for_function(WAIT, arg=name, timeout=20000)
+    return pg.evaluate("(n) => window.__files[n]", name)
+
+
+def test_tsv_and_csv_export_the_record_and_its_state(browser, server):  # noqa: F811
+    pg = _page(browser, server)
+    try:
+        pg.evaluate(CAPTURE)
+        tsv = _export(pg, "() => exportResults()", "tsv")
+        lines = tsv.split("\n")
+        assert lines[0].startswith("# Fit state: PENDING"), lines[:2]
+        first = lines[2].split("\t")
+        want = pg.evaluate("""() => { const v = sealedState(state.fitResult, _activeTab()).view, i = 0;
+            return [v.energies[i].toFixed(4), v.counts[i].toFixed(2), v.background[i].toFixed(2), (v.counts[i] - v.background[i]).toFixed(2),
+                    v.fittedSub[i].toFixed(2), v.residuals[i].toFixed(2), ...state.peaks.map(p => _sealComponent(v, p).y[i].toFixed(2))]; }""")
+        assert first == want, (first, want)
+        assert "Fit method" in tsv
+        pg.evaluate(VERIFY)
+        csv = _export(pg, "() => exportFitTable('csv')", "fit_results.csv")
+        assert "# Fit state: CURRENT" in csv, csv[:400]
+        chi = pg.evaluate("() => sealedState(state.fitResult, _activeTab()).view.statistics.chi2r.toFixed(4)")
+        assert ("Chi-squared reduced: " + chi) in csv, csv[:400]
+        centre = pg.evaluate("() => sealedState(state.fitResult, _activeTab()).view.model[0].center.toFixed(4)")
+        assert '"' + centre + '"' in csv
+        # an edit: the live recompute, labelled, and no fit state line
+        pg.evaluate("() => { state.peaks[0].center += 0.05; }")
+        tsv = _export(pg, "() => exportResults()", "tsv")
+        assert "# Fit state" not in tsv and "model has changed" in tsv, tsv[:300]
+    finally:
+        pg.close()
+
+
+def test_the_figure_record_and_the_fit_file_carry_the_record(browser, server):  # noqa: F811
+    pg = _page(browser, server)
+    try:
+        pg.evaluate(CAPTURE)
+        rec = _export(pg, "() => _doPublicationExport()", "png-record")
+        assert '"sealState":"PENDING' in rec and '"engine":"server"' in rec, rec[:300]
+        pg.evaluate(VERIFY)
+        fj = _export(pg, "() => _doSaveFit()", pg.evaluate("() => (document.getElementById('save-fname').value.trim() || 'spectrum') + '.fit.json'"))
+        import json
+        stats = json.loads(fj)["fitStatistics"]
+        chi = pg.evaluate("() => sealedState(state.fitResult, _activeTab()).view.statistics.chi2r")
+        assert stats["chiReduced"] == chi and stats["sealState"] == "CURRENT" and stats["engine"] == "server", stats
+        assert stats["record"]["engine"] == "server"
+    finally:
+        pg.close()
