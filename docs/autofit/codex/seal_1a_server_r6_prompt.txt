@@ -1,0 +1,12 @@
+ADVERSARIAL IMPLEMENTATION RE-REVIEW, round 6, of seal unit 1a′ (the server side of the sealed fit record, option (b)).
+
+REPO: this checkout, branch seal-1a-r3 (fast-forwarded onto seal-1a-server once reviewed); the reviewed code is HEAD. main = ef750f6. Rounds 1-5: docs/autofit/codex/seal_1a_server_r{1..5}_verdict_run{A,B}.md (round 5: run A NO-GO on one MAJOR, run B GO with one MINOR). The round-1 prompt (docs/autofit/codex/seal_1a_server_r1_prompt.txt) states the unit, the design sections and the seven questions; they all still apply. Fix history: docs/superpowers/plans/2026-10-13-seal-1a-server.md "Round-1 … Round-5 fixes"; `git diff c0ee89e..HEAD`.
+
+ROUND-5 DISPOSITIONS — verify each, then hunt for what they missed:
+1. MAJOR (run A) NaN request bound: `_has_nan` over the normalised peak specs and manual anchors; a NaN -> `unconfirmed` / "non_finite" before any role check. Test: test_a_nan_in_the_request_is_unconfirmed_never_a_mismatch (amplitude_min, amplitude_max, differential evolution through the real route with the NaN token). Is any other non-finite request number (Infinity in a start value, a splitting, an anchor) able to make an honest record read mismatch, or a forged one consistent?
+2. MINOR (run B) decoder recursion: the route catches RecursionError from get_json -> 400. Test: test_a_body_nested_past_the_parser_is_a_400.
+Suites: the full suite on c0ee89e is in docs/findings/seal-1a/suites.md once it completes; the round-5 delta touches only fitting.verify_fit / _verify and the verify route, exercised by tests/test_seal_1a_verify.py (114 passed at HEAD).
+
+Rank findings BLOCKER / MAJOR / MINOR with file:line evidence (same definitions as round 1). Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

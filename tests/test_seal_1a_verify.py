@@ -512,3 +512,27 @@ def test_an_error_inside_the_verifier_is_unconfirmed_never_a_500(client, sealed,
     monkeypatch.setattr(fitting, "_component_support", lambda *a, **k: 1 / 0)
     v = _verify(client, R, O)
     assert v["state"] == "unconfirmed" and v["check"] == "error", v
+
+
+@pytest.mark.parametrize("bound", ["amplitude_min", "amplitude_max"])
+def test_a_nan_in_the_request_is_unconfirmed_never_a_mismatch(client, bound):
+    # Codex round 5: Flask reads the NaN token; differential evolution searched a NaN bound as open and its
+    # honest record read "mismatch / roles". A NaN has no exact reading: unconfirmed, never current
+    x, y, specs = SS._well_posed()
+    specs = [{**specs[0], "shape": "gaussian", bound: float("nan")}]
+    import io as _io, json as _json
+    sid = _upload(client, x, y)
+    body = {"session_id": sid, "peaks": specs, "background": {"method": "none"},
+            "fit_method": "differential_evolution", "n_perturb": 0}
+    raw = _json.dumps(body)                            # allow_nan: the NaN token, as a non-browser client sends it
+    r = client.post("/api/fit", data=raw, content_type="application/json")
+    assert r.status_code == 200, r.get_data(as_text=True)
+    O = r.get_json()
+    R = {"request": body, "energies": [float(v) for v in x], "counts": [float(v) for v in y]}
+    v = client.post("/api/verify-fit", data=_json.dumps({"R": R, "O": O}), content_type="application/json").get_json()
+    assert v["state"] == "unconfirmed" and v["check"] == "non_finite", v
+
+
+def test_a_body_nested_past_the_parser_is_a_400(client):
+    body = '{"R":{},"O":' + "[" * 10000 + "0" + "]" * 10000 + "}"
+    assert client.post("/api/verify-fit", data=body, content_type="application/json").status_code == 400

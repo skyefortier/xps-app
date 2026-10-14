@@ -1386,7 +1386,10 @@ def _register_routes(app: Flask) -> None:
     @app.post("/api/verify-fit")
     @_require_json
     def verify_fit():
-        body = request.get_json(silent=True)
+        try:
+            body = request.get_json(silent=True)
+        except RecursionError:                       # a body nested past the parser's depth (Codex round 5)
+            body = None
         if not isinstance(body, dict) or not isinstance(body.get("R"), dict) or "O" not in body:
             return _err("request body must be {R: {request, energies, counts}, O}")
         R = body["R"]

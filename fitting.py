@@ -3243,6 +3243,16 @@ def _typed(v, spec) -> bool:
     return False
 
 
+def _has_nan(value) -> bool:
+    if isinstance(value, float):
+        return math.isnan(value)
+    if isinstance(value, (list, tuple)):
+        return any(_has_nan(v) for v in value)
+    if isinstance(value, dict):
+        return any(_has_nan(v) for v in value.values())
+    return False
+
+
 def verify_fit(O, *, energy, counts, peak_specs, background_method="shirley", bg_start_idx=None,
                bg_end_idx=None, charge_shift_ev=0.0, fit_kws=None, n_perturb=0, manual_bg=None,
                endpoint_avg=1, n_starts=0, require_component=None) -> dict[str, Any]:
@@ -3330,6 +3340,11 @@ def _verify(O, *, energy, counts, peak_specs, background_method, bg_start_idx, b
         params = copy.deepcopy(start_params)
     except Exception as exc:
         raise _Mismatch("request", f"the request is not one a fit accepts: {exc}")
+    # a NaN in the request (a bound, a start, an anchor — accepted by a JSON parser that reads the NaN token;
+    # a browser writes null) has no exact reading: differential evolution searches a NaN bound as open, a
+    # range check never holds (Codex round 5). Unjudgeable, never current — not a mismatch.
+    if _has_nan(peak_specs) or _has_nan(manual_bg):
+        raise _Unverifiable("non_finite", "the request holds a NaN; its fit cannot be verified exactly")
     x, y, n = energy, counts, len(energy)
     unstable = sorted({s.get("shape", "pseudo_voigt_gl") for s in peak_specs} & NOT_BIT_STABLE_SHAPES)
 

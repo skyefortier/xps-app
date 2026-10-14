@@ -120,3 +120,10 @@ both labelled "GL" now names the backend shapes (bfca83a).
   producer evaluated its own parameters. Any other error inside the verifier answers `unconfirmed`
   ("error") — never a 500, never current.
 - Inline R arrays beyond any float are refused with the route's 400.
+
+## Round-5 fixes (Codex run A NO-GO, run B GO — the stricter governs)
+
+- A NaN anywhere in the request's peaks or anchors (a JSON parser that reads the NaN token accepts
+  it; a browser writes null) is `unconfirmed` ("non_finite"): differential evolution searched a NaN
+  bound as open, and no range check holds against NaN.
+- A body nested past the JSON parser's depth is the route's 400, not a 500.
