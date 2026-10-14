@@ -7995,7 +7995,13 @@ function _applySupport(peaks, json, fitKey) {
   _applySupportVerdicts(peaks, id => _componentSupportFromResponse(json, id), fitKey);
 }
 // TRUE only for a verdict that describes the CURRENT model and fit context.
-function _isUnsupported(p, key) {
+function _isUnsupported(p, key, owner) {
+  // Seal step 5: a sealed fit's verdict is O's, applied while the record describes the model shown (CURRENT /
+  // PENDING / UNCONFIRMED — recorded verdicts of the recorded fit); STALE or unreadable establishes nothing.
+  if (_SEAL_AUTHORITATIVE) {
+    const fr = owner ? owner.fitResult : state.fitResult;
+    if (fr && fr.seal) { const s = _sealedDisplay(fr, owner || _activeTab()); return !!(s && _sealUnsupported(s.view, p)); }
+  }
   if (!(p && p.support && p.support.supported === false)) return false;
   if (!p.support.fitKey) return false;                              // a verdict from before keys existed: not applied
   if (key === undefined) key = typeof _startsLiveKey === 'function' ? _startsLiveKey() : null;
@@ -8003,6 +8009,10 @@ function _isUnsupported(p, key) {
 }
 // A CURRENT verdict, either way (for exports: a stale or keyless verdict is "not established", never "supported").
 function _currentSupport(p) {
+  if (_SEAL_AUTHORITATIVE && state.fitResult && state.fitResult.seal) {
+    const s = _sealedDisplay(state.fitResult), c = s && _sealComponent(s.view, p);
+    return (c && c.support) || null;
+  }
   if (!(p && p.support && p.support.fitKey)) return null;
   return _sameFitKey(p.support.fitKey, _startsLiveKey()) ? p.support : null;
 }
@@ -8849,7 +8859,7 @@ function _startsRecordKey(t) { return _startsModelKey(t.peaks, t.ui, t.ccShift, 
 // BEHIND THE SWITCH: nothing reads sealedState until step 7 makes the seal the authority. Every check is exact —
 // no tolerance (CLAUDE.md "Thresholds on data-scaled quantities fail") — and reads each field the way its consumer
 // reads it ("Two readings of one field").
-const _SEAL_AUTHORITATIVE = false;
+let _SEAL_AUTHORITATIVE = false;   // a `let` only so the step-5 tests can turn the readers on; step 7 removes the switch
 
 // The RECORD rule (steps 3-4 Codex round 1): a seal is compared in the form it TRAVELS and is STORED in — JSON —
 // so a value and its round trip are one value, exactly (no tolerance): -0 is 0 (the upload and JSON send 0, and
@@ -9268,6 +9278,19 @@ function _ensureVerified(owner, retry = false, fromDeployment = false) {
 // A seal's verdict changed: the consumers repaint (step 7 wires them; until then an event for tests and observers).
 function _onSealVerdict(owner, seal) {
   try { window.dispatchEvent(new CustomEvent('xps-seal-verdict', { detail: { owner, seal } })); } catch (e) { /* no window */ }
+  if (_SEAL_AUTHORITATIVE) _repaintForSeal(owner);
+}
+// Step 5: a verdict changes what the readers show (a mismatch makes the fit STALE: its record is no longer drawn).
+// The owner's own chart, or a stack showing it (its entries' render caches dropped first).
+function _repaintForSeal(owner) {
+  if (typeof tabManager === 'undefined' || !tabManager) return;
+  const active = _activeTab();
+  if (!active) return;
+  if (active === owner) { updatePlot(); return; }
+  if (isStackTab(active) && active.entries.some(e => e.sourceTabId === owner.id)) {
+    for (const e of active.entries) if (e.sourceTabId === owner.id) e._renderDataCache = null;
+    _updateStackChart(active);
+  }
 }
 
 // The STATE of a fit (plan §5): { state: 'current' | 'pending' | 'unconfirmed' | 'stale' | 'peaks-only' | 'legacy'
@@ -9298,6 +9321,26 @@ function sealedState(fr, owner) {
   }
   if (_isUnreachable(seal)) return { state: 'unconfirmed', check: 'unreachable', reason: 'the server could not be reached to check this fit', view };
   return { state: 'pending', check: null, reason: 'confirming…', view };
+}
+
+// Step 5 (plan §7): the SEALED SOURCE a consumer reads — `{state, check, reason, view}` when the switch is on and
+// the fit is sealed and CURRENT, PENDING or UNCONFIRMED (its recorded numbers describe the model shown); else null,
+// and the consumer keeps today's behaviour (unsealed / LEGACY: today's machinery; STALE / PEAKS-ONLY: the live
+// preview, labelled by the state readers).
+function _sealedDisplay(fr, owner) {
+  if (!_SEAL_AUTHORITATIVE || !fr || !fr.seal) return null;
+  const s = sealedState(fr, owner === undefined ? _activeTab() : owner);
+  return (s.state === 'current' || s.state === 'pending' || s.state === 'unconfirmed') ? s : null;
+}
+// A view's component for a live peak (ids are strings on the wire, numbers on the page).
+function _sealComponent(view, p) {
+  const id = String(p.id);
+  return view.components.find(c => String(c.id) === id) || null;
+}
+// A view's recorded support verdict says the data did not determine the component.
+function _sealUnsupported(view, p) {
+  const c = _sealComponent(view, p);
+  return !!(c && c.support && c.support.supported === false);
 }
 
 // The starts evidence of `fr` if it still describes the fit whose key is `key`, else null.
@@ -11597,6 +11640,18 @@ function _buildEntryRenderData(entry) {
   }
   const shift = src.ccShift || 0;
 
+  // Seal step 5: a sealed source that still describes its model draws its RECORD (O's samples, background,
+  // envelopes and components; copies — Chart.js instruments arrays), judged against the SOURCE record.
+  const sealed = _sealedDisplay(fr, src);
+  if (sealed) {
+    const v = sealed.view;
+    return { be: v.energies.slice(), bg: v.background.slice(), rawY: v.counts.slice(), fittedY: v.fittedY.slice(),
+             fittedSub: v.fittedSub.slice(), sealState: sealed.state, reportable: v.designation.reportable,
+             peaks: peaks.map(p => { const c = _sealComponent(v, p);
+               const peakOnly = c ? c.y.slice() : new Array(v.energies.length).fill(0);
+               return { peak: p, peakOnly, y: peakOnly.map((x, i) => x + v.background[i]) }; }) };
+  }
+
   // be + bg + rawY
   let be, bg, rawY;
   if (Array.isArray(fr.be) && fr.be.length >= 2
@@ -11751,7 +11806,7 @@ function _buildStackDatasets(stackTab) {
     for (const pc of rdPeaks) {
       datasets.push({
         _stackKey: e.id + ':peak:' + pc.peak.id,
-        label: (pc.peak.name || ('peak ' + pc.peak.id)) + (_isUnsupported(pc.peak, _startsRecordKey(src)) ? ' (' + _UNSUPPORTED_LABEL + ')' : ''),
+        label: (pc.peak.name || ('peak ' + pc.peak.id)) + (_isUnsupported(pc.peak, _startsRecordKey(src), src) ? ' (' + _UNSUPPORTED_LABEL + ')' : ''),
         // BG-sub view: pure peak shape (bg-subtracted level).
         // Raw view: peak + bg (raw level).
         data: useBgSub
@@ -11797,12 +11852,12 @@ function _buildStackDatasets(stackTab) {
     let envData = [];
     if (rd && rd.be.length) {
       envData = useBgSub
-        ? rd.be.map((b, i) => ({ x: b, y: (rd.fittedY[i] - rd.bg[i]) + yShift }))
+        ? rd.be.map((b, i) => ({ x: b, y: (rd.fittedSub ? rd.fittedSub[i] : rd.fittedY[i] - rd.bg[i]) + yShift }))
         : rd.be.map((b, i) => ({ x: b, y: rd.fittedY[i]              + yShift }));
     }
     datasets.push({
       _stackKey: e.id + ':env',
-      label: (src ? src.name : 'entry') + (src && _isLocalFit(src.fitResult) ? ' (fit: local, starting point)' : ' (fit)'),
+      label: (src ? src.name : 'entry') + (src && (rd && rd.sealState ? !rd.reportable : _isLocalFit(src.fitResult)) ? ' (fit: local, starting point)' : ' (fit)'),
       data: envData,
       borderColor: _colorWithAlpha(e.color, 0.7),
       backgroundColor: _colorWithAlpha(e.color, 0.7),
@@ -12082,7 +12137,11 @@ function updatePlot() {
 
   // After a fit, freeze all curve data to the stored fit state so that
   // changing ROI never re-draws or recomputes the fit, background, or peaks.
-  const haveFit = !!(state.fitResult && Array.isArray(state.fitResult.be) &&
+  // Seal step 5: a sealed fit that still describes the model shown draws its RECORD — O's samples, background,
+  // components, envelopes and residuals in O's associations, never re-evaluated from the live peaks.
+  const sealed = _sealedDisplay(state.fitResult);
+  const sv = sealed && sealed.view;
+  const haveFit = !!sv || !!(state.fitResult && Array.isArray(state.fitResult.be) &&
                      state.fitResult.be.length > 0 &&
                      Array.isArray(state.fitResult.bgIntensity) &&
                      state.fitResult.bgIntensity.length === state.fitResult.be.length);
@@ -12090,7 +12149,7 @@ function updatePlot() {
   // plotBE/plotBG/plotInten drive all fit-related curves (peaks, background, envelope).
   // When a fit exists, they come from the frozen fit state — ROI changes don't affect them.
   // Before fitting, they come from the current ROI so live peak previews still work.
-  const plotBE = haveFit ? state.fitResult.be : be;
+  const plotBE = sv ? sv.energies : (haveFit ? state.fitResult.be : be);
   // Background math (2026-10-01): the live background is certified against its
   // defining statement on every update; a failure is said under the method menu
   // and, before a fit, nothing is drawn, subtracted or fitted against it (peak
@@ -12101,25 +12160,30 @@ function updatePlot() {
   const liveBgFailure = liveR.failure;
   _refreshBgConvergenceNote(liveBgFailure);
   const preFitBgFails = !haveFit && !!liveBgFailure;
-  const plotBG = haveFit ? state.fitResult.bgIntensity
-                         : (preFitBgFails ? new Array(be.length).fill(0) : liveBg);
-  const plotInten = haveFit && Array.isArray(state.fitResult.bgSubtracted)
+  const plotBG = sv ? sv.background
+                 : haveFit ? state.fitResult.bgIntensity
+                 : (preFitBgFails ? new Array(be.length).fill(0) : liveBg);
+  const plotInten = sv ? sv.counts
+                    : haveFit && Array.isArray(state.fitResult.bgSubtracted)
                     ? state.fitResult.bgSubtracted.map((v, i) => v + plotBG[i])
                     : inten;
-  const bgSubtracted = haveFit && Array.isArray(state.fitResult.bgSubtracted)
+  const bgSubtracted = sv ? sv.counts.map((v, i) => v - sv.background[i])   // the server's y_sub, the same operation
+                       : haveFit && Array.isArray(state.fitResult.bgSubtracted)
                        ? state.fitResult.bgSubtracted
                        : plotInten.map((v, i) => v - plotBG[i]);
 
-  const modelFull = evalAllPeaks(plotBE, state.peaks);
+  const modelFull = sv ? sv.fittedSub : evalAllPeaks(plotBE, state.peaks);
   // Use backend fitted_y when available (authoritative lmfit result);
   // fall back to JS-recomputed modelFull + bg for pre-fit / local-LM fits.
   // F1: never a stale result's curve (Find Peaks apply / undo keep the old
   // result over a replaced model): the envelope is then the current peaks
-  const fittedYBacked = haveFit && state.fitResult.fittedY &&
+  const fittedYBacked = sv ? sv.fittedY
+                        : haveFit && state.fitResult.fittedY &&
                         state.fitResult.fittedY.length === plotBE.length &&
                         _statsLiveState() !== 'stale'
                         ? state.fitResult.fittedY : null;
-  const rawResiduals = fittedYBacked
+  const rawResiduals = sv ? sv.residuals
+    : fittedYBacked
     ? plotInten.map((v, i) => v - fittedYBacked[i])
     : bgSubtracted.map((v, i) => v - modelFull[i]);
   // Percentage residuals: ((data - fit) / data) × 100, clamped to ±100%
@@ -12158,10 +12222,12 @@ function updatePlot() {
     for (let pi = 0; pi < state.peaks.length; pi++) {
       const p = state.peaks[pi];
       const fillTarget = showFill ? { target: pi, above: p.color + '40', below: 'transparent' } : false;
-      const peakY = evalPeakArray(plotBE, p);
+      const comp = sv ? _sealComponent(sv, p) : null;
+      const peakY = sv ? (comp ? comp.y : new Array(plotBE.length).fill(0)) : evalPeakArray(plotBE, p);
+      const unsup = sv ? _sealUnsupported(sv, p) : _isUnsupported(p);
       datasets.push({
-        label: _isUnsupported(p) ? p.name + ' (' + _UNSUPPORTED_LABEL + ')' : p.name,
-        _unsupported: _isUnsupported(p),
+        label: unsup ? p.name + ' (' + _UNSUPPORTED_LABEL + ')' : p.name,
+        _unsupported: unsup,
         data: plotBE.map((b, i) => ({ x: b, y: peakY[i] + (bgSubView ? 0 : plotBG[i]) })),
         borderColor: p.color,
         backgroundColor: p.color + '40',
@@ -12209,8 +12275,10 @@ function updatePlot() {
   const showEnvelope = document.getElementById('show-envelope').checked;
   if (showEnvelope && plotBE.length && (fittedYBacked || state.peaks.length)) {
     datasets.push({
-      label: _isLocalModel() ? 'Fit (local, starting point)' : 'Fit',
-      data: fittedYBacked
+      label: (sv ? !sv.designation.reportable : _isLocalModel()) ? 'Fit (local, starting point)' : 'Fit',
+      data: sv
+        ? plotBE.map((b, i) => ({ x: b, y: bgSubView ? sv.fittedSub[i] : sv.fittedY[i] }))   // O's two envelopes, never one rebuilt from the other
+        : fittedYBacked
         ? plotBE.map((b, i) => ({ x: b, y: fittedYBacked[i] - (bgSubView ? plotBG[i] : 0) }))
         : plotBE.map((b, i) => ({ x: b, y: modelFull[i] + (bgSubView ? 0 : plotBG[i]) })),
       borderColor: '#ff2020',
