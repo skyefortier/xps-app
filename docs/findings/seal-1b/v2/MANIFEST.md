@@ -17,7 +17,7 @@ Machine: the lab's i9 (macOS). The run did not touch production. The gunicorn it
   ```
   `records_index.jsonl` carries this identity's sha256 for each record, computed from `json.dumps(software, sort_keys=True)`.
 - `/api/verify-fit` compares the whole software identity before any numerical check. Every verification here therefore ran on the identity that produced the record.
-- Producing `records_index.jsonl` and `summary.txt` came AFTER the run. It used two additions that are not committed yet: the `index` phase of `scripts/seal_1b_measure.py` and the rewritten `scripts/seal_1b_summarise.py`. The `index` phase only adds code. The record, record-synthetic, verify, sizes and replay phases are byte-for-byte a46cd3f's.
+- Producing `records_index.jsonl` and `summary.txt` came AFTER the run. It used two additions that are not committed yet: the `index` phase of `scripts/seal_1b_measure.py` and the rewritten `scripts/seal_1b_summarise.py`. The `index` phase only adds code. The record, record-synthetic, verify, sizes and replay phases are byte-for-byte a46cd3f's. After Codex round 2, `scripts/seal_1b_measure.py` also lost its default target path (`SEAL_1B_TARGETS` is now required, as the run above set it) and its `--shake` docstring was qualified; neither changes what the run measured. The summariser sorts its per-kind counts, so `summary.txt` is the same under every `PYTHONHASHSEED`.
 
 ## Targets
 

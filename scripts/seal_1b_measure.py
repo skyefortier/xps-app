@@ -11,8 +11,9 @@ on the 202 committed targets.
                                POST /api/verify-fit for every record in THIS (fresh) process —
                                or against a running server (--url, e.g. a 4-worker gunicorn, so
                                another worker verifies) — state and failed check per record.
-                               --shake allocates arrays of random size between verifications so
-                               the evaluators' arrays land at other memory alignments.
+                               --shake allocates arrays of random size between verifications: it
+                               changes the allocation history (which alignments the evaluators'
+                               arrays then receive is not observed).
   replay  RECORDS OUT.jsonl    "Re-run this fit" (V5.4 REPLAY-CHECKED): the recorded request with
                                O's seed as the caller's seed, in this process; the two compared by
                                tests/fit_equality.py (same fit within rounding) — reproduced / a
@@ -41,8 +42,11 @@ import numpy as np  # noqa: E402
 
 # the committed fit targets AS TODAY'S PAGE SENDS THEM (Codex 1b round 1): built by
 # scripts/seal_1b_tabs.py + scripts/optimizer_disagreement_targets.js; its path in SEAL_1B_TARGETS
-TARGETS = os.environ.get("SEAL_1B_TARGETS") or ("/Users/skyefortier/xps-app/.claude/worktrees/investigate-optimizer-"
-                                                 "disagreement/docs/findings/optimizer-disagreement/targets.json")
+# — REQUIRED (Codex 1b round 2): no default, so an older target file can never be picked up silently
+TARGETS = os.environ.get("SEAL_1B_TARGETS")
+if not TARGETS and len(sys.argv) > 1 and sys.argv[1] in ("record", "index"):
+    sys.exit("SEAL_1B_TARGETS is not set: give the target file built by scripts/seal_1b_tabs.py + "
+             "scripts/optimizer_disagreement_targets.js (see docs/findings/seal-1b/v2/MANIFEST.md)")
 
 
 def done_ids(out):

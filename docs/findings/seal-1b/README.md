@@ -11,7 +11,7 @@ Branch `seal-1b-measure`. Design memo V6.11 1b, V5.4 / V6.5 (option (b)).
 The corpus is 328 records. All 328 returned HTTP 200 with `success: true`. All 328 were recorded, verified and replayed on one clean commit, a46cd3f (`dirty=0` before the first phase). All 328 carry one software identity, the one `/api/verify-fit` gates on: Python 3.12.13, NumPy 2.4.4, SciPy 1.17.1, lmfit 1.3.4.
 
 - **202 committed targets: Run Fit's request as today's page builds it.** The 7 committed projects in `docs/autofit/test_data` hold 121 tabs (`seal_1b_tabs.py`). `optimizer_disagreement_targets.js` turns those tabs into 202 targets, using the page's own `peakToBackendSpec` and `_bgWindowIndices`, extracted verbatim. 107 targets are a tab's own saved model. The other 95 are a region's first model propagated onto another tab, the way `runPropagation` does it: a start that is not yet a solution. Rebuilding both files at a46cd3f gives the same sha256 (MANIFEST).
-  - Each request is what Run Fit sends: the data uploaded at full precision through `/api/upload`, explicit window indices and averaging, Trust-Region, `n_perturb` 3, and `n_starts` 3 when there are at least 2 unlinked components (304 records; the other 24 have 0).
+  - Each request is what Run Fit sends: the data uploaded at full precision through `/api/upload`, explicit window indices and averaging, Trust-Region, `n_perturb` 3, and `n_starts` 3 when there are at least 2 unlinked components (178 of the 202 committed records; the other 24 have 0. Over the whole corpus, with the synthetic requests, 304 of 328).
   - The page's Method menu is assumed to be at its default. Only Trust-Region is measured.
   - All 180 Voigt components now go out at `gl_ratio` 0.5 with `fix_gl_ratio: true`, and every spec carries `frontend_shape`.
   - Committed lineshapes, by component: GL 374, Voigt 180, LA 178, asym-GL 108, Gaussian 25. There are no Lorentzian, DS or DS+G components.
@@ -122,7 +122,7 @@ Every replay reported `success: true`, as did every record.
   - `syn-3-ds_g-5`: one start moved from "same as the fit" into a not-better solution. `n_same_as_fit` went 3 → 2, `n_not_better_elsewhere` 0 → 1 and the not-better list's length 0 → 1. The comparator lists every field that differs, and `n_converged` is not among them.
   - The other four differ in one not-better χ²ᵣ: `syn-4-ds_g-1` by 3.5e-6, `syn-4-ds_g-3` by 1.6e-6, `syn-4-ds_g-5` by 2.1e-5 and `syn-5-ds_g-5` by 6.9e-4 relative.
 
-The DS+G evaluator verified bit-stable across processes (§1), so these differences come from somewhere else. That fits the Trust-Region arithmetic jitter CLAUDE.md records, which acts on where a scattered start lands, but it was not investigated here.
+No DS+G instability was observed in §1, but §1 evaluated each fit at its RECORDED parameters, not at every point an optimiser visits, so it does not rule DS+G out. The cause of these differences was not isolated; the Trust-Region arithmetic jitter CLAUDE.md records, which acts on where a scattered start lands, is one candidate.
 
 The superseded run reported two fit-level differences, on U4f Scan_1 and Scan_3. They were on the pre-A03 targets, and they did not recur here. That does not show they cannot happen: CLAUDE.md documents LA U 4f fits whose minimum depends on arithmetic.
 
@@ -133,7 +133,7 @@ The superseded run reported two fit-level differences, on U4f Scan_1 and Scan_3.
 **Shown, on this corpus, on one machine and one software identity:**
 - no false `mismatch` in 1,312 cross-process verifications;
 - `unconfirmed` occurs only on records holding LA;
-- the page's background is bit-identical to the server's on 328 / 328 records over six methods (`shirley_linear` aside);
+- the page's background is bit-identical to the server's on 328 / 328 records over seven methods — Shirley, Smart, smart_exp, Tougaard, linear, none, manual (`shirley_linear` aside);
 - a re-run with the recorded seed reproduces the fit on 328 / 328, with the starts evidence differing on 7.
 
 **Not shown:**

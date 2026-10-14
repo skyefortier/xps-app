@@ -103,8 +103,8 @@ if all_states:
         la_ids = {i for i, r in by_id.items() if "la_casaxps" in r["backend_shapes"]}
         small = {i for i in la_ids if all(p["m_fitted"] < 1e-3 for p in by_id[i]["peaks"] if p["shape"] == "la_casaxps")}
         print(f"   LA records whose every m is below 1e-3 (no convolution): {len(small)}, unconfirmed in any setting: {len(small & ever_unconfirmed)}")
-        print(f"   records holding la_casaxps: {len(la_ids)} ({dict(Counter(kind({'id': i}) for i in la_ids))}); unconfirmed in at least one "
-              f"setting: {len(ever_unconfirmed)} ({dict(Counter(kind({'id': i}) for i in ever_unconfirmed))}); consistent in all four: "
+        print(f"   records holding la_casaxps: {len(la_ids)} ({dict(sorted(Counter(kind({'id': i}) for i in la_ids).items()))}); unconfirmed in at least one "
+              f"setting: {len(ever_unconfirmed)} ({dict(sorted(Counter(kind({'id': i}) for i in ever_unconfirmed).items()))}); consistent in all four: "
               f"{len(la_all_consistent or ())}")
 
 S = rows("sizes.jsonl")
