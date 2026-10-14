@@ -45,3 +45,11 @@ if ident:
           f"{sum(1 for r in differ if r['id'] in ctrl and not ctrl[r['id']]['identical'])}, "
           f"control identical on {sum(1 for r in differ if r['id'] in ctrl and ctrl[r['id']]['identical'])}, "
           f"no control {sum(1 for r in differ if r['id'] not in ctrl)}")
+
+fin = rows("final_identity_differing_lm.jsonl")
+if fin:
+    same = sum(1 for r in fin if r["same_fit_within_rounding"] is True)
+    bad = [(r["tab"], r["same_fit_within_rounding"]) for r in fin
+           if not r["identical"] and r["same_fit_within_rounding"] is not True]
+    print(f"== final code vs main on those targets: identical {sum(r['identical'] for r in fin)} / {len(fin)}, "
+          f"same fit within rounding {same}, otherwise {bad}; added {sorted(set(a for r in fin for a in r['added']))}")

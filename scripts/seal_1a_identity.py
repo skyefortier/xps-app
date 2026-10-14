@@ -21,7 +21,8 @@ import sys
 
 import numpy as np
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tests"))
+_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+sys.path[:0] = [_ROOT, os.path.join(_ROOT, "tests")]        # tests/fit_equality.py and the fitting it imports
 
 TARGETS = ("/Users/skyefortier/xps-app/.claude/worktrees/investigate-optimizer-disagreement/"
            "docs/findings/optimizer-disagreement/targets.json")
