@@ -1,0 +1,16 @@
+ADVERSARIAL IMPLEMENTATION RE-REVIEW, round 3, of seal unit 1a′ (the server side of the sealed fit record, option (b)).
+
+REPO: this checkout, branch seal-1a-server; the reviewed code is commit 4c2cfde (HEAD may add only this prompt). main = ef750f6. Rounds 1-2 (each NO-GO x2): docs/autofit/codex/seal_1a_server_r{1,2}_verdict_run{A,B}.md. The round-1 prompt (docs/autofit/codex/seal_1a_server_r1_prompt.txt) states the unit, the design sections and the seven questions; they all still apply. Fix history: docs/superpowers/plans/2026-10-13-seal-1a-server.md "Round-1 fixes", "Round-2 fixes"; `git show 3987469 4c2cfde`.
+
+ROUND-2 DISPOSITIONS — verify each, then hunt for what they missed:
+1. BLOCKER lossy arrays: `_verify`'s `arr()` returns O's list unconverted and `equal()` compares each recorded number with the computed float by Python's exact int/float comparison; `_verify_relations` refuses a curve holding a number no float represents before converting it. Tests: TAMPER "huge integer". Is any O number still read through float()/np.asarray before an exact comparison (statistics, support, params, bounds, background_verdict, seeds)?
+2. MAJOR LA fallback scope: the downgrade to `unconfirmed` now applies ONLY to the two evaluation identities (a recorded component curve = this server's evaluation of its parameters, for a component whose OWN shape is in NOT_BIT_STABLE_SHAPES; the recorded model sum = the composite evaluation, when the request holds such a shape). Areas, fitted_y, residuals, statistics and support are computed from the RECORDED curves (`_verify_relations`) and stay exact mismatches; they are checked BEFORE the evaluations. Tests: test_a_lineshape_that_is_not_bit_stable_is_unconfirmed_not_mismatch, test_an_la_curve_that_is_not_its_parameters_is_unconfirmed. Can a forged O exploit the remaining downgrade to read `unconfirmed` where it should read `mismatch` in a way that matters (unconfirmed is never current), or a consistent forged O pass?
+3. MAJOR typed recorded objects: `_typed` with _STARTS_T, _REQUIRED_T, _CERTIFICATE_T, _SUPPORT_T, _STATISTICS_T, _NOT_RUN_T — are these EXACTLY the forms run_fit emits (compare with _scattered_starts, _component_required, _certificate_report / _certified, _component_support, _fit_statistics, the starts/required "not run" branches)? Would any honest response be refused (a false STALE)?
+4. MAJOR 10**400 id: `_non_finite` only tests floats. Test: test_a_huge_integer_id_is_judged_not_a_500.
+5. `_component_required` takes exact parameter names only (its prefix fallback removed; the three direct test calls pass names).
+6. README: the residual-vector inference removed.
+Suites: the full pytest is re-running on 4c2cfde; the targeted suites passed (verify 84, acceptance holes + required 15). Identity after round 1: docs/findings/seal-1a/r1fix_identity_lm_first40.jsonl.
+
+Rank findings BLOCKER / MAJOR / MINOR with file:line evidence (same definitions as round 1). Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.
