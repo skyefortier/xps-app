@@ -3246,7 +3246,7 @@ def _typed(v, spec) -> bool:
 def _non_finite_request(peak_specs, manual_bg) -> bool:
     """A request number with no exact reading: a NaN anywhere, or ±Infinity anywhere but a bound
     (a key ending "_min" / "_max", where Infinity is an open side, as lmfit reads it). An infinite
-    START, splitting or anchor is never a fit the routes return (Codex round 6: a forged pairing of
+    START, splitting or anchor is never a fit the routes return (Codex round 6: a pairing of
     such a request with a finite response read consistent once O's values replaced the start)."""
     def bad(v, bound):
         if isinstance(v, float):

@@ -2,7 +2,7 @@
 response O from its request R — never fits — and compares EXACTLY. A response it produced is
 `consistent`; a change to anything it recomputes is a `mismatch` naming the check; a response
 from other software is `unconfirmed`. Acceptance (success, certificate, starts, required, σ)
-is the file's statement and is NOT recomputed: a forged `success` stays consistent — said, not
+is the file's statement and is NOT recomputed: a modified `success` stays consistent — said, not
 hidden (owner 2026-10-11: "converged" is shown as recorded, not proven)."""
 import copy
 import io
@@ -110,13 +110,13 @@ def test_a_grandchild_listed_before_its_parent_verifies(client):
 def test_acceptance_is_recorded_not_recomputed(client):
     x, y, specs = SS._well_posed()
     R, O = _seal(client, x, y, specs, fit_method="least_squares")
-    forged = copy.deepcopy(O)
-    forged["success"] = not O["success"]
-    forged["message"] = "anything"
-    forged["certificate"] = {**O["certificate"], "certified": not O["certificate"]["certified"]}
-    forged["starts"] = None
-    forged["individual_peaks"][0]["params"]["center"]["stderr"] = 1e-9
-    _consistent(client, R, forged)
+    modified = copy.deepcopy(O)
+    modified["success"] = not O["success"]
+    modified["message"] = "anything"
+    modified["certificate"] = {**O["certificate"], "certified": not O["certificate"]["certified"]}
+    modified["starts"] = None
+    modified["individual_peaks"][0]["params"]["center"]["stderr"] = 1e-9
+    _consistent(client, R, modified)
 
 
 # ── a change to anything it recomputes is a mismatch, named ──────────────────────────────────

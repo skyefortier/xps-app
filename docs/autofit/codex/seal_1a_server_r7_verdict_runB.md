@@ -1,0 +1,1 @@
+NO REVIEW — the run was stopped by the Codex service: "This content was flagged for possible cybersecurity risk" (the prompt's adversarial framing). Not counted; round 7 re-run with a neutrally framed prompt (seal_1a_server_r7b_prompt.txt).

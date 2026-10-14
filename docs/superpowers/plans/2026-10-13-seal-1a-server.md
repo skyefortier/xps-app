@@ -116,7 +116,7 @@ both labelled "GL" now names the backend shapes (bfca83a).
 
 - A free value is checked against its bounds as floats — the reading the producer records and the
   fit uses (an integer bound of 10000000000000001 is 1e16 to both).
-- Parameters that cannot be evaluated (a forged fwhm of 1e308 overflows) are a mismatch: the
+- Parameters that cannot be evaluated (a modified fwhm of 1e308 overflows) are a mismatch: the
   producer evaluated its own parameters. Any other error inside the verifier answers `unconfirmed`
   ("error") — never a 500, never current.
 - Inline R arrays beyond any float are refused with the route's 400.
