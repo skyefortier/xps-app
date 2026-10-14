@@ -1,0 +1,24 @@
+CORRECTNESS REVIEW, ROUND 2, of steps 3 and 4 of unit 1c ("sealed fit record") in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software.
+
+REPO: this checkout, branch seal-1c-s34fix. Round 1 reviewed `git diff 70e1097..115c1c2` (both runs NO-GO; verdicts archived at docs/autofit/codex/seal_1c_steps34_r1_verdict_run{A,B}.md, prompt seal_1c_steps34_r1_prompt.txt). Review the FIX: `git diff 115c1c2..HEAD`, and re-check steps 3-4 as a whole (`git diff 70e1097..HEAD`) where the fix touches them. THE PLAN: docs/superpowers/plans/2026-10-14-seal-1c-page.md (§2-§6, §9, §11). The page is templates/index.html; the server's verifier is fitting.verify_fit (`POST /api/verify-fit`).
+
+WHAT THE FIX DOES:
+- ONE RECORD RULE: a seal is compared in the form it travels and is stored in (JSON): `_jsonEqual` / `_recNumEq` treat -0 as 0 (the upload and JSON send 0; the server compares numbers with ==) and an undefined field as absent; NaN stays unequal to null. `_sameModel` stays strict (step 2 uses it to prove two code paths identical, signed zero included); the bindings use `_sameRecordModel`.
+- Auto-Fit: the final fit's `context0.producer` must equal the anchor fit's, and `require_component` must name the anchor component (the "Graphite" peak of E.R.pageModel, else its first).
+- The verification manager keeps each check's outcome (`_checkOutcome` never throws; `_settleChecks`), aggregated by plan §6.3's precedence (mismatch; else outstanding; else unreachable; else unconfirmed; else consistent), a mismatch deciding at once.
+- STAGED transactions: `_beginStaged(owner, op)`, `_verifyStagedCheck(txn, R, O)` (resolves only while the owner is live and active, the operation and the transaction current), `_commitStaged(txn, seal)` (enters the answers for the seal it installs). Not yet called by Auto-Fit: plan §12 step 7 switches the producers.
+- "Check again" (`_ensureVerified(owner, true)`) always starts a new attempt; an unreachable server leaves a cached numerical answer in place.
+- The sample-binding memo is valid only for the same arrays holding the same values.
+- Tests (tests/test_browser_seal_step3.py, tests/test_browser_seal_step4.py): the supersession test now installs a newer operation; tab switch; replaced seal; reused tab id; a background attempt never claiming the operation; check again after a cached unconfirmed; -0 counts; raw data edited in place; local energies / net / lock / link / held-value substitutions; Auto-Fit producer continuity, anchor identity, wrong-spectrum evidence; mixed and outstanding Auto-Fit outcomes; staged supersession at each check and on a tab switch; "Use this solution" and Batch Fit seal production; strict identity assertions.
+
+ANSWER EACH (cite file:line):
+1. Is every round-1 finding (both runs) resolved? List each with its status.
+2. Is the record rule sound and applied consistently ("Two readings of one field"): can it make two genuinely different records equal, or leave an honest one (a stored and reloaded seal, a -0 sample, an undefined field) unequal? Is keeping `_sameModel` strict right?
+3. The Auto-Fit evidence check: can a final fit made with different producer settings, or without asking about the anchor, still bind? Can an honest Auto-Fit now fail to bind?
+4. The verification precedence and the staged transaction against plan §6.3 / §9: can a mismatch be hidden, a state reported before it is known, or a superseded reply resolve anything?
+5. Any regression in behaviour with the switch off (the shipped page)?
+6. Are the new tests strong enough (would each fail on the defect it names)?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.
