@@ -1895,7 +1895,7 @@
       <span class="hbadge" id="data-info" style="display:none">no data</span>
       <div class="hselect-wrap peak-fit-control">
         <label for="fit-method">Method</label>
-        <select id="fit-method" class="xps-tip-select">
+        <select id="fit-method" class="xps-tip-select" onchange="_onFitMethodChange()">
           <option value="least_squares" data-tip="Robust gradient-based optimizer. Explores more broadly than Levenberg-Marquardt. Good general-purpose choice.">Trust-Region (default)</option>
           <option value="leastsq" data-tip="Fast gradient-based optimizer. Best for refining fits that are already close to the solution. Most commonly used in XPS software.">Levenberg-Marquardt</option>
           <option value="nelder" data-tip="Derivative-free optimizer. Useful when the chi-squared surface is rough or noisy. Slower but can handle difficult fits.">Nelder-Mead</option>
@@ -3902,20 +3902,9 @@ class TabManager {
   }
 
   _captureUI() {
-    return {
-      bgType:      document.getElementById('bg-type')?.value || 'shirley',
-      bgStart:     document.getElementById('bg-start')?.value || '',
-      bgEnd:       document.getElementById('bg-end')?.value || '',
-      shirleyIter: document.getElementById('shirley-iter')?.value || '5',
-      endpointAvg: document.getElementById('bg-endpoint-avg')?.value ?? LEGACY_ENDPOINT_AVG,   // the field as typed: a blank is kept, and refused
-      roiMin:      document.getElementById('roi-min')?.value || '',
-      roiMax:      document.getElementById('roi-max')?.value || '',
-      ccMethod:    document.getElementById('cc-method')?.value || 'none',
-      ccObs:       document.getElementById('cc-obs')?.value || '',
-      ccLit:       document.getElementById('cc-lit')?.value || '',
-      bgSubtractedView: !!document.getElementById('bg-sub-toggle')?.checked,
-    };
+    return _uiFromDom();   // seal 1c step 4: one reader of the controls (_contextOf reads the same)
   }
+
 
   _restoreUI(ui) {
     const set = (id, val) => {
@@ -3931,6 +3920,8 @@ class TabManager {
     // "1." (outside its grammar), which would then be refused (Codex averaging round 3)
     { const ep = ui.endpointAvg ?? LEGACY_ENDPOINT_AVG;
       set('bg-endpoint-avg', _endpointAvgFailure(ep) ? (typeof ep === 'object' && ep !== null ? '' : ep) : String(Number(String(ep).trim()))); }
+    // seal 1c step 4: the fit method is per tab; a record without one (saved before) has the page's default
+    set('fit-method', ui.fitMethod ?? 'least_squares');
     set('roi-min', ui.roiMin);
     set('roi-max', ui.roiMax);
     set('cc-method', ui.ccMethod);
@@ -7020,14 +7011,31 @@ async function uploadToBackend(be, inten, signal) {
 
 // The fit's CONTEXT as the page holds it now: every live control a server fit reads, the shift in force and a
 // copy of the manual anchors (plan §1 `context0.live`). Read once, before a producer's first await.
-function _liveFitContext() {
-  const v = id => document.getElementById(id)?.value;
+// The method is part of a fit's context (seal 1c step 4): a change re-judges the active tab's evidence at once.
+function _onFitMethodChange() {
+  if (typeof _refreshStartsEvidence === 'function') _refreshStartsEvidence(true);
+}
+// The tab's UI record as the page's controls hold it now — TabManager._captureUI's record, as a plain function so
+// every reader of the controls reads them alike (seal 1c step 4: _contextOf, the producers' context).
+function _uiFromDom() {
   return {
-    bgType: v('bg-type'), bgStart: v('bg-start'), bgEnd: v('bg-end'), shirleyIter: v('shirley-iter'),
-    endpointAvg: v('bg-endpoint-avg'), roiMin: v('roi-min'), roiMax: v('roi-max'), fitMethod: v('fit-method'),
-    ccMethod: v('cc-method'), ccObs: v('cc-obs'), ccLit: v('cc-lit'), ccShift: state.ccShift,
-    anchors: _getManualAnchors().map(a => ({ x: a.x, y: a.y })),
+    bgType:      document.getElementById('bg-type')?.value || 'shirley',
+    bgStart:     document.getElementById('bg-start')?.value || '',
+    bgEnd:       document.getElementById('bg-end')?.value || '',
+    shirleyIter: document.getElementById('shirley-iter')?.value || '5',
+    endpointAvg: document.getElementById('bg-endpoint-avg')?.value ?? LEGACY_ENDPOINT_AVG,   // the field as typed: a blank is kept, and refused
+    roiMin:      document.getElementById('roi-min')?.value || '',
+    roiMax:      document.getElementById('roi-max')?.value || '',
+    ccMethod:    document.getElementById('cc-method')?.value || 'none',
+    ccObs:       document.getElementById('cc-obs')?.value || '',
+    ccLit:       document.getElementById('cc-lit')?.value || '',
+    fitMethod:   document.getElementById('fit-method')?.value || 'least_squares',   // seal 1c step 4: per tab (plan §8.5)
+    bgSubtractedView: !!document.getElementById('bg-sub-toggle')?.checked,
   };
+}
+function _liveFitContext() {
+  // ONE reader of the context (seal 1c step 4): the active tab's, as _contextOf reads any owner's
+  return _contextOf(null);   // null: the active page (no tab lookup needed)
 }
 
 // The wire body of a server fit from a model snapshot and a context, the background window located on the
@@ -8059,9 +8067,9 @@ function _autoFitGraphiteIsSupported(gPeak, json) {
 // The anchor's gates, on a fit's response: supported, required (the refit without it converged and
 // made the fit significantly worse), and its centre inside the reference window. A plain refusal, or
 // null. Read for the anchor fit AND for Auto-Fit's final fit in the corrected frame (Q8).
-function _autoFitAnchorRefusal(json) {
-  // 1. Locate the graphite peak in state.peaks (named "Graphite").
-  const gPeak = state.peaks.find(p => p.name === 'Graphite') || state.peaks[0];
+function _autoFitAnchorRefusal(json, peaks = state.peaks) {
+  // 1. Locate the graphite peak in the fitted model (the live peaks; the seal passes its projection), named "Graphite".
+  const gPeak = peaks.find(p => p.name === 'Graphite') || peaks[0];
   if (!gPeak || !Number.isFinite(gPeak.center)) {
     return 'Auto-fit failed: graphite center not found in fit result.';
   }
@@ -8830,6 +8838,285 @@ function _startsLiveKey() {
 }
 // The key of a tab RECORD (project save runs after _syncActiveToRecord).
 function _startsRecordKey(t) { return _startsModelKey(t.peaks, t.ui, t.ccShift, t.manualAnchors); }
+// ── Seal 1c step 4 (plan docs/superpowers/plans/2026-10-14-seal-1c-page.md §2-§6, §9): JUDGING a seal. ──
+// BEHIND THE SWITCH: nothing reads sealedState until step 7 makes the seal the authority. Every check is exact —
+// no tolerance (CLAUDE.md "Thresholds on data-scaled quantities fail") — and reads each field the way its consumer
+// reads it ("Two readings of one field").
+const _SEAL_AUTHORITATIVE = false;
+
+// JSON-value equality, field-wise: numbers by Object.is (NaN is NaN, never null; 0 and -0 differ), arrays and
+// objects recursively, key order irrelevant, an absent key not an undefined one.
+function _jsonEqual(x, y) {
+  if (typeof x === 'number' || typeof y === 'number') return Object.is(x, y);
+  if (x === null || y === null || typeof x !== 'object' || typeof y !== 'object') return x === y;
+  if (Array.isArray(x) !== Array.isArray(y)) return false;
+  const kx = Object.keys(x), ky = Object.keys(y);
+  return kx.length === ky.length && kx.every(k => Object.hasOwn(y, k) && _jsonEqual(x[k], y[k]));
+}
+
+// The LIVE key (plan §3): the peak fields a fit reads (today's model fields and Auto-Fit's overlays — never a
+// peak's name, colour or visibility, nor the fit's evidence) and EVERY context field with a live control, each
+// read by its reader: energies parseFloat, the Shirley count parseInt, the averaging by its refusal-aware reader
+// (an invalid "1e2" never matches a valid "1"); anything else as its text.
+const _SEAL_MODEL_FIELDS = [..._STARTS_MODEL_FIELDS, '_afCenterMin', '_afCenterMax', '_afFwhmMin', '_afFwhmMax'];
+const _SEAL_CTX_FIELDS = [..._STARTS_UI_FIELDS, 'fitMethod', 'ccMethod', 'ccObs', 'ccLit'];
+function _sealCtxRead(k, v) {
+  const text = String(v ?? '');
+  const READ = { bgStart: parseFloat, bgEnd: parseFloat, roiMin: parseFloat, roiMax: parseFloat, ccObs: parseFloat, ccLit: parseFloat,
+                 shirleyIter: x => parseInt(x), endpointAvg: x => (_endpointAvgFailure(x) ? NaN : Number(String(x).trim())) };
+  const read = READ[k];
+  if (!read) return text;
+  const n = read(text);
+  return Number.isFinite(n) ? String(n) : text;
+}
+function _sealKeyOf(peaks, ctx) {
+  return JSON.stringify({
+    p: (peaks || []).map(q => _SEAL_MODEL_FIELDS.map(k => (q[k] === undefined ? null : q[k]))),
+    u: _SEAL_CTX_FIELDS.map(k => _sealCtxRead(k, ctx[k])),
+    s: ctx.ccShift,
+    a: (ctx.anchors || []).map(v => [v.x, v.y]),
+  });
+}
+// The ONE reader of an owner's context (plan §3): the active tab's live controls, an inactive tab's record —
+// both through _captureUI's record shape, so a record and the live page read alike.
+function _contextOf(owner) {
+  const active = !owner || owner === _activeTab();
+  const ui = active ? _uiFromDom() : (owner.ui || {});
+  const out = {};
+  for (const k of _SEAL_CTX_FIELDS) out[k] = ui[k];
+  out.ccShift = active ? state.ccShift : owner.ccShift;
+  out.anchors = ((active ? (typeof _getManualAnchors === 'function' ? _getManualAnchors() : []) : owner.manualAnchors) || [])
+    .map(a => ({ x: a.x, y: a.y }));
+  return out;
+}
+function _ownerOf(owner) { return owner && owner !== _activeTab() ? owner : null; }
+function _peaksOf(owner) { const o = _ownerOf(owner); return o ? (o.peaks || []) : state.peaks; }
+function _rawOf(owner) { const o = _ownerOf(owner); return o ? { be: o.rawBE || [], inten: o.rawIntensity || [] } : { be: state.rawBE, inten: state.rawIntensity }; }
+function _fitResultOf(owner) { const o = _ownerOf(owner); return o ? o.fitResult : state.fitResult; }
+function _sealLiveKey(owner) { return _sealKeyOf(_peaksOf(owner), _contextOf(owner)); }
+
+// The local engine's PROJECTION derived from R (plan §4): R's model — its structure, shapes, locks and links —
+// with ONLY the engine's free parameters set to the committed values, links propagated over R's own graph.
+function projectLocal(pageModel, O) {
+  const out = structuredClone(pageModel);
+  for (const { id, param } of O.paramMap) {
+    const p = out.find(q => q.id === id), m = O.model.find(q => q.id === id);
+    if (p && m) p[param] = m[param];
+  }
+  _localPropagateLinks(out, _localLinkOrder(out));
+  return out;
+}
+
+// The settings computeBackgroundCore reads, from a recorded context.
+function _bgSettingsOf(ctx) {
+  return { bgType: ctx.bgType, endpointAvg: ctx.endpointAvg, bgStart: ctx.bgStart, bgEnd: ctx.bgEnd, anchors: ctx.anchors };
+}
+
+// §2: the bindings of a seal to its owner's raw data, from R.context0 alone (memoised per seal and raw data).
+const _sealBindingMemo = new WeakMap();
+function _sealBindings(seal, owner) {
+  const raw = _rawOf(owner);
+  const memo = _sealBindingMemo.get(seal);
+  if (memo && memo.be === raw.be && memo.inten === raw.inten) return memo.result;
+  const result = _sealBindingsUncached(seal, raw);
+  _sealBindingMemo.set(seal, { be: raw.be, inten: raw.inten, result });
+  return result;
+}
+function _sealBindingsUncached(seal, raw) {
+  const fail = (check, reason) => ({ ok: false, check, reason });
+  const one = _bindOne(seal.engine, seal.producer, seal.R, seal.O, raw);
+  if (!one.ok) return one;
+  if (seal.producer === 'autoFit') {
+    // the anchor fit's evidence E (plan §6.3): bound to the same spectrum, its acceptance as recorded, its gates,
+    // and the final fit's model and context its exact derivation
+    const E = seal.E;
+    if (!E || !E.R || !E.O) return fail('evidence', 'an Auto-Fit seal without its anchor fit');
+    const e = _bindOne('server', 'autoFit', E.R, E.O, raw);
+    if (!e.ok) return fail('evidence', 'the anchor fit: ' + e.reason);
+    if (E.O.success !== true) return fail('evidence', 'the anchor fit is recorded as not converged');
+    if (seal.O.success !== true) return fail('acceptance', 'the final fit is recorded as not converged');
+    const g1 = _autoFitAnchorRefusal(E.O, project(E.R.pageModel, E.O));
+    if (g1) return fail('evidence', 'the anchor fit: ' + g1);
+    const d = deriveAutoFit(E.R.pageModel, E.R.context0.live, E.O);
+    if (!_sameModel(d.pageModel, seal.R.pageModel) || !_jsonEqual(d.ctx, seal.R.context0.live))
+      return fail('evidence', 'the final fit was not made from what its anchor fit derives');
+    const g2 = _autoFitAnchorRefusal(seal.O, project(seal.R.pageModel, seal.O));
+    if (g2) return fail('acceptance', 'the final fit: ' + g2);
+  }
+  return { ok: true };
+}
+function _bindOne(engine, producer, R, O, raw) {
+  const fail = (check, reason) => ({ ok: false, check, reason });
+  const ctx = R.context0 && R.context0.live;
+  if (!ctx || !Number.isFinite(ctx.ccShift)) return fail('context', 'the recorded charge shift is not a finite number');
+  const linkFail = _linkGraphFailure(R.pageModel);
+  if (linkFail) return fail('links', linkFail);
+  // samples: the selection the recorded context makes from THIS spectrum, element for element
+  const sel = _roiSelect(raw.be, raw.inten, ctx.ccShift, ctx.roiMin, ctx.roiMax);
+  if (!_jsonEqual(sel.idx, R.idx) || !_jsonEqual(sel.be, R.energies) || !_jsonEqual(sel.inten, R.counts))
+    return fail('samples', 'the recorded samples are not what the recorded window selects from this spectrum');
+  // the page's certified background for R's inputs, and its effect
+  // through a PRODUCER (it throws for a background that does not satisfy its statement): the record's own settings
+  // and anchors, the defaults _captureUI applied when the context was recorded
+  const bgR = _bgOrFailure(() => _computeBackgroundForSource(R.energies, R.counts, ctx, ctx.anchors));
+  if (bgR.failure) return fail('background', 'the recorded context gives no converged background today');
+  const bg = bgR.bg;
+  const effect = _bgEffect(R.energies, _bgSettingsOf(ctx));
+  if (engine === 'server') {
+    if (!_jsonEqual(_buildFitRequest(producer, R.pageModel, ctx, R.energies,
+                                     { requireComponent: R.context0.producer && R.context0.producer.require_component }), R.request))
+      return fail('request', 'the recorded request is not what its model and context build');
+    if (!_jsonEqual(O.energy, R.energies) || !_jsonEqual(O.counts, R.counts))
+      return fail('samples', 'the recorded reply is not on the recorded samples');
+    if (!_jsonEqual(Array.from(bg), O.background_y)) return fail('background', 'the background has changed');
+    if (!_jsonEqual(effect, O.background_verdict && O.background_verdict.effect))
+      return fail('background', 'the recorded background effect is not the context\'s');
+    return { ok: true };
+  }
+  // local: the input reconstruction (plan §2.3) and the projection derived from R (§4)
+  const n = R.energies.length, bgv = O.background.values;
+  if (!_jsonEqual(O.energies, R.energies) || !Array.isArray(O.net) || O.net.length !== n || !Array.isArray(bgv) || bgv.length !== n)
+    return fail('samples', 'the local record is not on the recorded samples');
+  for (let i = 0; i < n; i++) {
+    if (!Object.is(O.net[i], R.counts[i] - bgv[i])) return fail('samples', 'the local record\'s net signal is not the counts less its background');
+    if (!Object.is(O.weights[i], 1 / Math.sqrt(Math.max(O.net[i] + bgv[i], 1)))) return fail('weights', 'the local record\'s weights are not the engine\'s');
+  }
+  if (!_jsonEqual(Array.from(bg), bgv)) return fail('background', 'the background has changed');
+  if (!_jsonEqual(effect, O.background.effect)) return fail('background', 'the recorded background effect is not the context\'s');
+  const inv = _localInventory(structuredClone(R.pageModel));
+  if (!_jsonEqual(inv.paramMap, O.paramMap)) return fail('inventory', 'the local record does not vary what its start model frees');
+  if (!_sameModel(projectLocal(R.pageModel, O), O.model)) return fail('model', 'the local model is not its start with the engine\'s free values');
+  for (const { id, param } of O.paramMap) {
+    const v = O.model.find(q => q.id === id)[param];
+    if (!Object.is(_localClamp(param, v), v)) return fail('model', 'a free value lies outside the engine\'s bounds');
+  }
+  if (!(inv.freeParams.length < n)) return fail('determinacy', 'the model is not determined by these data');
+  return _localSelfCheck(O);
+}
+// The local engine's own numbers, recomputed EXACTLY from the committed model in the engine's arithmetic: the page
+// is its own verifier (plan §6.4).
+function _localSelfCheck(O) {
+  const fail = (check, reason) => ({ ok: false, check, reason });
+  const be = O.energies, n = be.length;
+  const curves = O.model.map(p => evalPeakArray(be, p));
+  if (!_jsonEqual(curves, O.curves)) return fail('components', 'a recorded curve is not its component\'s');
+  const modelSum = evalAllPeaks(be, O.model);
+  if (!_jsonEqual(Array.from(modelSum), O.modelSum)) return fail('fitted_sub', 'the recorded model sum is not its components\'');
+  const raw = be.map((_, i) => O.net[i] - modelSum[i]);
+  const chi2 = raw.map((v, i) => v * O.weights[i]).reduce((s, v) => s + v * v, 0);
+  const nVaried = O.paramMap.length;
+  const chi2r = chi2 / Math.max(1, n - nVaried);
+  const rmse = Math.sqrt(raw.reduce((a, v) => a + v * v, 0) / n);
+  let sAbsR = 0, sAbsD = 0;
+  for (let i = 0; i < n; i++) { sAbsR += Math.abs(O.net[i] - modelSum[i]); sAbsD += Math.abs(O.net[i]); }
+  const rFactor = sAbsD === 0 ? null : sAbsR / sAbsD;
+  if (!Object.is(chi2, O.chi2) || !Object.is(chi2r, O.chi2r) || !Object.is(rmse, O.rmse) || !Object.is(rFactor, O.rFactor) ||
+      O.nVaried !== nVaried) return fail('statistics', 'the recorded statistics are not the ones its model gives');
+  if (!_jsonEqual(curves.map(c => _trapezoidArea(c, be)), O.areas)) return fail('components', 'a recorded area is not its curve\'s');
+  const support = {};
+  for (let k = 0; k < O.model.length; k++) {
+    const p = O.model[k];
+    if (p.linked) continue;
+    const nFreeComp = O.paramMap.filter(d => d.id === p.id).length;
+    support[String(p.id)] = _componentSupportCore(O.net, modelSum, curves[k], O.weights, nFreeComp, nVaried);
+  }
+  if (!_jsonEqual(support, O.support)) return fail('support', 'the recorded support is not the one its fit gives');
+  return { ok: true };
+}
+
+// §9: the verification manager. A cache of the server's NUMERICAL answers per seal (never expires with an
+// operation; only its attachment does), the attempts in flight per owner, and the seals whose last check could not
+// reach the server (not cached: "check again" starts a new attempt).
+const _sealVerdicts = new WeakMap();
+const _sealUnreachable = new WeakMap();
+const _sealAttempts = new WeakMap();
+let _sealAttemptSeq = 0;
+async function _postVerifyFit(R, O) {
+  const resp = await fetch('/api/verify-fit', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ R: { request: R.request, energies: R.energies, counts: R.counts }, O }) });
+  if (!resp.ok) throw Object.assign(new Error('verify-fit HTTP ' + resp.status), { httpStatus: resp.status });
+  return resp.json();
+}
+// One answer from several checks (Auto-Fit: its anchor fit and its final fit): any mismatch, else any unconfirmed.
+function _aggregateVerdicts(vs) {
+  return vs.find(v => v.state === 'mismatch') || vs.find(v => v.state === 'unconfirmed') || vs[0];
+}
+// STAGED (Auto-Fit's transaction, plan §6.3, §9): the checks of a fit not yet installed; resolves, attaches nothing.
+async function _verifyStaged(checks) { return _aggregateVerdicts(await Promise.all(checks.map(([R, O]) => _postVerifyFit(R, O)))); }
+// PRODUCER-BOUND (kind 'producer', under the fit's operation `op`) or BACKGROUND (kind 'background': load, activation,
+// reinstall, retry — never claims a fit operation).
+function _verifySeal(owner, seal, kind = 'background', op = null) {
+  if (!seal || seal.engine !== 'server') return null;
+  const attemptId = ++_sealAttemptSeq;
+  _sealAttempts.set(owner, { seal, attemptId, kind, op });
+  _sealUnreachable.delete(seal);
+  const checks = seal.producer === 'autoFit' && seal.E ? [[seal.E.R, seal.E.O], [seal.R, seal.O]] : [[seal.R, seal.O]];
+  const attach = () => {
+    const cur = _sealAttempts.get(owner);
+    if (!cur || cur.attemptId !== attemptId) return false;               // a newer attempt for this owner
+    _sealAttempts.delete(owner);
+    if (!_ownerLive(owner)) return false;                                 // the tab was closed
+    if (_fitResultOf(owner) === null || !_fitResultOf(owner) || _fitResultOf(owner).seal !== seal) return false;   // another seal installed
+    if (kind === 'producer' && (!_fitOpCurrent(op) || !_ownerActive(owner))) return false;   // superseded or switched: recovered by _ensureVerified
+    return true;
+  };
+  return _verifyStaged(checks).then(v => {
+    if (!attach()) return null;
+    _sealVerdicts.set(seal, { state: v.state, check: v.check || null, reason: v.reason || '', software: v.software || null });
+    _onSealVerdict(owner, seal);
+    return v;
+  }, () => {
+    if (!attach()) return null;
+    _sealUnreachable.set(seal, true);
+    _onSealVerdict(owner, seal);
+    return null;
+  });
+}
+// Every BACKGROUND trigger (load, activation, reinstall, a discarded or failed operation): a seal with no cached
+// answer and no live attempt gets one — no seal is stranded PENDING. `retry` ("check again"): even after
+// "unreachable".
+function _ensureVerified(owner, retry = false) {
+  const fr = _fitResultOf(owner), seal = fr && fr.seal;
+  if (!seal || seal.engine !== 'server' || _sealVerdicts.has(seal)) return null;
+  if (_sealUnreachable.has(seal) && !retry) return null;
+  const cur = _sealAttempts.get(owner);
+  if (cur && cur.seal === seal) return null;
+  return _verifySeal(owner, seal, 'background');
+}
+// A seal's verdict changed: the consumers repaint (step 7 wires them; until then an event for tests and observers).
+function _onSealVerdict(owner, seal) {
+  try { window.dispatchEvent(new CustomEvent('xps-seal-verdict', { detail: { owner, seal } })); } catch (e) { /* no window */ }
+}
+
+// The STATE of a fit (plan §5): { state: 'current' | 'pending' | 'unconfirmed' | 'stale' | 'peaks-only' | 'legacy'
+// | 'none', check, reason, view }. The only reader of R / O / D / E.
+function sealedState(fr, owner) {
+  if (!fr) return { state: 'none', check: null, reason: '', view: null };
+  const seal = fr.seal;
+  if (!seal) return { state: 'legacy', check: null, reason: 'saved before sealed records — re-run this fit to confirm', view: null };
+  let view;
+  try {
+    if (seal.v !== 'xps-seal-1' || !seal.R || !seal.O || !seal.R.context0 || !seal.R.pageModel) throw new Error('not a seal');
+    view = _sealView(seal);
+    const b = _sealBindings(seal, owner);
+    if (!b.ok) return { state: 'stale', check: b.check, reason: b.reason, view };
+    const projected = seal.engine === 'server' ? view.model : seal.O.model;
+    if (_sealLiveKey(owner) !== _sealKeyOf(projected, seal.R.context0.live))
+      return { state: 'stale', check: 'edited', reason: 'the model or its context changed since this fit', view };
+  } catch (e) {
+    return { state: 'peaks-only', check: 'schema', reason: 'the saved fit record cannot be read (' + (e && e.message) + ')', view: null };
+  }
+  if (seal.engine === 'local') return { state: 'current', check: null, reason: '', view };   // its own exact check (§2.3)
+  const v = _sealVerdicts.get(seal);
+  if (v) {
+    if (v.state === 'consistent') return { state: 'current', check: null, reason: '', view };
+    if (v.state === 'mismatch') return { state: 'stale', check: v.check, reason: 'the server\'s check failed: ' + v.reason, view };
+    return { state: 'unconfirmed', check: v.check, reason: v.reason, view };
+  }
+  if (_sealUnreachable.has(seal)) return { state: 'unconfirmed', check: 'unreachable', reason: 'the server could not be reached to check this fit', view };
+  return { state: 'pending', check: null, reason: 'confirming…', view };
+}
+
 // The starts evidence of `fr` if it still describes the fit whose key is `key`, else null.
 function _startsIfCurrent(fr, key) {
   const st = fr && fr.starts;
@@ -9596,36 +9883,10 @@ function _applyStatDisplay(fr) {
 // Both are pinned by tests/js/local_lm_descent.test.js, which replays the
 // committed lab project; the proof is in
 // docs/superpowers/plans/2026-09-15-a01-local-lm-proof.md.
-function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
-  let firstStop = null, firstStopCentres = null;   // where the descent first stopped, before any certificate restart (the record)
-  const maxIter = Number.isFinite(options.maxIterations) ? options.maxIterations : 3000;
-  // The page-wide spinner belongs to the operation that showed it (unit 2):
-  // Run Fit's fallback passes its operation; Batch Fit shows no spinner and
-  // passes none, so it never hides a running server fit's (Codex round 4).
-  const hideSpinner = () => { if (options.spinnerOp) _hideFitSpinnerFor(options.spinnerOp); };
-  const fail = (message, iterations) => {
-    hideSpinner();
-    document.getElementById('sb-msg').textContent = 'Local fit failed';
-    notify('Local fit did not converge: ' + message + ' Previous peaks and result kept.', 'red', true);
-    return { success: false, engine: 'local', message, iterations: iterations || 0 };
-  };
-  if (!Array.isArray(be) || be.length < 2 ||
-      !Array.isArray(bgSubtracted) || bgSubtracted.length !== be.length ||
-      !Array.isArray(bgIntensity) || bgIntensity.length !== be.length ||
-      !be.every(Number.isFinite) || !bgSubtracted.every(Number.isFinite) || !bgIntensity.every(Number.isFinite)) {
-    return fail('invalid or non-finite data in the fitting region.');
-  }
-  // POISSON WEIGHTS (unit W1): the same weighting fitting.run_fit applies on
-  // the server — sigma = sqrt(raw counts), floored at 1, where the raw
-  // counts are the background-subtracted signal plus the background.
-  const _w = be.map((_, i) => 1 / Math.sqrt(Math.max(bgSubtracted[i] + bgIntensity[i], 1)));
-  // Work on copies: live peaks are touched only on success.
-  const work = state.peaks.map(p => ({ ...p }));
-  const sealStart = options.seal ? structuredClone(state.peaks) : null;   // seal 1c step 3: the model this fit starts from
-  if (!work.length) return fail('no peaks to fit.');
-  { const linkFail = _linkGraphFailure(work); if (linkFail) return fail(linkFail); }   // Q10 0c′
-  const workPeak = id => work.find(q => q.id === id);
-
+// ── The local engine's own parts as PURE functions (seal 1c step 4: the seal's local check reads the engine
+// exactly as the engine reads itself — no second reading). runFitLocal calls each; behaviour unchanged.
+// The parameters the engine varies, in its order: their start values and their (peak, field) map.
+function _localInventory(work) {
   const freeParams = [];
   const paramMap = [];
   for (const p of work) {
@@ -9663,50 +9924,14 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
       }
     }
   }
-  if (!freeParams.every(Number.isFinite)) return fail('a free parameter is not a finite number.');
-  // F2 (2026-09-26): with at least as many free parameters as data points the
-  // model passes through every point and reads as a near-perfect fit (the
-  // dof below is clamped to 1) — refused, as the server refuses it. A count.
-  if (freeParams.length >= be.length) {
-    return fail('the model is not determined by these data: ' + freeParams.length + ' free parameters for ' +
-                be.length + ' data points leaves no degrees of freedom. Widen the fitted range, remove components or lock parameters.');
-  }
-
-  // Parameter box. The amplitude floor is 0, the server's, since unit step (b)
-  // (owner decision 2026-09-18: zero allowed in both engines; a component at
-  // its floor is an explicit outcome). The active-set step holds a parameter
-  // pushed into the wall, and paramScale is floored at 1, so a zero amplitude
-  // is a valid, stationary point rather than a division by zero.
-  function clamp(param, v) {
-    if (param === 'fwhm')         return Math.max(0.1, Math.min(15, v));
-    if (param === 'amplitude')    return Math.max(0, v);
-    if (param === 'glMix')        return Math.max(0, Math.min(100, v));
-    if (param === 'asymmetry')    return Math.max(0, Math.min(1, v));
-    if (param === 'dsAlpha')      return Math.max(0, Math.min(0.49, v));
-    if (param === 'dsGamma')      return Math.max(0, Math.min(5.0, v));
-    if (param === 'laAlpha')      return Math.max(0, Math.min(0.49, v));
-    if (param === 'laBeta')       return Math.max(0.05, Math.min(2.0, v));
-    if (param === 'laM')          return Math.max(0.05, Math.min(4.0, v));
-    if (param === 'caAlpha')      return Math.max(0.1, Math.min(5.0, v));
-    if (param === 'caBeta')       return Math.max(0.1, Math.min(5.0, v));
-    return v;
-  }
-  const LINK_SYNC_KEYS = ['glMix', 'asymmetry', 'dsAlpha', 'dsGamma',
-    'laAlpha', 'laBeta', 'laM', 'caAlpha', 'caBeta', 'caM'];
-
-  // Linked peaks are resolved in DEPENDENCY order — each after its parent — so one pass
-  // resolves a chain whatever the peak order and applying the same parameters twice gives the
-  // same model (Q10 0b, owner 2026-10-11). In peak order a chain whose middle peak is listed
-  // after its own child left that child on the middle peak's previous values, and the χ² kept
-  // could describe another model than the peaks committed. A link is a truthy `linked`, as every
-  // reader of the field reads it (the request builder, the peak controls, this pass): null, false,
-  // 0 are no link. Only a WELL-FORMED graph is reordered — every peak found by its own id (no shared
-  // id, no id the lookup cannot match, such as NaN), every link naming a peak that is there, no
-  // cycle — and then one application is idempotent and the χ² kept describes the committed peaks.
-  // Any other graph (a shared or unmatchable id, a link to a missing peak, a self-link, a cycle)
-  // keeps main's peak-order pass exactly (Codex 0b rounds 1-4): such graphs are refused by Q10 0c′,
-  // not reinterpreted here.
-  const linkOrder = (() => {
+  return { freeParams, paramMap };
+}
+const _LOCAL_LINK_SYNC_KEYS = ['glMix', 'asymmetry', 'dsAlpha', 'dsGamma',
+  'laAlpha', 'laBeta', 'laM', 'caAlpha', 'caBeta', 'caM'];
+// The order the engine resolves links in (Q10 0b): each child after its parent when the graph is well formed.
+function _localLinkOrder(work) {
+  const workPeak = id => work.find(q => q.id === id);
+  return (() => {
     const linkedPeaks = work.filter(q => q.linked);
     if (!work.every(q => workPeak(q.id) === q && (!q.linked || workPeak(q.linked)))) return linkedPeaks;
     const done = new Set(), out = [];
@@ -9721,24 +9946,95 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
     return out.length === linkedPeaks.length ? out : linkedPeaks;   // a cycle: peak order
   })();
 
+}
+// Linked peaks follow their parent: centre + offset, amplitude x ratio,
+// and every lineshape parameter (the same constraint set the backend
+// enforces through lmfit expressions).
+function _localPropagateLinks(work, linkOrder) {
+  const workPeak = id => work.find(q => q.id === id);
+  for (const q of linkOrder) {
+    if (!q.linked) continue;
+    const parent = workPeak(q.linked);
+    if (!parent) continue;
+    if (Number.isFinite(q.linkOffset)) q.center = parent.center + q.linkOffset;
+    if (Number.isFinite(q.linkRatio))  q.amplitude = parent.amplitude * q.linkRatio;
+    q.fwhm = parent.fwhm;
+    for (const k of _LOCAL_LINK_SYNC_KEYS) if (parent[k] !== undefined) q[k] = parent[k];
+  }
+}
+
+// The engine's parameter box (its own clamp, as a pure function).
+function _localClamp(param, v) {
+  if (param === 'fwhm')         return Math.max(0.1, Math.min(15, v));
+  if (param === 'amplitude')    return Math.max(0, v);
+  if (param === 'glMix')        return Math.max(0, Math.min(100, v));
+  if (param === 'asymmetry')    return Math.max(0, Math.min(1, v));
+  if (param === 'dsAlpha')      return Math.max(0, Math.min(0.49, v));
+  if (param === 'dsGamma')      return Math.max(0, Math.min(5.0, v));
+  if (param === 'laAlpha')      return Math.max(0, Math.min(0.49, v));
+  if (param === 'laBeta')       return Math.max(0.05, Math.min(2.0, v));
+  if (param === 'laM')          return Math.max(0.05, Math.min(4.0, v));
+  if (param === 'caAlpha')      return Math.max(0.1, Math.min(5.0, v));
+  if (param === 'caBeta')       return Math.max(0.1, Math.min(5.0, v));
+  return v;
+}
+
+function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
+  let firstStop = null, firstStopCentres = null;   // where the descent first stopped, before any certificate restart (the record)
+  const maxIter = Number.isFinite(options.maxIterations) ? options.maxIterations : 3000;
+  // The page-wide spinner belongs to the operation that showed it (unit 2):
+  // Run Fit's fallback passes its operation; Batch Fit shows no spinner and
+  // passes none, so it never hides a running server fit's (Codex round 4).
+  const hideSpinner = () => { if (options.spinnerOp) _hideFitSpinnerFor(options.spinnerOp); };
+  const fail = (message, iterations) => {
+    hideSpinner();
+    document.getElementById('sb-msg').textContent = 'Local fit failed';
+    notify('Local fit did not converge: ' + message + ' Previous peaks and result kept.', 'red', true);
+    return { success: false, engine: 'local', message, iterations: iterations || 0 };
+  };
+  if (!Array.isArray(be) || be.length < 2 ||
+      !Array.isArray(bgSubtracted) || bgSubtracted.length !== be.length ||
+      !Array.isArray(bgIntensity) || bgIntensity.length !== be.length ||
+      !be.every(Number.isFinite) || !bgSubtracted.every(Number.isFinite) || !bgIntensity.every(Number.isFinite)) {
+    return fail('invalid or non-finite data in the fitting region.');
+  }
+  // POISSON WEIGHTS (unit W1): the same weighting fitting.run_fit applies on
+  // the server — sigma = sqrt(raw counts), floored at 1, where the raw
+  // counts are the background-subtracted signal plus the background.
+  const _w = be.map((_, i) => 1 / Math.sqrt(Math.max(bgSubtracted[i] + bgIntensity[i], 1)));
+  // Work on copies: live peaks are touched only on success.
+  const work = state.peaks.map(p => ({ ...p }));
+  const sealStart = options.seal ? structuredClone(state.peaks) : null;   // seal 1c step 3: the model this fit starts from
+  if (!work.length) return fail('no peaks to fit.');
+  { const linkFail = _linkGraphFailure(work); if (linkFail) return fail(linkFail); }   // Q10 0c′
+  const workPeak = id => work.find(q => q.id === id);
+
+  const { freeParams, paramMap } = _localInventory(work);   // seal 1c step 4: one reading (the seal's check uses it)
+  if (!freeParams.every(Number.isFinite)) return fail('a free parameter is not a finite number.');
+  // F2 (2026-09-26): with at least as many free parameters as data points the
+  // model passes through every point and reads as a near-perfect fit (the
+  // dof below is clamped to 1) — refused, as the server refuses it. A count.
+  if (freeParams.length >= be.length) {
+    return fail('the model is not determined by these data: ' + freeParams.length + ' free parameters for ' +
+                be.length + ' data points leaves no degrees of freedom. Widen the fitted range, remove components or lock parameters.');
+  }
+
+  // Parameter box. The amplitude floor is 0, the server's, since unit step (b)
+  // (owner decision 2026-09-18: zero allowed in both engines; a component at
+  // its floor is an explicit outcome). The active-set step holds a parameter
+  // pushed into the wall, and paramScale is floored at 1, so a zero amplitude
+  // is a valid, stationary point rather than a division by zero.
+  const clamp = _localClamp;   // seal 1c step 4: one reading (the seal's check uses it)
+
+  const linkOrder = _localLinkOrder(work);   // seal 1c step 4: one reading (the seal's check uses it)
+
   function applyParams(params) {
     for (let i = 0; i < params.length; i++) {
       const { id, param } = paramMap[i];
       const p = workPeak(id);
       if (p) p[param] = clamp(param, params[i]);
     }
-    // Linked peaks follow their parent: centre + offset, amplitude x ratio,
-    // and every lineshape parameter (the same constraint set the backend
-    // enforces through lmfit expressions).
-    for (const q of linkOrder) {
-      if (!q.linked) continue;
-      const parent = workPeak(q.linked);
-      if (!parent) continue;
-      if (Number.isFinite(q.linkOffset)) q.center = parent.center + q.linkOffset;
-      if (Number.isFinite(q.linkRatio))  q.amplitude = parent.amplitude * q.linkRatio;
-      q.fwhm = parent.fwhm;
-      for (const k of LINK_SYNC_KEYS) if (parent[k] !== undefined) q[k] = parent[k];
-    }
+    _localPropagateLinks(work, linkOrder);
   }
 
   function rawResiduals(params) {

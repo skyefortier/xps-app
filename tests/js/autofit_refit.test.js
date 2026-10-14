@@ -24,7 +24,7 @@ const constLine = n => { const l = lines.find(x => x.startsWith('const ' + n)); 
 const POLL_SRC = [constLine('FIT_POLL_MS'), constLine('FIT_POLL_TRANSPORT_RETRIES'), constLine('FIT_HEARTBEAT_LOST_SEC'),
   'const _runningFitJobs = new Set(); let _fitOpSeq = 0; const _fitOpByOwner = new WeakMap(); let _fitSpinnerOp = null;',
   ...['_cancelFitJob', '_fitHttpError', '_newFitOp', '_installFitOp', '_claimFitOp', '_fitOpOutdated', '_fitOpCurrent', '_hideFitSpinnerFor', '_serverFitJob'].map(extractFn)].join('\n');
-const KEY_SRC = lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n');
+const KEY_SRC = lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\n' + lines.find(l => l.startsWith('const _SEAL_CTX_FIELDS')) + '\n' + lines.find(l => l.startsWith('const LEGACY_ENDPOINT_AVG'));
 
 // replies: one per fit, in order; hooks: per-upload side effects (1-based)
 async function runAutoFit({ replies, refuseFinal = false, refuseAnchor = false, onUpload = {} }) {
@@ -64,7 +64,7 @@ async function runAutoFit({ replies, refuseFinal = false, refuseAnchor = false, 
   };
   deps.setTimeout = (f, ms) => { if (!(ms >= 60000)) f(); return 1; };
   deps.DOMException = class extends Error { constructor(m, k) { super(m); this.name = k; } };
-  const src = KEY_SRC + '\n' + ['runAutoFitC1sGraphite', '_autoFitRequest', '_buildFitRequest', '_liveFitContext', '_sealR', '_makeSeal', '_deepFreeze', '_pageIdentity', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure', '_readFitReply',
+  const src = KEY_SRC + '\n' + ['runAutoFitC1sGraphite', '_autoFitRequest', '_buildFitRequest', '_liveFitContext', '_contextOf', '_uiFromDom', '_sealR', '_makeSeal', '_deepFreeze', '_pageIdentity', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure', '_readFitReply',
     '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey'].map(extractFn).join('\n');
   await new Function(...Object.keys(deps), src + '\n' + POLL_SRC + '\nreturn runAutoFitC1sGraphite;')(...Object.values(deps))();
   // the page waits for exactly this one transaction: the overlay goes up once and comes down once, on every exit

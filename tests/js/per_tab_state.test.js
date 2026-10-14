@@ -47,6 +47,9 @@ const ALLOWLIST = {
   _STARTS_MODEL_FIELDS: 'B', _STARTS_UI_FIELDS: 'B',   // constant tables: what the scattered-starts evidence is bound to
   _MODEL_EVIDENCE_FIELDS: 'B', _CC_REFERENCE: 'B',   // seal 1c step 2: constant tables (projection, model equality, charge references)
   _sealViews: 'B',   // seal 1c step 3: a WeakMap memo seal -> its view (derived, keyed by the immutable seal; no tab content)
+  _SEAL_MODEL_FIELDS: 'B', _SEAL_CTX_FIELDS: 'B', _LOCAL_LINK_SYNC_KEYS: 'B',   // seal 1c step 4: constant tables (the live key; the local engine's link sync)
+  _sealBindingMemo: 'B', _sealVerdicts: 'B', _sealUnreachable: 'B',   // seal 1c step 4: WeakMaps keyed by the immutable seal (derived answers; no tab content)
+  _sealAttempts: 'A', _sealAttemptSeq: 'A',   // seal 1c step 4: verification attempts in flight, WeakMap keyed by the tab record (like _fitOpByOwner)
   BG_LABELS: 'B',            // constant table: background methods' display names (background math, 2026-10-01)
   FP_TIER_META: 'B', FP_STRINGS: 'B', FP_MODEL_LABELS: 'B', FP_ROLE_LABELS: 'B', FP_SHAPE_LABELS: 'B', FP_TIER_RANK: 'B',
   REF_PT_LAYOUT: 'B',        // periodic-table layout table (built by a call at load; read-only)
@@ -114,9 +117,15 @@ test('async operations capture their owning record before the first await', () =
     assert.ok(up > 0, fn + ' upload await');
     // seal 1c step 2: every request input is read by _liveFitContext (the controls, the shift, the anchors) and
     // turned into the request by _buildFitRequest (the peak specs) — both called before the upload await
+    // (seal 1c step 4: _liveFitContext is _contextOf(the active page), whose controls are _uiFromDom's)
     const ctxSrc = grab('function _liveFitContext(', 1200), buildSrc = grab('function _buildFitRequest(', 3000);
-    for (const input of ["'fit-method'", "'bg-endpoint-avg'", '_getManualAnchors()', 'state.ccShift'])
-      assert.ok(ctxSrc.indexOf(input) > 0, '_liveFitContext reads ' + input);
+    const ofSrc = grab('function _contextOf(', 2000), domSrc = grab('function _uiFromDom(', 2000);
+    assert.ok(ctxSrc.indexOf('_contextOf(') > 0, '_liveFitContext reads through _contextOf');
+    assert.ok(ofSrc.indexOf('_uiFromDom()') > 0, '_contextOf reads the active controls through _uiFromDom');
+    for (const input of ["'fit-method'", "'bg-endpoint-avg'", "'bg-type'", "'bg-start'", "'roi-min'"])
+      assert.ok(domSrc.indexOf(input) > 0, '_uiFromDom reads ' + input);
+    for (const input of ['_getManualAnchors()', 'state.ccShift'])
+      assert.ok(ofSrc.indexOf(input) > 0, '_contextOf reads ' + input);
     assert.ok(buildSrc.indexOf('peakToBackendSpec') > 0, '_buildFitRequest builds the peak specs');
     if (fn.includes('AutoFit')) {
       // Auto-Fit reads its inputs in _autoFitRequest (Q8: the anchor fit and the final fit alike),

@@ -230,7 +230,9 @@ test('write-back: a server result sets support; the local engine and a propagate
   const abr = extractFn('applyBackendResult');
   assert.ok(abr.indexOf('_applyBackendParams(p, ipeak.params);') < abr.indexOf('_applySupport(state.peaks, result, _startsLiveKey());'), 'the key is taken AFTER the values are applied');
   assert.match(extractFn('runPropagation'), /amplitude: p\.linked \? p\.amplitude : p\.amplitude \* scale,\n\s*support: null/);
-  assert.match(extractFn('runFitLocal'), /if \(param === 'amplitude'\)\s+return Math\.max\(0, v\);/, 'local amplitude floor is 0 (owner decision)');
+  // (seal 1c step 4: the engine's box is the pure _localClamp, which runFitLocal uses as its clamp)
+  assert.match(extractFn('_localClamp'), /if \(param === 'amplitude'\)\s+return Math\.max\(0, v\);/, 'local amplitude floor is 0 (owner decision)');
+  assert.match(extractFn('runFitLocal'), /const clamp = _localClamp;/, 'runFitLocal clamps with it');
 });
 
 test('persistence: support travels with the peak object through every save (the peak is spread whole)', () => {

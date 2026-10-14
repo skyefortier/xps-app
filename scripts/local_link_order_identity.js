@@ -18,7 +18,9 @@ const NAMES = ['_arrMin', '_arrMax', 'gaussian', 'lorentzian', 'pseudoVoigt', 'a
   'evalPeakArray', 'evalAllPeaks', 'getPeak', 'runFitLocal', '_pageSoftware', '_localFitRecord', 'solveLinear',
   '_computeRFactor', '_fitStatLabel', '_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_isLocalModel', '_governingProvenance', '_localFitCaveat', '_fitStatusText', '_applyStatCaption', '_applyStatDisplay', '_updateLocalModelBanner',
   '_componentSupportCore', '_supportRootOf', '_applySupportVerdicts', '_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey', '_statsState', '_statsLiveState',
-  '_linkGraphFailure'];   // Q10 0c′; absent from pages before it (taken only where the page has it)
+  '_linkGraphFailure',   // Q10 0c′; absent from pages before it (taken only where the page has it)
+  '_localInventory', '_localLinkOrder', '_localPropagateLinks', '_localClamp'];   // seal 1c step 4's pure parts of the engine (same rule)
+const OPTIONAL = new Set(['_linkGraphFailure', '_localInventory', '_localLinkOrder', '_localPropagateLinks', '_localClamp']);
 
 function engine(html) {
   const lines = html.split('\n');
@@ -33,8 +35,9 @@ function engine(html) {
     }
     throw new Error('unbalanced ' + name);
   };
-  const consts = (html.match(/^const (_LOCAL_FIT_CAVEAT\w*|_STATS_\w+_NOTE) = .*$/mg) || []).join('\n');
-  const src = consts + '\nconst _SUPPORT_MIN_F = 10; const _startsLiveKey = () => "KEY";\n' + NAMES.filter(n => n !== '_linkGraphFailure' || html.includes('\nfunction _linkGraphFailure(')).map(extract).join('\n\n') +
+  const consts = (html.match(/^const (_LOCAL_FIT_CAVEAT\w*|_STATS_\w+_NOTE) = .*$/mg) || []).join('\n') +
+    (() => { const i = html.indexOf('\nconst _LOCAL_LINK_SYNC_KEYS'); return i < 0 ? '' : html.slice(i, html.indexOf(';', i) + 1); })();
+  const src = consts + '\nconst _SUPPORT_MIN_F = 10; const _startsLiveKey = () => "KEY";\n' + NAMES.filter(n => !OPTIONAL.has(n) || html.includes('\nfunction ' + n + '(')).map(extract).join('\n\n') +
     '\n' + require(path.join(REPO, 'tests/js/_page_background_source.js'))({ manual: 'none' });
   return () => {
     const dom = {};

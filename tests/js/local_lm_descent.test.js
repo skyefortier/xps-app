@@ -36,10 +36,12 @@ function extractFn(name) {
 
 const NAMES = ['_arrMin', '_arrMax', 'gaussian', 'lorentzian', 'pseudoVoigt', 'asymmGL', 'doniachSunjic',
   'laCasaXPSCore', 'laCasaXPS', 'laTrueCasaXPS', '_laKernelHalf', 'laTrueCasaXPS_array', 'evalPeak', '_dsgAlpha', 'dsgDeltaKernel_array', '_fftRadix2', '_circularConvolve', 'dsgConvolved_array',
-  'evalPeakArray', 'evalAllPeaks', 'getPeak', 'runFitLocal', '_linkGraphFailure', '_pageSoftware', '_localFitRecord', 'solveLinear',
+  'evalPeakArray', 'evalAllPeaks', 'getPeak', 'runFitLocal', '_localInventory', '_localLinkOrder', '_localPropagateLinks', '_localClamp', '_linkGraphFailure', '_pageSoftware', '_localFitRecord', 'solveLinear',
   '_computeRFactor', '_fitStatLabel', '_isUnweightedLocal', '_isLocalProvenance', '_localFitDetail', '_isLocalFit', '_isLocalModel', '_governingProvenance', '_localFitCaveat', '_fitStatusText', '_applyStatCaption', '_applyStatDisplay', '_updateLocalModelBanner',
   '_componentSupportCore', '_supportRootOf', '_applySupportVerdicts', '_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey', '_statsState', '_statsLiveState'];
 const CAVEAT_CONST = (html.match(/^const (_LOCAL_FIT_CAVEAT\w*|_STATS_\w+_NOTE) = .*$/mg) || []).join('\n');
+// seal 1c step 4: the engine's link-sync keys live at module scope (a two-line constant)
+const LINK_KEYS_CONST = (() => { const i = html.indexOf('const _LOCAL_LINK_SYNC_KEYS'); return html.slice(i, html.indexOf(';', i) + 1); })();
 
 // One isolated environment per test: a fresh `state`, a stub DOM, and the
 // extracted functions bound to them.
@@ -53,7 +55,7 @@ function makeEnv() {
   const notify = (msg, kind) => calls.notify.push({ msg, kind });
   const noop = () => {};
   // the page's background section comes whole (shared helper: its twins share helpers and constants)
-  const src = CAVEAT_CONST + '\nconst _SUPPORT_MIN_F = 10; const _startsLiveKey = () => "KEY";\n' + NAMES.map(extractFn).join('\n\n') +
+  const src = CAVEAT_CONST + '\n' + LINK_KEYS_CONST + '\nconst _SUPPORT_MIN_F = 10; const _startsLiveKey = () => "KEY";\n' + NAMES.map(extractFn).join('\n\n') +
     '\n' + require('./_page_background_source.js')({ manual: 'none' });
   const factory = new Function('document', 'state', 'notify', '_CHISQ_TOOLTIP', '_LOCALFIT_TOOLTIP', '_activeTab', '_escHtml', '_historyPreview', 'tabManager', '_updateRFactorUI', '_updateROIDisplay',
     'renderPeakList', 'updatePlot', 'renderResults', '_hideFitSpinner', '_autoSnapshot', 'manualAnchorBackground',
