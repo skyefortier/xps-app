@@ -156,3 +156,83 @@ def test_switch_off_is_todays_chart(browser, server):  # noqa: F811
         assert pg.evaluate("() => _sealedDisplay(state.fitResult)") is None
     finally:
         pg.close()
+
+
+# ── group 2: Results, header, status bar, sidebar, Quantify ──
+PANELS = """() => {
+  updatePlot(); renderResults(); renderPeakList();
+  const fr = state.fitResult, v = sealedState(fr, _activeTab()).view;
+  const ra = document.getElementById('results-area');
+  const rows = Array.from(ra.querySelectorAll('.results-table tbody tr')).filter(r => !r.classList.contains('unsupported-row'));
+  const comp = p => _sealComponent(v, p), model = p => v.model.find(m => String(m.id) === String(p.id));
+  return {
+    header: document.getElementById('fit-quality').textContent,
+    sb: document.getElementById('sb-chi').textContent, sbR: document.getElementById('sb-runs').textContent,
+    stat: ra.querySelector('div[style*="font-size:16px"]').textContent.trim(),
+    chi: v.statistics.chi2r.toFixed(3), chi2: v.statistics.chi2r.toFixed(2),
+    rPanel: (ra.querySelector('[data-xps-tip*="R-factor"], div[style*="R-factor"]') || {}).textContent || ra.textContent,
+    rPct: v.rPanel ? v.rPanel.rPct.toFixed(1) : null,
+    areas: rows.every((r, i) => r.children[3].textContent === comp(state.peaks[i]).area.toFixed(0)),
+    centres: rows.every((r, i) => r.children[1].textContent.startsWith(model(state.peaks[i]).center.toFixed(3))),
+    sealNote: (ra.querySelector('.stats-seal-note') || {}).textContent || null,
+    staleBanner: !!ra.querySelector('[data-seal-stale]'),
+    quantify: (document.querySelector('#quantify-area .quantify-seal-note') || {}).textContent || null,
+    sidebarPct: state.peaks.map(p => document.querySelector('#peak-item-' + p.id + ' .peak-summary-val:nth-of-type(3)')),
+  };
+}"""
+
+
+def test_results_and_the_header_show_the_record_with_its_state(browser, server):  # noqa: F811
+    pg = _page(browser, server)
+    try:
+        got = pg.evaluate(PANELS)
+        assert "confirming" in got["header"] and got["chi2"] in got["header"], got
+        assert got["sb"] == got["chi"] and got["stat"] == got["chi"], got
+        assert got["areas"] and got["centres"], got
+        assert got["sealNote"] and "confirming" in got["sealNote"], got
+        assert got["quantify"] and "confirming" in got["quantify"], got
+        assert "confirming" in got["sbR"] and got["rPct"] in got["sbR"], got
+        pg.evaluate(VERIFY)                                   # the verdict repaints Results and the header
+        got = pg.evaluate("() => ({ header: document.getElementById('fit-quality').textContent,"
+                          " note: !!document.querySelector('#results-area .stats-seal-note'),"
+                          " q: !!document.querySelector('#quantify-area .quantify-seal-note'),"
+                          " sbR: document.getElementById('sb-runs').textContent })")
+        assert "confirming" not in got["header"] and not got["note"] and not got["q"] and "confirming" not in got["sbR"], got
+        assert pg.errors == [], pg.errors
+    finally:
+        pg.close()
+
+
+def test_unconfirmed_says_why_and_a_failed_check_reports_nothing(browser, server):  # noqa: F811
+    pg = _page(browser, server)
+    try:
+        pg.route("**/api/verify-fit", lambda route: route.abort())
+        pg.evaluate(VERIFY)
+        got = pg.evaluate(PANELS)
+        assert "unconfirmed: the server could not be reached" in got["header"], got
+        assert got["sealNote"] and "unconfirmed" in got["sealNote"] and got["areas"], got
+        pg.unroute("**/api/verify-fit")
+        pg.evaluate(TAMPER, "s.O.statistics.chi_square *= 1.000001")
+        pg.evaluate(VERIFY)
+        assert pg.evaluate(STATE) == "stale"
+        got = pg.evaluate("""() => { renderResults(); const ra = document.getElementById('results-area');
+            return { header: document.getElementById('fit-quality').textContent, sb: document.getElementById('sb-chi').textContent,
+                     banner: !!ra.querySelector('[data-seal-stale]'), sigma: ra.textContent.includes('±'),
+                     q: (document.querySelector('#quantify-area .quantify-seal-note') || {}).textContent || '' }; }""")
+        assert "check failed: statistics" in got["header"] and got["sb"] == "—", got
+        assert got["banner"] and not got["sigma"] and "current model" in got["q"], got
+    finally:
+        pg.close()
+
+
+def test_an_edit_makes_every_panel_say_model_changed(browser, server):  # noqa: F811
+    pg = _page(browser, server)
+    try:
+        pg.evaluate(VERIFY)
+        pg.evaluate("() => { state.peaks[0].fwhm *= 1.1; updatePlot(); }")   # updatePlot refreshes the panels
+        got = pg.evaluate("""() => ({ header: document.getElementById('fit-quality').textContent,
+            state: document.getElementById('results-area').getAttribute('data-stats-state'),
+            banner: !!document.querySelector('#results-area [data-seal-stale]') })""")
+        assert "model changed" in got["header"] and got["state"] == "stale" and got["banner"], got
+    finally:
+        pg.close()

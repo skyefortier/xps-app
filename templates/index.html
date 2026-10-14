@@ -6688,7 +6688,7 @@ function renderPeakList() {
   const _peakAreas = {};
   let totalArea = 0;
   if (_roiBE.length) {
-    for (const p of state.peaks) { const a = _peakArea(p, _roiBE); _peakAreas[p.id] = a; if (!_isUnsupported(p)) totalArea += a; }
+    for (const p of state.peaks) { const a = _componentArea(p, _roiBE); _peakAreas[p.id] = a; if (!_isUnsupported(p)) totalArea += a; }
   }
 
   for (const p of state.peaks) {
@@ -6701,20 +6701,21 @@ function renderPeakList() {
     const unsupported = _isUnsupported(p);
     const areaPct = unsupported ? '\u2014' : (totalArea > 0 && pArea > 0 ? ((pArea / totalArea) * 100).toFixed(1) : '\u2014');
     const dash = '\u2014';
+    const shown = _shownPeak(p);   // the summary shows the record's fitted values for a sealed fit
 
     item.innerHTML = `
       <div class="peak-header" onclick="togglePeakBody(${p.id})">
         <div class="peak-color" style="background:${p.color}"></div>
         <span class="peak-name">${_escHtml(p.name)}${isLinked ? ' <span class="linked-badge">linked</span>' : ''}${p.isChargeReference ? ' <span class="chargeref-badge" title="Charge-correction reference (C 1s graphite 284.5 eV)">C-ref</span>' : ''}${unsupported ? ' ' + _unsupportedBadge(p.id) : ''}</span>
-        <span class="peak-info">${unsupported ? dash : p.center.toFixed(2) + ' eV'}</span>
+        <span class="peak-info">${unsupported ? dash : shown.center.toFixed(2) + ' eV'}</span>
         <button class="btn btn-icon btn-sm" style="margin-left:4px;color:var(--red)" onclick="event.stopPropagation();removePeak(${p.id})">&times;</button>
       </div>
       <div class="peak-summary" onclick="togglePeakBody(${p.id})">
         <span class="peak-summary-label">Center</span>
         <span class="peak-summary-label">FWHM</span>
         <span class="peak-summary-label">Area</span>
-        <span class="peak-summary-val">${unsupported ? dash : p.center.toFixed(2)}</span>
-        <span class="peak-summary-val">${unsupported ? dash : p.fwhm.toFixed(2)}</span>
+        <span class="peak-summary-val">${unsupported ? dash : shown.center.toFixed(2)}</span>
+        <span class="peak-summary-val">${unsupported ? dash : shown.fwhm.toFixed(2)}</span>
         <span class="peak-summary-val">${areaPct === '\u2014' ? areaPct : areaPct + '%'}</span>
       </div>
       <div class="peak-body" id="peak-body-${p.id}">
@@ -7882,7 +7883,7 @@ function _autoFitDecideAreaWarning(peakAreas, graphiteId) {
 function _autoFitCheckGraphiteFraction(graphiteId) {
   const be = state.fitResult ? _areaGrid() : null;   // the one area grid (Q5)
   if (!Array.isArray(be) || be.length < 2) return null;
-  const peakAreas = state.peaks.map(p => ({ id: p.id, area: _peakArea(p, be) }));
+  const peakAreas = state.peaks.map(p => ({ id: p.id, area: _componentArea(p, be) }));
   return _autoFitDecideAreaWarning(peakAreas, graphiteId);
 }
 
@@ -8035,16 +8036,16 @@ function _patchPeakCardsForSupport() {
   { const pl = document.getElementById('peak-list'); if (pl) pl.setAttribute('data-area-sig', _areaSignature()); }
   const areas = {};
   let total = 0;
-  if (roiBE.length) for (const p of state.peaks) { areas[p.id] = _peakArea(p, roiBE); if (!_isUnsupported(p, key)) total += areas[p.id]; }
+  if (roiBE.length) for (const p of state.peaks) { areas[p.id] = _componentArea(p, roiBE); if (!_isUnsupported(p, key)) total += areas[p.id]; }
   for (const p of state.peaks) {
     const item = document.getElementById('peak-item-' + p.id);
     if (!item) continue;
-    const un = _isUnsupported(p, key), dash = '\u2014';
+    const un = _isUnsupported(p, key), dash = '\u2014', shown = _shownPeak(p);
     const info = item.querySelector('.peak-info');
-    if (info) info.textContent = un ? dash : p.center.toFixed(2) + ' eV';
+    if (info) info.textContent = un ? dash : shown.center.toFixed(2) + ' eV';
     const vals = item.querySelectorAll('.peak-summary-val');
-    if (vals[0]) vals[0].textContent = un ? dash : p.center.toFixed(2);
-    if (vals[1]) vals[1].textContent = un ? dash : p.fwhm.toFixed(2);
+    if (vals[0]) vals[0].textContent = un ? dash : shown.center.toFixed(2);
+    if (vals[1]) vals[1].textContent = un ? dash : shown.fwhm.toFixed(2);
     if (vals[2]) vals[2].textContent = (un || !(total > 0 && areas[p.id] > 0)) ? dash : ((areas[p.id] / total) * 100).toFixed(1) + '%';
     const name = item.querySelector('.peak-name'), badge = name && name.querySelector('.unsupported-badge');
     if (un && name && !badge) name.insertAdjacentHTML('beforeend', ' ' + _unsupportedBadge(p.id));
@@ -9328,7 +9329,7 @@ function sealedState(fr, owner) {
 // and the consumer keeps today's behaviour (unsealed / LEGACY: today's machinery; STALE / PEAKS-ONLY: the live
 // preview, labelled by the state readers).
 function _sealedDisplay(fr, owner) {
-  if (!_SEAL_AUTHORITATIVE || !fr || !fr.seal) return null;
+  if (!_SEAL_AUTHORITATIVE || !fr || !fr.seal || owner === null) return null;   // an owner that cannot be found: nothing to judge against
   const s = sealedState(fr, owner === undefined ? _activeTab() : owner);
   return (s.state === 'current' || s.state === 'pending' || s.state === 'unconfirmed') ? s : null;
 }
@@ -9341,6 +9342,63 @@ function _sealComponent(view, p) {
 function _sealUnsupported(view, p) {
   const c = _sealComponent(view, p);
   return !!(c && c.support && c.support.supported === false);
+}
+// The tab a fit result belongs to (the active tab's lives in `state`).
+function _ownerOfFit(fr) {
+  if (!fr || fr === state.fitResult) return _activeTab();
+  return (typeof tabManager !== 'undefined' && tabManager) ? (tabManager.tabs.find(t => t.fitResult === fr) || null) : null;
+}
+// F1's accessor as a thin reader of the seal (plan §5): 'current' | 'pending' | 'unconfirmed' | 'stale' for a
+// sealed fit — a record that cannot be read establishes nothing ('stale'); undefined for an unsealed fit (LEGACY:
+// today's rule decides).
+function _sealStatsState(fr, owner) {
+  if (!_SEAL_AUTHORITATIVE || !fr || !fr.seal) return undefined;
+  const o = owner === undefined ? _ownerOfFit(fr) : owner;
+  if (!o) return 'stale';
+  const st = sealedState(fr, o).state;
+  return st === 'current' || st === 'pending' || st === 'unconfirmed' ? st : 'stale';
+}
+// The statistics a reader shows: a sealed fit's RECORDED ones (the R panel's ratio never recomputed), else the
+// result's own fields.
+function _shownStats(fr) {
+  const s = fr && _sealedDisplay(fr, _ownerOfFit(fr));
+  if (s) return { chiReduced: s.view.statistics.chi2r, rmse: s.view.statistics.rmse, rFactor: s.view.rPanel,
+                  sealState: s.state, sealReason: s.reason };
+  return { chiReduced: fr ? fr.chiReduced : null, rmse: fr ? fr.rmse : null, rFactor: fr ? fr.rFactor : null, sealState: null, sealReason: '' };
+}
+// What a reader rendered for a sealed fit — the seal's identity, state, failed check and reason — so a verdict
+// that changes any of them (PENDING → UNCONFIRMED keeps 'not stale') repaints (plan §5).
+const _sealIds = new WeakMap();
+let _sealIdSeq = 0;
+function _sealSig(fr) {
+  if (!_SEAL_AUTHORITATIVE || !fr || !fr.seal) return '';
+  if (!_sealIds.has(fr.seal)) _sealIds.set(fr.seal, ++_sealIdSeq);
+  const s = sealedState(fr, _ownerOfFit(fr));
+  return _sealIds.get(fr.seal) + '|' + s.state + '|' + (s.check || '') + '|' + s.reason;
+}
+// The visible state text of a recorded fit not yet confirmed (plan §5: text, never only a tooltip).
+function _sealStateText(st, reason) {
+  return st === 'pending' ? 'confirming\u2026' : st === 'unconfirmed' ? 'unconfirmed: ' + reason : '';
+}
+// Why a sealed fit is STALE, in the readers' words.
+function _sealStaleNote(fr) {
+  const s = sealedState(fr, _ownerOfFit(fr));
+  if (s.check === 'edited') return _STATS_STALE_NOTE;
+  return 'This fit\'s record does not hold together (' + (s.check || 'record') + ': ' + s.reason + '): its \u03c7\u00b2, R-factor, RMSE and uncertainties are not reported. Run Fit to fit it again.';
+}
+// The area a reader shows: a sealed fit's RECORDED component area while its record describes the model shown;
+// else the server's formula on the one grid (Q5).
+function _componentArea(p, grid) {
+  const s = _sealedDisplay(state.fitResult);
+  const c = s && _sealComponent(s.view, p);
+  return c ? c.area : _peakArea(p, grid);
+}
+// The fitted values a reader shows for a live peak: the sealed view's model entry (names, colours and visibility
+// stay the live peak's), else the peak.
+function _shownPeak(p) {
+  const s = _sealedDisplay(state.fitResult);
+  const q = s && s.view.model.find(m => String(m.id) === String(p.id));
+  return q ? { ...p, ...q, name: p.name, color: p.color, visible: p.visible } : p;
 }
 
 // The starts evidence of `fr` if it still describes the fit whose key is `key`, else null.
@@ -9366,9 +9424,9 @@ function _statsState(fr, key) {
   if (!fr.startsModelKey) return 'unverified';
   return _sameFitKey(fr.startsModelKey, key) ? 'current' : 'stale';
 }
-function _statsLiveState() { return _statsState(state.fitResult, _startsLiveKey()); }
+function _statsLiveState() { const s = _sealStatsState(state.fitResult, _activeTab()); return s !== undefined ? s : _statsState(state.fitResult, _startsLiveKey()); }
 // A record's result judged against the RECORD's key (project save, stack tabs).
-function _statsRecordState(t) { return _statsState(t && t.fitResult, t ? _startsRecordKey(t) : ''); }
+function _statsRecordState(t) { const s = t ? _sealStatsState(t.fitResult, t) : undefined; return s !== undefined ? s : _statsState(t && t.fitResult, t ? _startsRecordKey(t) : ''); }
 const _STATS_STALE_NOTE = 'The model or its fit settings changed after this fit: its \u03c7\u00b2, R-factor, RMSE and uncertainties belong to the previous model and are not reported. Run Fit to obtain statistics for this model.';
 const _STATS_UNVERIFIED_NOTE = 'This result was saved without the record that binds it to its model, so it cannot be confirmed that its \u03c7\u00b2, R-factor and uncertainties describe the model shown. Run Fit to confirm.';
 // A RESTORED fit the page cannot show as it was fitted (owner 2026-10-03,
@@ -9388,7 +9446,7 @@ function _restoredStaleWhy(fr) {
 function _bgStaleNote(fr) {
   return 'This fit was ' + _restoredStaleWhy(fr) + ': its \u03c7\u00b2, R-factor, RMSE and uncertainties are not reported. Run Fit to fit it again.';
 }
-function _staleNoteOf(fr) { return _restoredStale(fr) ? _bgStaleNote(fr) : _STATS_STALE_NOTE; }
+function _staleNoteOf(fr) { if (_SEAL_AUTHORITATIVE && fr && fr.seal) return _sealStaleNote(fr); return _restoredStale(fr) ? _bgStaleNote(fr) : _STATS_STALE_NOTE; }
 function _statsNote(st, fr) { return st === 'stale' ? _staleNoteOf(fr) : st === 'unverified' ? _STATS_UNVERIFIED_NOTE : ''; }
 // Fields a save adds beside the result (the key itself is saved as always).
 function _statsSaveFields(st, fr) {
@@ -9401,7 +9459,8 @@ function _refreshStatsState() {
   const st = _statsLiveState();
   const el = document.getElementById('results-area');
   // 'none' too: Clear All nulls the result and only repaints (Codex round 1)
-  if (el && el.getAttribute('data-stats-state') !== st && (state.fitResult || el.getAttribute('data-stats-state')) && typeof renderResults === 'function') renderResults();   // applies the header / status bar too
+  const sealChanged = el && (el.getAttribute('data-seal-sig') || '') !== _sealSig(state.fitResult);
+  if (el && (el.getAttribute('data-stats-state') !== st || sealChanged) && (state.fitResult || el.getAttribute('data-stats-state')) && typeof renderResults === 'function') renderResults();   // applies the header / status bar too
   else _applyStatDisplay(state.fitResult);
   if (typeof _updateRFactorUI === 'function') _updateRFactorUI(state.fitResult ? state.fitResult.rFactor : null);
 }
@@ -10060,7 +10119,9 @@ function _localFitCaveat(fr) {
 }
 function _fitStatusText(fr) {
   const tag = !_isLocalFit(fr) ? '' : (_isUnweightedLocal(fr) ? ' (starting point)' : ' (local, starting point)');
-  return _fitStatLabel(fr) + ' = ' + fr.chiReduced.toFixed(2) + tag;
+  const shown = _shownStats(fr);   // seal step 5: a sealed fit's recorded statistic and, until confirmed, its state
+  const stateText = shown.sealState && shown.sealState !== 'current' ? ' \u2014 ' + _sealStateText(shown.sealState, shown.sealReason) : '';
+  return _fitStatLabel(fr) + ' = ' + shown.chiReduced.toFixed(2) + tag + stateText;
 }
 function _applyStatCaption(fr) {
   const cap = document.getElementById('sb-chi-caption');
@@ -10078,12 +10139,14 @@ function _applyStatDisplay(fr) {
   const st = (fr && fr === state.fitResult) ? _statsLiveState() : 'current';
   if (fr && Number.isFinite(fr.chiReduced) && st === 'stale') {
     // F1: the statistic belongs to the previous model: say so, show no number
-    if (fq) { fq.textContent = _fitStatLabel(fr) + (_restoredStale(fr) ? (fr.backgroundStale ? ' \u2014 (background changed)' : ' \u2014 (Voigt mix)') : ' \u2014 (model changed)'); fq.setAttribute('data-xps-tip', _staleNoteOf(fr)); }
+    const sealCheck = _SEAL_AUTHORITATIVE && fr.seal ? sealedState(fr, _activeTab()).check : null;
+    if (fq) { fq.textContent = _fitStatLabel(fr) + (_SEAL_AUTHORITATIVE && fr.seal ? (sealCheck === 'edited' ? ' \u2014 (model changed)' : ' \u2014 (check failed: ' + sealCheck + ')')
+      : _restoredStale(fr) ? (fr.backgroundStale ? ' \u2014 (background changed)' : ' \u2014 (Voigt mix)') : ' \u2014 (model changed)'); fq.setAttribute('data-xps-tip', _staleNoteOf(fr)); }
     if (sb) sb.textContent = '\u2014';
   } else if (fr && Number.isFinite(fr.chiReduced)) {
     const tip = (_isLocalFit(fr) ? _LOCALFIT_TOOLTIP : _CHISQ_TOOLTIP) + (st === 'unverified' ? '\n\n' + _STATS_UNVERIFIED_NOTE : '');
     if (fq) { fq.textContent = _fitStatusText(fr); fq.setAttribute('data-xps-tip', tip); }
-    if (sb) sb.textContent = fr.chiReduced.toFixed(3);
+    if (sb) sb.textContent = _shownStats(fr).chiReduced.toFixed(3);
   } else {
     if (fq) { fq.innerHTML = '&#967;&#178; &mdash;'; fq.removeAttribute('data-xps-tip'); }
     if (sb) sb.textContent = '\u2014';
@@ -10585,6 +10648,8 @@ function solveLinear(A, b, n) {
 // Build {peakId: paramMap} from backend fit result (null-safe)
 function _buildStderrMap(fitResult) {
   const m = {};
+  const s = fitResult && _sealedDisplay(fitResult, _ownerOfFit(fitResult));
+  if (s) { for (const c of s.view.components) if (c.params) m[c.id] = c.params; return m; }   // O's sigma (local: none)
   const peaks = fitResult?.backendResult?.individual_peaks;
   if (peaks) for (const ip of peaks) m[ip.id] = ip.params || {};
   return m;
@@ -10636,6 +10701,8 @@ function _ownFitArea(fr, p, yArr) {
 // other points, and Results (frozen grid) and the sidebar (live grid) used to show different areas.
 function _areaGrid() {
   const fr = state.fitResult;
+  const sealed = _sealedDisplay(fr);
+  if (sealed) return sealed.view.energies;   // the energies the record's areas were integrated on
   if (fr && _statsLiveState() === 'current') {
     const g = Array.isArray(fr._modelBe) && fr._modelBe.length > 1 ? fr._modelBe : fr.be;
     if (Array.isArray(g) && g.length > 1) return g;
@@ -10656,7 +10723,7 @@ const _OUTSIDE_WINDOW_NOTE = 'centred outside the window — its area is poorly 
 // earlier edit, and a renamed component's note its old name).
 function _areaSignature() {
   const g = _areaGrid();
-  return state.peaks.map(p => p.id + ':' + _peakArea(p, g)).join(',') + '|' + _outsideWindowNoteHtml(g);
+  return state.peaks.map(p => p.id + ':' + _componentArea(p, g)).join(',') + '|' + _outsideWindowNoteHtml(g);
 }
 function _outsideWindowNoteHtml(be) {
   const outside = state.peaks.filter(p => _centredOutsideWindow(p, be));
@@ -10668,7 +10735,7 @@ function _outsideWindowNoteHtml(be) {
 function renderResults() {
   const el = document.getElementById('results-area');
   const _stats = _statsLiveState();   // F1: current / stale / unverified / none
-  if (el) el.setAttribute('data-stats-state', _stats);
+  if (el) { el.setAttribute('data-stats-state', _stats); el.setAttribute('data-seal-sig', _sealSig(state.fitResult)); }
   _applyStatDisplay(state.fitResult);   // header + status bar track every result change (clear, restore, auto-fit) as one unit
   _updateLocalModelBanner();
   if (!state.fitResult) {
@@ -10688,12 +10755,19 @@ function renderResults() {
     return;
   }
 
-  const { chiReduced, rmse, backendResult } = state.fitResult;
+  const { backendResult } = state.fitResult;
+  const _shown = _shownStats(state.fitResult);   // seal step 5: a sealed fit's recorded statistics
+  const { chiReduced, rmse } = _shown;
   const _statIsChi = _fitStatLabel(state.fitResult) !== 'Residual variance';
   const _stale = _stats === 'stale';
   // F1: a stale result's sigma belongs to the previous model: none is shown
   const stderrMap = _stale ? {} : _buildStderrMap(state.fitResult);
-  const _statsBanner = _stale && _restoredStale(state.fitResult) ? `
+  const _sealStale = _stale && _SEAL_AUTHORITATIVE && !!state.fitResult.seal;
+  const _statsBanner = _sealStale ? `
+    <div class="stats-stale-note" data-seal-stale="1" style="background:rgba(245,158,11,0.12);border:1px solid var(--amber,#f59e0b);border-radius:var(--radius);padding:8px 10px;margin-bottom:10px;font-size:11px;line-height:1.5;color:var(--text)">
+      &#9888; <strong>${sealedState(state.fitResult, _activeTab()).check === 'edited' ? 'The model has changed since this fit.' : 'This fit cannot be shown as recorded.'}</strong> ${_escHtml(_sealStaleNote(state.fitResult))} The table below is the current model, not a fitted result.
+    </div>` : _shown.sealState && _shown.sealState !== 'current' ? `
+    <div class="stats-seal-note" data-seal-state="${_shown.sealState}" style="font-size:11px;line-height:1.5;color:var(--text2);margin-bottom:8px">The values below are this fit as recorded &mdash; ${_escHtml(_sealStateText(_shown.sealState, _shown.sealReason))}.</div>` : _stale && _restoredStale(state.fitResult) ? `
     <div class="stats-stale-note" data-background-stale="1" style="background:rgba(245,158,11,0.12);border:1px solid var(--amber,#f59e0b);border-radius:var(--radius);padding:8px 10px;margin-bottom:10px;font-size:11px;line-height:1.5;color:var(--text)">
       &#9888; <strong>This saved fit cannot be shown as it was fitted.</strong> ${_escHtml(_bgStaleNote(state.fitResult))}
     </div>` : _stale ? `
@@ -10731,7 +10805,7 @@ function renderResults() {
         <div style="font-family:var(--mono);font-size:11px;color:var(--green)">lmfit</div>
       </div>` : ''}
     </div>
-    ${_stale ? '' : _renderRFactorPanel(state.fitResult.rFactor)}
+    ${_stale ? '' : _renderRFactorPanel(_shown.rFactor, _shown.sealState)}
     <table class="results-table">
       <thead><tr>
         <th>Peak</th><th>Center (eV)</th><th>FWHM (eV)</th><th>Area</th><th>%</th>
@@ -10742,7 +10816,7 @@ function renderResults() {
   // The one area grid (Q5): the fit's own while it is current, else the live ROI grid (an older save
   // without fitResult.be falls back to the ROI grid, as before).
   const be = _areaGrid();
-  const areas = state.peaks.map(p => _peakArea(p, be));
+  const areas = state.peaks.map(p => _componentArea(p, be));
   // percentages are over the components the fit DID determine
   const totalArea = areas.reduce((s, v, i) => s + (_isUnsupported(state.peaks[i]) ? 0 : v), 0);
   const unsupportedPeaks = state.peaks.filter(p => _isUnsupported(p));
@@ -10764,10 +10838,11 @@ function renderResults() {
     </tr>`;
       return;
     }
+    const q = _shownPeak(p);   // the record's fitted values for a sealed fit
     html += `<tr>
       <td><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${p.color};margin-right:5px"></span>${_escHtml(p.name)}</td>
-      <td style="font-family:var(--mono)">${fmtVal(p.center, centerSE, 3)} eV</td>
-      <td style="font-family:var(--mono)">${fmtVal(p.fwhm, fwhmSE, 3)} eV</td>
+      <td style="font-family:var(--mono)">${fmtVal(q.center, centerSE, 3)} eV</td>
+      <td style="font-family:var(--mono)">${fmtVal(q.fwhm, fwhmSE, 3)} eV</td>
       <td>${areas[i].toFixed(0)}</td>
       <td>${pct.toFixed(1)}%</td>
     </tr>`;
@@ -10844,7 +10919,14 @@ function renderQuantify(areas, totalArea) {
     <div style="background:rgba(245,158,11,0.12);border:1px solid var(--amber,#f59e0b);border-radius:var(--radius);padding:8px 10px;margin-bottom:10px;font-size:11px;line-height:1.5;color:var(--text)">
       &#9888; <strong>${_escHtml(_localFitCaveat(state.fitResult))}</strong> ${_localFitDetail(state.fitResult)}
     </div>` : '';
-  let html = _localQBanner + `
+  // seal step 5 (plan §5): areas of a recorded fit not yet confirmed carry its state; a STALE sealed fit's are the
+  // live preview of the edited model
+  const _qSeal = _SEAL_AUTHORITATIVE && state.fitResult && state.fitResult.seal ? _statsLiveState() : null;
+  const _qSealNote = !_qSeal || _qSeal === 'current' ? '' : `
+    <div class="quantify-seal-note" data-seal-state="${_qSeal}" style="font-size:11px;line-height:1.5;color:var(--text2);margin-bottom:8px">${_qSeal === 'stale'
+      ? 'The model has changed since this fit (or its record does not hold): these areas are the current model\'s, not a fitted result.'
+      : 'Areas of this fit as recorded \u2014 ' + _escHtml(_sealStateText(_qSeal, _shownStats(state.fitResult).sealReason || sealedState(state.fitResult, _activeTab()).reason)) + '.'}</div>`;
+  let html = _localQBanner + _qSealNote + `
     <div style="margin-bottom:10px;font-size:11px;color:var(--text2)">
       Relative atomic concentrations from peak areas.
     </div>
@@ -14196,7 +14278,7 @@ function exportFitTable(fmt) {
   // neither is written; a WARNING line says why
   const _stats = _statsLiveState();
   const stderrMap = _stats === 'stale' ? {} : _buildStderrMap(state.fitResult);
-  const areas = state.peaks.map(p => _peakArea(p, _areaGrid()));   // the one area grid (Q5): what Results shows
+  const areas = (g => state.peaks.map(p => _componentArea(p, g)))(_areaGrid());   // the one area grid (Q5): what Results shows
   const totalArea = areas.reduce((s,v)=>s+v,0);
   const rsfVals = state.peaks.map(p => {
     const el = document.getElementById('rsf-' + p.id);
@@ -14362,11 +14444,14 @@ function _computeRFactor(fitResult) {
 
 const _RFACTOR_TOOLTIP = "The R-factor (reliability factor) measures the overall agreement between the fit and the data as a percentage. Computed within the ROI range.\n\nR = \u03a3|residual| / \u03a3|data| \u00d7 100%\n\n\u2022 R < 5% = excellent fit\n\u2022 R = 5\u201310% = acceptable fit, check residuals visually\n\u2022 R > 10% = poor fit, the model is likely incomplete\n\nUnlike chi-squared, the R-factor is intuitive \u2014 it represents the fraction of the total signal that is unexplained by the model.";
 
-function _renderRFactorPanel(rf) {
+function _renderRFactorPanel(rf, sealState) {
   if (!rf) return '';
   const pct = rf.rPct.toFixed(1);
-  const color = rf.level === 'good' ? 'var(--green)' : rf.level === 'amber' ? 'var(--amber)' : 'var(--red)';
-  const label = rf.level === 'good' ? 'Excellent fit' : rf.level === 'amber' ? 'Acceptable \u2014 check residuals' : 'Poor fit \u2014 model likely incomplete';
+  // a recorded fit not yet confirmed: the value, its state, no level wording (plan §5)
+  const unconfirmed = !!sealState && sealState !== 'current';
+  const color = unconfirmed ? 'var(--text2)' : rf.level === 'good' ? 'var(--green)' : rf.level === 'amber' ? 'var(--amber)' : 'var(--red)';
+  const label = unconfirmed ? (sealState === 'pending' ? 'confirming\u2026' : 'unconfirmed')
+    : rf.level === 'good' ? 'Excellent fit' : rf.level === 'amber' ? 'Acceptable \u2014 check residuals' : 'Poor fit \u2014 model likely incomplete';
   return `<div data-xps-tip="${_RFACTOR_TOOLTIP.replace(/"/g, '&quot;')}" style="background:var(--bg3);border:1px solid ${color};border-radius:var(--radius);padding:8px 10px;margin-bottom:12px;font-size:11px;color:${color};cursor:help">
     R-factor: <span style="font-family:var(--mono)">${pct}%</span> \u2014 ${label}
   </div>`;
@@ -14375,6 +14460,13 @@ function _renderRFactorPanel(rf) {
 function _updateRFactorUI(rf) {
   const el = document.getElementById('sb-runs');
   if (!el) return;
+  // seal step 5: a sealed fit's R is its RECORDED ratio (whatever the caller passed); stale shows none
+  let sealNote = '';
+  if (_SEAL_AUTHORITATIVE && state.fitResult && state.fitResult.seal && rf === state.fitResult.rFactor) {
+    const st = _statsLiveState();
+    if (st !== 'stale') { const shown = _shownStats(state.fitResult); rf = shown.rFactor;
+      if (st !== 'current') sealNote = ' (' + (st === 'pending' ? 'confirming\u2026' : 'unconfirmed') + ')'; }
+  }
   if (rf && state.fitResult && rf === state.fitResult.rFactor && _statsLiveState() === 'stale') {
     // F1: the previous model's R-factor is not shown beside the edited model
     el.style.color = 'var(--text3)';
@@ -14388,8 +14480,8 @@ function _updateRFactorUI(rf) {
     return;
   }
   const pct = rf.rPct.toFixed(1);
-  el.style.color = rf.level === 'good' ? 'var(--green)' : rf.level === 'amber' ? 'var(--amber)' : 'var(--red)';
-  el.textContent = `R: ${pct}%`;
+  el.style.color = sealNote ? 'var(--text2)' : rf.level === 'good' ? 'var(--green)' : rf.level === 'amber' ? 'var(--amber)' : 'var(--red)';
+  el.textContent = `R: ${pct}%` + sealNote;
   el.setAttribute('data-xps-tip', _RFACTOR_TOOLTIP);
 }
 
