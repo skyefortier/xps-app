@@ -11,6 +11,6 @@ ANSWER EACH, against the actual code:
 6. Tests: does each new test fail on the defect it names (would a verifier with a missing check still pass the suite)? Missing cases?
 7. Design rules (CLAUDE.md "Thresholds on data-scaled quantities fail", "Two readings of one field"): any tolerance or second reading introduced?
 
-Rank findings BLOCKER / MAJOR / MINOR with file:line evidence. BLOCKER / MAJOR: an O that is not the server's computation read consistent, an honest O read mismatch, a behaviour change to existing fits / routes / refusals not measured and noted, a false claim in docs or tests; MINOR: wording, ordering, missing non-critical test. Read-only (the sandbox cannot run pytest; read the logs named in the README). Budget your time: a verdict is required within the run.
+Rank findings BLOCKER / MAJOR / MINOR with file:line evidence. BLOCKER / MAJOR: an O that is not the server's computation read consistent, an honest O read mismatch, a behaviour change to existing fits / routes / refusals not measured and noted, a false claim in docs or tests; MINOR: wording, ordering, missing non-critical test. Read-only (the sandbox cannot run pytest; the suite results are in docs/findings/seal-1a/suites.md). Budget your time: a verdict is required within the run.
 
 Finish with VERDICT: GO or VERDICT: NO-GO.
