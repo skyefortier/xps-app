@@ -1,0 +1,258 @@
+{
+ "asymgl_linked_smart": {
+  "background": {
+   "end_idx": 191,
+   "endpoint_avg": 3,
+   "method": "smart",
+   "start_idx": 0
+  },
+  "fit_method": "least_squares",
+  "n_perturb": 3,
+  "n_starts": 0,
+  "peaks": [
+   {
+    "amplitude": 6000,
+    "amplitude_min": 0,
+    "asymmetry": 0.2,
+    "center": 284.8,
+    "fix_amplitude": false,
+    "fix_asymmetry": false,
+    "fix_center": false,
+    "fix_fwhm": false,
+    "fix_gl_ratio": false,
+    "frontend_shape": "asym-GL",
+    "fwhm": 1,
+    "gl_ratio": 0.2,
+    "id": "1",
+    "name": "Peak 1",
+    "shape": "asymmetric_gl"
+   },
+   {
+    "amplitude": 1500,
+    "amplitude_min": 0,
+    "area_ratio": 0.25,
+    "asymmetry": 0.2,
+    "center": 286.4,
+    "constrain_to": "1",
+    "fix_amplitude": false,
+    "fix_asymmetry": false,
+    "fix_center": false,
+    "fix_fwhm": true,
+    "fix_gl_ratio": false,
+    "frontend_shape": "asym-GL",
+    "fwhm": 1,
+    "gl_ratio": 0.2,
+    "id": "2",
+    "name": "Peak 2",
+    "shape": "asymmetric_gl",
+    "splitting": 1.6
+   }
+  ]
+ },
+ "ds_dsg_lacx_locks_tougaard": {
+  "background": {
+   "end_idx": 191,
+   "endpoint_avg": 3,
+   "method": "tougaard",
+   "start_idx": 0
+  },
+  "fit_method": "least_squares",
+  "n_perturb": 3,
+  "n_starts": 3,
+  "peaks": [
+   {
+    "alpha": 0.12,
+    "amplitude": 6000,
+    "amplitude_min": 0,
+    "center": 284.8,
+    "fix_alpha": false,
+    "fix_amplitude": false,
+    "fix_center": true,
+    "fix_fwhm": false,
+    "fix_gamma_asym": false,
+    "fix_gl_ratio": false,
+    "frontend_shape": "DS",
+    "fwhm": 1,
+    "gamma_asym": 0,
+    "id": "1",
+    "name": "Peak 1",
+    "shape": "doniach_sunjic"
+   },
+   {
+    "alpha": 0.1,
+    "amplitude": 1500,
+    "amplitude_min": 0,
+    "beta": 0.3,
+    "center": 286.4,
+    "fix_alpha": false,
+    "fix_amplitude": false,
+    "fix_beta": false,
+    "fix_center": false,
+    "fix_fwhm": false,
+    "fix_gl_ratio": false,
+    "fix_m_gauss": true,
+    "frontend_shape": "DSG_LA",
+    "fwhm": 1.2,
+    "id": "2",
+    "m_gauss": 0.4,
+    "name": "Peak 2",
+    "shape": "ds_g"
+   },
+   {
+    "alpha": 1.2,
+    "amplitude": 400,
+    "amplitude_min": 0,
+    "beta": 1,
+    "center": 288,
+    "fix_alpha": false,
+    "fix_amplitude": true,
+    "fix_beta": false,
+    "fix_center": false,
+    "fix_fwhm": false,
+    "fix_gl_ratio": false,
+    "fix_m": true,
+    "frontend_shape": "LACX",
+    "fwhm": 1.4,
+    "id": "3",
+    "m": 6,
+    "name": "Peak 3",
+    "shape": "la_casaxps"
+   }
+  ]
+ },
+ "gauss_voigt_linear_avg3_window": {
+  "background": {
+   "end_idx": 172,
+   "endpoint_avg": 3,
+   "method": "linear",
+   "start_idx": 22
+  },
+  "fit_method": "leastsq",
+  "n_perturb": 3,
+  "n_starts": 3,
+  "peaks": [
+   {
+    "amplitude": 5800,
+    "amplitude_min": 0,
+    "center": 284.8,
+    "fix_amplitude": false,
+    "fix_center": false,
+    "fix_fwhm": false,
+    "fix_gl_ratio": false,
+    "frontend_shape": "Gaussian",
+    "fwhm": 1.1,
+    "id": "1",
+    "name": "Peak 1",
+    "shape": "gaussian"
+   },
+   {
+    "amplitude": 1400,
+    "amplitude_min": 0,
+    "center": 286.4,
+    "fix_amplitude": false,
+    "fix_center": false,
+    "fix_fwhm": false,
+    "fix_gl_ratio": true,
+    "frontend_shape": "Voigt",
+    "fwhm": 1.3,
+    "gl_ratio": 0.5,
+    "id": "2",
+    "name": "Peak 2",
+    "shape": "pseudo_voigt_gl"
+   }
+  ]
+ },
+ "gl_none_fixed_mix": {
+  "background": {
+   "end_idx": 191,
+   "endpoint_avg": 3,
+   "method": "none",
+   "start_idx": 0
+  },
+  "fit_method": "least_squares",
+  "n_perturb": 3,
+  "n_starts": 0,
+  "peaks": [
+   {
+    "amplitude": 6000,
+    "amplitude_min": 0,
+    "center": 284.8,
+    "fix_amplitude": false,
+    "fix_center": false,
+    "fix_fwhm": true,
+    "fix_gl_ratio": true,
+    "frontend_shape": "GL",
+    "fwhm": 1.2,
+    "gl_ratio": 0,
+    "id": "1",
+    "name": "Peak 1",
+    "shape": "pseudo_voigt_gl"
+   }
+  ]
+ },
+ "gl_shirley_default": {
+  "background": {
+   "end_idx": 191,
+   "endpoint_avg": 3,
+   "method": "shirley",
+   "start_idx": 0
+  },
+  "fit_method": "least_squares",
+  "n_perturb": 3,
+  "n_starts": 0,
+  "peaks": [
+   {
+    "amplitude": 6000,
+    "amplitude_min": 0,
+    "center": 284.8,
+    "fix_amplitude": false,
+    "fix_center": false,
+    "fix_fwhm": false,
+    "fix_gl_ratio": false,
+    "frontend_shape": "GL",
+    "fwhm": 1.2,
+    "gl_ratio": 0.3,
+    "id": "1",
+    "name": "Peak 1",
+    "shape": "pseudo_voigt_gl"
+   }
+  ]
+ },
+ "lorentzian_manual_anchors_nelder": {
+  "background": {
+   "end_idx": 191,
+   "endpoint_avg": 3,
+   "manual_bg": [
+    [
+     296.5,
+     805
+    ],
+    [
+     281.2,
+     801
+    ]
+   ],
+   "method": "manual",
+   "start_idx": 0
+  },
+  "fit_method": "nelder",
+  "n_perturb": 3,
+  "n_starts": 0,
+  "peaks": [
+   {
+    "amplitude": 6000,
+    "amplitude_min": 0,
+    "center": 284.8,
+    "fix_amplitude": false,
+    "fix_center": false,
+    "fix_fwhm": false,
+    "fix_gl_ratio": false,
+    "frontend_shape": "Lorentzian",
+    "fwhm": 1,
+    "id": "1",
+    "name": "Peak 1",
+    "shape": "lorentzian"
+   }
+  ]
+ }
+}
