@@ -49,7 +49,8 @@ const ALLOWLIST = {
   _sealViews: 'B',   // seal 1c step 3: a WeakMap memo seal -> its view (derived, keyed by the immutable seal; no tab content)
   _SEAL_MODEL_FIELDS: 'B', _SEAL_CTX_FIELDS: 'B', _LOCAL_LINK_SYNC_KEYS: 'B',   // seal 1c step 4: constant tables (the live key; the local engine's link sync)
   _sealBindingMemo: 'B', _sealVerdicts: 'B', _sealUnreachable: 'B',   // seal 1c step 4: WeakMaps keyed by the immutable seal (derived answers; no tab content)
-  _sealAttempts: 'A', _sealAttemptSeq: 'A',   // seal 1c step 4: verification attempts in flight, WeakMap keyed by the tab record (like _fitOpByOwner)
+  _sealAttempts: 'A', _sealAttemptSeq: 'A',
+  _stagedTxns: 'A', _stagedTxnSeq: 'A',   // seal 1c step 4: Auto-Fit's staged verification transactions, WeakMap keyed by the tab record (like _sealAttempts)   // seal 1c step 4: verification attempts in flight, WeakMap keyed by the tab record (like _fitOpByOwner)
   BG_LABELS: 'B',            // constant table: background methods' display names (background math, 2026-10-01)
   FP_TIER_META: 'B', FP_STRINGS: 'B', FP_MODEL_LABELS: 'B', FP_ROLE_LABELS: 'B', FP_SHAPE_LABELS: 'B', FP_TIER_RANK: 'B',
   REF_PT_LAYOUT: 'B',        // periodic-table layout table (built by a call at load; read-only)

@@ -7103,6 +7103,12 @@ function _sameModel(a, b) {
   const strip = p => { const q = { ...p }; for (const k of _MODEL_EVIDENCE_FIELDS) delete q[k]; return q; };
   return Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((p, i) => eq(strip(p), strip(b[i])));
 }
+// The same comparison by the RECORD rule (_jsonEqual): for a model compared with a RECORDED one (the bindings),
+// which may have travelled or been stored as JSON. _sameModel stays strict: it proves two code paths identical.
+function _sameRecordModel(a, b) {
+  const strip = p => { const q = { ...p }; for (const k of _MODEL_EVIDENCE_FIELDS) delete q[k]; return q; };
+  return Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((p, i) => _jsonEqual(strip(p), strip(b[i])));
+}
 // ── Seal 1c step 3 (plan §1, §5.4, §7): the sealed fit record, created BESIDE today's result. Nothing reads it
 // yet — it becomes the authority in step 7; until then the tests compare its view with today's fitResult.
 
@@ -8844,14 +8850,19 @@ function _startsRecordKey(t) { return _startsModelKey(t.peaks, t.ui, t.ccShift, 
 // reads it ("Two readings of one field").
 const _SEAL_AUTHORITATIVE = false;
 
-// JSON-value equality, field-wise: numbers by Object.is (NaN is NaN, never null; 0 and -0 differ), arrays and
-// objects recursively, key order irrelevant, an absent key not an undefined one.
+// The RECORD rule (steps 3-4 Codex round 1): a seal is compared in the form it TRAVELS and is STORED in — JSON —
+// so a value and its round trip are one value, exactly (no tolerance): -0 is 0 (the upload and JSON send 0, and
+// the server compares numbers with ==), and a field whose value is undefined is absent (JSON drops it; in an
+// array it is null). NaN stays NaN (Object.is), never null: a record holding one cannot survive storage, and
+// comparing it unequal keeps it from ever reading as current. Numbers alone by _recNumEq.
+function _recNumEq(a, b) { return Object.is(a, b) || (a === 0 && b === 0); }
 function _jsonEqual(x, y) {
-  if (typeof x === 'number' || typeof y === 'number') return Object.is(x, y);
+  if (typeof x === 'number' || typeof y === 'number') return typeof x === 'number' && typeof y === 'number' && _recNumEq(x, y);
   if (x === null || y === null || typeof x !== 'object' || typeof y !== 'object') return x === y;
   if (Array.isArray(x) !== Array.isArray(y)) return false;
-  const kx = Object.keys(x), ky = Object.keys(y);
-  return kx.length === ky.length && kx.every(k => Object.hasOwn(y, k) && _jsonEqual(x[k], y[k]));
+  if (Array.isArray(x)) return x.length === y.length && x.every((v, i) => _jsonEqual(v === undefined ? null : v, y[i] === undefined ? null : y[i]));
+  const kx = Object.keys(x).filter(k => x[k] !== undefined), ky = Object.keys(y).filter(k => y[k] !== undefined);
+  return kx.length === ky.length && kx.every(k => y[k] !== undefined && Object.hasOwn(y, k) && _jsonEqual(x[k], y[k]));
 }
 
 // The LIVE key (plan §3): the peak fields a fit reads (today's model fields and Auto-Fit's overlays — never a
@@ -8917,9 +8928,11 @@ const _sealBindingMemo = new WeakMap();
 function _sealBindings(seal, owner) {
   const raw = _rawOf(owner);
   const memo = _sealBindingMemo.get(seal);
-  if (memo && memo.be === raw.be && memo.inten === raw.inten) return memo.result;
+  // valid only for the SAME arrays holding the SAME values (an array edited in place is new data)
+  const same = (a, copy) => a.length === copy.length && a.every((v, i) => Object.is(v, copy[i]));
+  if (memo && memo.be === raw.be && memo.inten === raw.inten && same(raw.be, memo.beCopy) && same(raw.inten, memo.intenCopy)) return memo.result;
   const result = _sealBindingsUncached(seal, raw);
-  _sealBindingMemo.set(seal, { be: raw.be, inten: raw.inten, result });
+  _sealBindingMemo.set(seal, { be: raw.be, inten: raw.inten, beCopy: Array.from(raw.be), intenCopy: Array.from(raw.inten), result });
   return result;
 }
 function _sealBindingsUncached(seal, raw) {
@@ -8934,11 +8947,18 @@ function _sealBindingsUncached(seal, raw) {
     const e = _bindOne('server', 'autoFit', E.R, E.O, raw);
     if (!e.ok) return fail('evidence', 'the anchor fit: ' + e.reason);
     if (E.O.success !== true) return fail('evidence', 'the anchor fit is recorded as not converged');
+    // the producer's settings are ONE setting for both fits (§6.3: "the producer's settings unchanged"), and the
+    // component the server was asked to require is the anchor the gates judge
+    const P1 = E.R.context0.producer, P2 = seal.R.context0.producer;
+    if (!_jsonEqual(P1, P2)) return fail('evidence', 'the final fit was not made with its anchor fit\'s settings');
+    const anchor = E.R.pageModel.find(p => p.name === 'Graphite') || E.R.pageModel[0];
+    if (!P1 || !anchor || P1.require_component !== String(anchor.id))
+      return fail('evidence', 'the anchor fit did not ask the server whether the data require its anchor');
     if (seal.O.success !== true) return fail('acceptance', 'the final fit is recorded as not converged');
     const g1 = _autoFitAnchorRefusal(E.O, project(E.R.pageModel, E.O));
     if (g1) return fail('evidence', 'the anchor fit: ' + g1);
     const d = deriveAutoFit(E.R.pageModel, E.R.context0.live, E.O);
-    if (!_sameModel(d.pageModel, seal.R.pageModel) || !_jsonEqual(d.ctx, seal.R.context0.live))
+    if (!_sameRecordModel(d.pageModel, seal.R.pageModel) || !_jsonEqual(d.ctx, seal.R.context0.live))
       return fail('evidence', 'the final fit was not made from what its anchor fit derives');
     const g2 = _autoFitAnchorRefusal(seal.O, project(seal.R.pageModel, seal.O));
     if (g2) return fail('acceptance', 'the final fit: ' + g2);
@@ -8978,17 +8998,17 @@ function _bindOne(engine, producer, R, O, raw) {
   if (!_jsonEqual(O.energies, R.energies) || !Array.isArray(O.net) || O.net.length !== n || !Array.isArray(bgv) || bgv.length !== n)
     return fail('samples', 'the local record is not on the recorded samples');
   for (let i = 0; i < n; i++) {
-    if (!Object.is(O.net[i], R.counts[i] - bgv[i])) return fail('samples', 'the local record\'s net signal is not the counts less its background');
-    if (!Object.is(O.weights[i], 1 / Math.sqrt(Math.max(O.net[i] + bgv[i], 1)))) return fail('weights', 'the local record\'s weights are not the engine\'s');
+    if (!_recNumEq(O.net[i], R.counts[i] - bgv[i])) return fail('samples', 'the local record\'s net signal is not the counts less its background');
+    if (!_recNumEq(O.weights[i], 1 / Math.sqrt(Math.max(O.net[i] + bgv[i], 1)))) return fail('weights', 'the local record\'s weights are not the engine\'s');
   }
   if (!_jsonEqual(Array.from(bg), bgv)) return fail('background', 'the background has changed');
   if (!_jsonEqual(effect, O.background.effect)) return fail('background', 'the recorded background effect is not the context\'s');
   const inv = _localInventory(structuredClone(R.pageModel));
   if (!_jsonEqual(inv.paramMap, O.paramMap)) return fail('inventory', 'the local record does not vary what its start model frees');
-  if (!_sameModel(projectLocal(R.pageModel, O), O.model)) return fail('model', 'the local model is not its start with the engine\'s free values');
+  if (!_sameRecordModel(projectLocal(R.pageModel, O), O.model)) return fail('model', 'the local model is not its start with the engine\'s free values');
   for (const { id, param } of O.paramMap) {
     const v = O.model.find(q => q.id === id)[param];
-    if (!Object.is(_localClamp(param, v), v)) return fail('model', 'a free value lies outside the engine\'s bounds');
+    if (!_recNumEq(_localClamp(param, v), v)) return fail('model', 'a free value lies outside the engine\'s bounds');
   }
   if (!(inv.freeParams.length < n)) return fail('determinacy', 'the model is not determined by these data');
   return _localSelfCheck(O);
@@ -9010,7 +9030,7 @@ function _localSelfCheck(O) {
   let sAbsR = 0, sAbsD = 0;
   for (let i = 0; i < n; i++) { sAbsR += Math.abs(O.net[i] - modelSum[i]); sAbsD += Math.abs(O.net[i]); }
   const rFactor = sAbsD === 0 ? null : sAbsR / sAbsD;
-  if (!Object.is(chi2, O.chi2) || !Object.is(chi2r, O.chi2r) || !Object.is(rmse, O.rmse) || !Object.is(rFactor, O.rFactor) ||
+  if (!_recNumEq(chi2, O.chi2) || !_recNumEq(chi2r, O.chi2r) || !_recNumEq(rmse, O.rmse) || !_jsonEqual(rFactor, O.rFactor) ||
       O.nVaried !== nVaried) return fail('statistics', 'the recorded statistics are not the ones its model gives');
   if (!_jsonEqual(curves.map(c => _trapezoidArea(c, be)), O.areas)) return fail('components', 'a recorded area is not its curve\'s');
   const support = {};
@@ -9037,12 +9057,67 @@ async function _postVerifyFit(R, O) {
   if (!resp.ok) throw Object.assign(new Error('verify-fit HTTP ' + resp.status), { httpStatus: resp.status });
   return resp.json();
 }
-// One answer from several checks (Auto-Fit: its anchor fit and its final fit): any mismatch, else any unconfirmed.
-function _aggregateVerdicts(vs) {
-  return vs.find(v => v.state === 'mismatch') || vs.find(v => v.state === 'unconfirmed') || vs[0];
+// One check's OUTCOME: the server's answer, or { unreachable: true } (never thrown: a failed check must not hide
+// another check's answer — steps 3-4 Codex round 1).
+async function _checkOutcome(R, O) {
+  try { return await _postVerifyFit(R, O); } catch (e) { return { unreachable: true }; }
 }
-// STAGED (Auto-Fit's transaction, plan §6.3, §9): the checks of a fit not yet installed; resolves, attaches nothing.
-async function _verifyStaged(checks) { return _aggregateVerdicts(await Promise.all(checks.map(([R, O]) => _postVerifyFit(R, O)))); }
+// One answer from several checks (Auto-Fit: its anchor fit and its final fit; plan §6.3's precedence): any
+// mismatch; else any check OUTSTANDING (undefined: no answer yet) → undefined; else any unreachable; else any
+// unconfirmed; else consistent.
+function _aggregateVerdicts(vs) {
+  const mm = vs.find(v => v && v.state === 'mismatch');
+  if (mm) return mm;
+  if (vs.some(v => v === undefined)) return undefined;
+  return vs.find(v => v.unreachable) || vs.find(v => v.state === 'unconfirmed') || vs[0];
+}
+// Several checks at once, settled by the precedence AS THEY ANSWER: a mismatch decides at once, otherwise every
+// check is awaited (per-check outcomes are kept, `outcomes`).
+function _settleChecks(checks) {
+  const outcomes = checks.map(() => undefined);
+  return new Promise(resolve => {
+    let done = false;
+    checks.forEach(([R, O], k) => _checkOutcome(R, O).then(v => {
+      outcomes[k] = v;
+      const agg = _aggregateVerdicts(outcomes);
+      if (!done && agg !== undefined) { done = true; resolve({ verdict: agg, outcomes: outcomes.slice() }); }
+    }));
+  });
+}
+// STAGED (Auto-Fit's transaction, plan §6.3, §9): the checks of fits NOT YET INSTALLED, owned by a transaction —
+// its owner, its fit operation and the exact staged R / O. A reply RESOLVES the transaction only while the owner
+// is live and active, the operation and the transaction are current and the staged objects are those checked;
+// otherwise it is superseded (null) and nothing is resolved. Nothing is attached or displayed: the commit
+// (`_commitStaged`) installs the answers with the seal it installs.
+const _stagedTxns = new WeakMap();
+let _stagedTxnSeq = 0;
+function _beginStaged(owner, op) {
+  const txn = { id: ++_stagedTxnSeq, owner, op, answers: [] };
+  _stagedTxns.set(owner, txn);
+  return txn;
+}
+function _stagedCurrent(txn) {
+  return !!txn && _stagedTxns.get(txn.owner) === txn && _ownerLive(txn.owner) && _ownerActive(txn.owner) && _fitOpCurrent(txn.op);
+}
+async function _verifyStagedCheck(txn, R, O) {
+  const v = await _checkOutcome(R, O);
+  if (!_stagedCurrent(txn)) return null;                                // superseded: nothing resolved
+  txn.answers.push({ R, O, v });
+  return v;
+}
+// The commit: the seal installed by the transaction takes the answers its checks received for ITS R / O (the
+// final fit's, and for Auto-Fit the anchor fit's as E) — numerical answers are cached, "unreachable" is not.
+function _commitStaged(txn, seal) {
+  if (!_stagedCurrent(txn)) return false;
+  _stagedTxns.delete(txn.owner);
+  const checks = seal.producer === 'autoFit' && seal.E ? [[seal.E.R, seal.E.O], [seal.R, seal.O]] : [[seal.R, seal.O]];
+  const vs = checks.map(([R, O]) => { const a = txn.answers.find(x => x.R === R && x.O === O); return a ? a.v : undefined; });
+  const agg = _aggregateVerdicts(vs);
+  if (agg === undefined) return true;                                   // a check without an answer: background attempts settle it
+  if (agg.unreachable) _sealUnreachable.set(seal, true);
+  else _sealVerdicts.set(seal, { state: agg.state, check: agg.check || null, reason: agg.reason || '', software: agg.software || null });
+  return true;
+}
 // PRODUCER-BOUND (kind 'producer', under the fit's operation `op`) or BACKGROUND (kind 'background': load, activation,
 // reinstall, retry — never claims a fit operation).
 function _verifySeal(owner, seal, kind = 'background', op = null) {
@@ -9060,27 +9135,25 @@ function _verifySeal(owner, seal, kind = 'background', op = null) {
     if (kind === 'producer' && (!_fitOpCurrent(op) || !_ownerActive(owner))) return false;   // superseded or switched: recovered by _ensureVerified
     return true;
   };
-  return _verifyStaged(checks).then(v => {
+  return _settleChecks(checks).then(({ verdict: v }) => {
     if (!attach()) return null;
+    if (v.unreachable) { _sealUnreachable.set(seal, true); _onSealVerdict(owner, seal); return null; }
+    _sealUnreachable.delete(seal);
     _sealVerdicts.set(seal, { state: v.state, check: v.check || null, reason: v.reason || '', software: v.software || null });
     _onSealVerdict(owner, seal);
     return v;
-  }, () => {
-    if (!attach()) return null;
-    _sealUnreachable.set(seal, true);
-    _onSealVerdict(owner, seal);
-    return null;
   });
 }
 // Every BACKGROUND trigger (load, activation, reinstall, a discarded or failed operation): a seal with no cached
-// answer and no live attempt gets one — no seal is stranded PENDING. `retry` ("check again"): even after
-// "unreachable".
+// answer and no live attempt gets one — no seal is stranded PENDING. `retry` ("check again", plan §9): ALWAYS a
+// new attempt (after "unreachable" and after a cached answer alike); a new numerical answer replaces the cached
+// one, an unreachable server leaves a cached answer in place (an answer about a seal never expires).
 function _ensureVerified(owner, retry = false) {
   const fr = _fitResultOf(owner), seal = fr && fr.seal;
-  if (!seal || seal.engine !== 'server' || _sealVerdicts.has(seal)) return null;
-  if (_sealUnreachable.has(seal) && !retry) return null;
+  if (!seal || seal.engine !== 'server') return null;
   const cur = _sealAttempts.get(owner);
   if (cur && cur.seal === seal) return null;
+  if (!retry && (_sealVerdicts.has(seal) || _sealUnreachable.has(seal))) return null;
   return _verifySeal(owner, seal, 'background');
 }
 // A seal's verdict changed: the consumers repaint (step 7 wires them; until then an event for tests and observers).
