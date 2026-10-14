@@ -9403,6 +9403,8 @@ function _shownPeak(p) {
 
 // The starts evidence of `fr` if it still describes the fit whose key is `key`, else null.
 function _startsIfCurrent(fr, key) {
+  // seal step 5: a sealed fit's starts are O's, while its record describes the model shown (plan §5)
+  if (_SEAL_AUTHORITATIVE && fr && fr.seal) { const s = _sealedDisplay(fr, _ownerOfFit(fr)); return (s && s.view.starts) || null; }
   const st = fr && fr.starts;
   if (!st || fr.backgroundStale || fr.voigtStale || !fr.startsModelKey || !_sameFitKey(fr.startsModelKey, key)) return null;   // (_restoredStale)
   return st;
@@ -9509,7 +9511,7 @@ function _refreshStartsEvidence(repaint, fromPlot) {
 // An alternative's preview overlay is only valid beside the result it came from.
 function _dropStaleAltPreview() {
   if (_historyPreview && typeof _historyPreview.snapId === 'string' && _historyPreview.snapId.startsWith('alt:') &&
-      !(state.fitResult && _historyPreview.altKey === state.fitResult.startsModelKey && _startsIfCurrent(state.fitResult, _startsLiveKey()))) {
+      !(state.fitResult && _historyPreview.altKey === _altKeyOf(state.fitResult) && _startsIfCurrent(state.fitResult, _startsLiveKey()))) {
     _historyPreview = null;
   }
 }
@@ -9663,6 +9665,10 @@ function _certificateMoveFrom(cert) {
   return (m && Math.abs(m.ev) > _STARTS_SHIFT_RED_EV) ? { id: m.id, ev: m.ev } : null;
 }
 function _certificateMoveIfCurrent(fr, key) {
+  if (_SEAL_AUTHORITATIVE && fr && fr.seal) {   // seal step 5: from O's certificate (the server's; the local engine's moves nothing)
+    const s = _sealedDisplay(fr, _ownerOfFit(fr));
+    return s && s.view.engine === 'server' && s.view.certificate ? _certificateMoveFrom(s.view.certificate) : null;
+  }
   if (!fr || !fr.certificateMove || fr.backgroundStale || fr.voigtStale || !fr.startsModelKey || !_sameFitKey(fr.startsModelKey, key)) return null;   // (_restoredStale)
   return fr.certificateMove;
 }
@@ -9682,9 +9688,16 @@ function _certificateNoticeHtml(fr) {
   return `<div class="certificate-move-note" data-peak-id="${_escAttr(String(m.id))}" data-xps-tip="${_escAttr(_certificateMoveTip())}" style="margin-top:8px;font-size:11px;line-height:1.5;color:var(--text2)">&#9888; Fit continued past where the optimiser stopped; <span style="color:${_startsShiftColour(m.ev)};font-weight:${bold}">${_escHtml(_startsPeakName(m.id))} moved ${_startsEv(m.ev)}</span>.</div>`;
 }
 
+// The recorded adoption: a sealed fit's is its record's D (plan §7), else the result's field.
+function _chosenOf(fr) {
+  if (_SEAL_AUTHORITATIVE && fr && fr.seal) { const s = _sealedDisplay(fr, _ownerOfFit(fr)); return (s && s.view.chosenAlternative) || null; }
+  return (fr && fr.chosenAlternative) || null;
+}
+// What identifies the evidence an alternative preview was drawn from: the seal, else the fit key.
+function _altKeyOf(fr) { return fr ? ((_SEAL_AUTHORITATIVE && fr.seal) ? fr.seal : fr.startsModelKey) : null; }
 // The recorded adoption, for the panel and the exports (only beside current evidence).
 function _startsChosenText(fr) {
-  const c = fr && fr.chosenAlternative;
+  const c = _chosenOf(fr);
   if (!c || !_startsIfCurrent(fr, _startsLiveKey())) return '';
   return `this fit started from a solution chosen from the scattered starts (\u03c7\u00b2\u1d63 ${Number(c.fromChi).toFixed(2)} \u2192 ${Number(c.toChi).toFixed(2)}; largest move from the original start: ${c.shiftName} ${_startsEv(c.shiftEv)})`;
 }
@@ -9703,15 +9716,21 @@ function _startsShiftHtml(shift) {
 }
 
 function _startsPanelHtml(fr) {
-  if (!fr || !fr.starts || !fr.starts.ran) return '';
+  const recorded = !fr ? null : (_SEAL_AUTHORITATIVE && fr.seal) ? ((sealedState(fr, _ownerOfFit(fr)).view || {}).starts || null) : fr.starts;
+  if (!recorded || !recorded.ran) return '';
   const st = _startsIfCurrent(fr, _startsLiveKey());
+  // seal step 5 (plan §5): the panel distinguishes "confirming…", "unconfirmed: …" and "model changed"; adopting
+  // an alternative needs a CURRENT record (Preview does not)
+  const sealSt = _SEAL_AUTHORITATIVE && fr.seal ? sealedState(fr, _ownerOfFit(fr)) : null;
   if (!st) {
-    return `<div class="starts-panel" style="margin-top:10px;font-size:11px;line-height:1.5;color:var(--text3)">&#8635; The model has changed since this fit, so its scattered-starts comparison no longer applies. Run the fit again to compare starts.</div>`;
+    const why = sealSt && sealSt.state === 'stale' && sealSt.check !== 'edited' ? 'This fit\'s record does not hold together' : 'The model has changed since this fit';
+    return `<div class="starts-panel" style="margin-top:10px;font-size:11px;line-height:1.5;color:var(--text3)">&#8635; ${why}, so its scattered-starts comparison no longer applies. Run the fit again to compare starts.</div>`;
   }
-  let html = `<div class="starts-panel" style="margin-top:10px;font-size:11px;line-height:1.5">
-    <div data-xps-tip="${_escHtml(_STARTS_TOOLTIP)}" style="color:var(--text2)">&#8635; ${_escHtml(_startsSummaryText(st))}</div>`;
-  if (fr.chosenAlternative) {
-    const c = fr.chosenAlternative;
+  const useBlocked = sealSt && sealSt.state !== 'current' ? _sealStateText(sealSt.state, sealSt.reason) : '';
+  let html = `<div class="starts-panel" data-seal-state="${sealSt ? sealSt.state : ''}" style="margin-top:10px;font-size:11px;line-height:1.5">
+    <div data-xps-tip="${_escHtml(_STARTS_TOOLTIP)}" style="color:var(--text2)">&#8635; ${_escHtml(_startsSummaryText(st))}${useBlocked ? ' (' + _escHtml(useBlocked) + ')' : ''}</div>`;
+  if (_chosenOf(fr)) {
+    const c = _chosenOf(fr);
     html += `<div style="color:var(--text3);margin-top:2px">This fit started from a solution you chose from the scattered starts (χ²ᵣ ${Number(c.fromChi).toFixed(2)} → ${Number(c.toChi).toFixed(2)}; largest move from your original start: ${_escHtml(c.shiftName)} ${_startsEv(c.shiftEv)}).</div>`;
   }
   const alts = st.alternatives || [];
@@ -9748,7 +9767,8 @@ function _startsPanelHtml(fr) {
   alts.forEach((a, k) => {
     html += row('Alternative ' + (k + 1), a.chi2r, a.n_starts, a.components, false,
       `<button class="btn btn-sm" onclick="previewAlternative(${k})" title="Overlay this solution on the chart; click again to clear">Preview</button>
-       <button class="btn btn-sm" onclick="useAlternative(${k})" title="Run the fit again starting from this solution. Your model changes only if that fit succeeds; you can undo it.">Use this solution</button>`);
+       ${useBlocked ? `<button class="btn btn-sm use-alt-blocked" disabled title="${_escAttr('This fit is ' + useBlocked + '; a solution can be used once it is confirmed.')}">Use this solution (${_escHtml(sealSt.state === 'pending' ? 'confirming\u2026' : 'unconfirmed')})</button>`
+         : `<button class="btn btn-sm" onclick="useAlternative(${k})" title="Run the fit again starting from this solution. Your model changes only if that fit succeeds; you can undo it.">Use this solution</button>`}`);
   });
   return html + '</tbody></table></div></div>';
 }
@@ -9784,7 +9804,7 @@ function previewAlternative(k) {
   if (!peaks) { notify(_STARTS_STALE_MSG, 'amber', true); return; }
   const key = 'alt:' + k;
   if (_historyPreview && _historyPreview.snapId === key) { _historyClearPreview(); return; }
-  _historyPreview = { snapId: key, altKey: state.fitResult.startsModelKey, peaks, fitResult: { chiReduced: alt.chi2r } };
+  _historyPreview = { snapId: key, altKey: _altKeyOf(state.fitResult), peaks, fitResult: { chiReduced: alt.chi2r } };
   _updateLocalModelBanner();
   document.querySelectorAll('.hist-row').forEach(r => r.classList.remove('hist-preview-active'));
   updatePlot();
@@ -9803,6 +9823,14 @@ function previewAlternative(k) {
 // so that case — and only that case — asks first, naming the component and
 // the distance.
 async function useAlternative(k) {
+  // display and adoption are separate gates (plan §5): the handler itself requires a CURRENT record
+  if (_SEAL_AUTHORITATIVE && state.fitResult && state.fitResult.seal) {
+    const ss = sealedState(state.fitResult, _activeTab());
+    if (ss.state !== 'current') {
+      notify(ss.state === 'stale' ? _STARTS_STALE_MSG : 'This fit is ' + _sealStateText(ss.state, ss.reason) + '; a solution can be used once it is confirmed.', 'amber', true);
+      return;
+    }
+  }
   const alt = _currentAlternative(k);
   const peaks = alt && _altPeaks(alt);
   if (!peaks) { notify(_STARTS_STALE_MSG, 'amber', true); return; }
@@ -9810,7 +9838,7 @@ async function useAlternative(k) {
   const name = _startsPeakName(shift.id);
   if (Math.abs(shift.ev) > _STARTS_SHIFT_RED_EV &&
       !confirm(`This solution moves ${name} by ${_startsEv(shift.ev)} from where you placed it. Apply?`)) return;
-  const chosen = { fromChi: state.fitResult.starts.fit.chi2r, toChi: alt.chi2r, shiftName: name, shiftEv: shift.ev };
+  const chosen = { fromChi: _startsIfCurrent(state.fitResult, _startsLiveKey()).fit.chi2r, toChi: alt.chi2r, shiftName: name, shiftEv: shift.ev };
   if (_historyPreview) _historyClearPreview();
   await runFit({ startPeaks: peaks, chosenAlternative: chosen });
 }
@@ -10032,7 +10060,13 @@ async function runFit(opts = {}) {
 // and (since unit W1, 2026-09-18) the local engine both minimise a
 // counting-noise-weighted chi-square; local results saved by unit A0 were
 // UNWEIGHTED and keep the label "Residual variance", never chi-square.
-function _isUnweightedLocal(fr) { return !!(fr && fr.objective === 'unweighted_residual_variance'); }
+function _isUnweightedLocal(fr) { const d = _sealDesignation(fr); return d ? d.objective === 'unweighted_residual_variance' : !!(fr && fr.objective === 'unweighted_residual_variance'); }
+// seal step 5 (plan §7): a sealed fit's DESIGNATION is its view's — the engine that produced the record, whatever
+// its state (a stale local fit's model is still a local starting point); null for an unsealed or unreadable one.
+function _sealDesignation(fr) {
+  if (!_SEAL_AUTHORITATIVE || !fr || !fr.seal) return null;
+  try { const v = _sealView(fr.seal); return (v && v.designation) || null; } catch (e) { return null; }
+}
 function _fitStatLabel(fr) {
   return _isUnweightedLocal(fr) ? 'Residual variance' : 'χ²ᵣ';
 }
@@ -10053,7 +10087,7 @@ const _LOCAL_FIT_CAVEAT_UNWEIGHTED = 'Local unweighted fit: a starting point, no
 function _isLocalProvenance(p) {
   return !!(p && (p.engine === 'local' || p.objective === 'unweighted_residual_variance' || p.objective === 'poisson_weighted_chi_square'));
 }
-function _isLocalFit(fr) { return _isLocalProvenance(fr); }
+function _isLocalFit(fr) { const d = _sealDesignation(fr); return d ? d.reportable === false : _isLocalProvenance(fr); }
 // The record that governs the active model's designation: its live result,
 // else the provenance it was imported / copied / restored with.
 function _governingProvenance() {
@@ -10109,6 +10143,9 @@ function _provenanceOf(tab) {
   if (tab.modelProvenance) return JSON.parse(JSON.stringify(tab.modelProvenance));
   const fr = tab.fitResult;
   if (!_isLocalFit(fr)) return null;
+  const d = _sealDesignation(fr);
+  if (d) return { objective: d.objective, engine: d.engine, status: fr.status || null, weighting: d.weighting,
+                  chiReduced: _sealView(fr.seal).statistics.chi2r, reportable: false, caveat: d.caveat, derivedFrom: 'local_fit' };
   return { objective: fr.objective || null, engine: fr.engine || 'local', status: fr.status || null,
            weighting: fr.weighting || null, chiReduced: fr.chiReduced ?? null,
            reportable: false, caveat: _localFitCaveat(fr), derivedFrom: 'local_fit' };
@@ -12373,13 +12410,21 @@ function updatePlot() {
   _refreshStartsEvidence(false, true);   // background / ROI controls only repaint the chart: keep the visible consumers honest (fromPlot: the chart itself is being rebuilt)
   _refreshRoiAndCentreWarnings();         // ROI past the data / centre outside the data: warn, never move
   // History snapshot preview overlay (cyan dashed, drawn on top)
+  // seal step 5: a sealed snapshot previews ITS record — its own envelope on its own energies — never its peaks
+  // re-evaluated over today's background (an alternative's preview is a model, not a fit: as before)
+  let prevView = null;
+  if (_SEAL_AUTHORITATIVE && _historyPreview && _historyPreview.fitResult && _historyPreview.fitResult.seal) {
+    try { prevView = _sealView(_historyPreview.fitResult.seal); } catch (e) { prevView = null; }
+  }
   if (_historyPreview && _historyPreview.peaks && _historyPreview.peaks.length && plotBE.length) {
-    const prevPeakY = evalAllPeaks(plotBE, _historyPreview.peaks);
+    const prevPeakY = prevView ? null : evalAllPeaks(plotBE, _historyPreview.peaks);
     const isLight = document.body.classList.contains('light-theme');
     datasets.push({
-      label: _isLocalFit(_historyPreview.fitResult) ? 'Preview (local, starting point)' : 'Preview',
+      label: (_isLocalFit(_historyPreview.fitResult) ? 'Preview (local, starting point)' : 'Preview') + (prevView ? ' (as recorded)' : ''),
       _historyPreview: true,   // the glow plugin keys on this flag, not on the label text
-      data: plotBE.map((b, i) => ({ x: b, y: prevPeakY[i] + (bgSubView ? 0 : plotBG[i]) })),
+      data: prevView
+        ? prevView.energies.map((b, i) => ({ x: b, y: bgSubView ? prevView.fittedSub[i] : prevView.fittedY[i] }))
+        : plotBE.map((b, i) => ({ x: b, y: prevPeakY[i] + (bgSubView ? 0 : plotBG[i]) })),
       borderColor: isLight ? 'rgba(0,180,220,1.0)' : 'rgba(0,220,255,1.0)',
       borderWidth: 4,
       borderDash: [10, 5],
@@ -14538,14 +14583,18 @@ const _CHISQ_TOOLTIP = "Reduced chi-squared (\u03c7\u00b2\u1d63) measures the go
 // UNCERTAINTY VALIDATION
 // ═══════════════════════════════════════════════════
 function _validateUncertainties() {
-  if (!state.fitResult?.backendResult?.individual_peaks) return { warnings: [], info: [] };
+  // seal step 5: a sealed fit's rules read O's sigma and bounds, its recorded verdicts and the START it was
+  // fitted from (R's model — for "Use this solution" the alternative's start), never `_preFit`
+  const sealed = _sealedDisplay(state.fitResult);
+  if (!sealed && !state.fitResult?.backendResult?.individual_peaks) return { warnings: [], info: [] };
   // F1: a stale result's sigma and bounds describe the previous model; the
   // Results banner says so once — no per-parameter rule is judged on them
   if (_statsLiveState() === 'stale') return { warnings: [], info: [] };
   const warnings = [];
   const info = [];
   const stderrMap = _buildStderrMap(state.fitResult);
-  const preFit = state.fitResult._preFit || {};
+  const preFit = sealed ? Object.fromEntries(sealed.view.initialValues.map(q => [Number(q.id), q]))
+                        : (state.fitResult._preFit || {});
   // Map backend param names to pre-fit property names
   const nameMap = { center: 'center', fwhm: 'fwhm', fwhm_l: 'fwhm', amplitude: 'amplitude', gl_ratio: 'glMix' };
 
@@ -14556,7 +14605,8 @@ function _validateUncertainties() {
     // here, instead of the per-parameter alarms (or, after Auto-Fit's centre
     // lock, the neutral "locked" note) that would otherwise misdescribe it.
     if (_isUnsupported(p)) {
-      warnings.push(`<li><b>${_escHtml(p.name)}:</b> ${_UNSUPPORTED_LABEL} — with the other components held as fitted, removing it does not make the fit significantly worse${p.support.f != null ? ' (F = ' + p.support.f.toFixed(1) + ', threshold 10)' : ''}. Its centre, width and uncertainties are not reported. Try another starting position or width, lock the centre where chemistry says it belongs, or drop the component.</li>`);
+      const sup = sealed ? (_sealComponent(sealed.view, p) || {}).support || {} : p.support;
+      warnings.push(`<li><b>${_escHtml(p.name)}:</b> ${_UNSUPPORTED_LABEL} — with the other components held as fitted, removing it does not make the fit significantly worse${sup.f != null ? ' (F = ' + sup.f.toFixed(1) + ', threshold 10)' : ''}. Its centre, width and uncertainties are not reported. Try another starting position or width, lock the centre where chemistry says it belongs, or drop the component.</li>`);
       continue;
     }
     const init = preFit[Number(rawId)] || {};
@@ -16944,18 +16994,25 @@ function _renderHistoryList() {
 
   info.textContent = `${snaps.length} snapshot${snaps.length !== 1 ? 's' : ''} for "${tab.name}"`;
 
-  list.innerHTML = snaps.map(s => `
+  // seal step 5: a sealed snapshot shows ITS record's statistics (never a copy taken beside it), marked as recorded
+  const statsOf = s => {
+    let sv = null;
+    if (_SEAL_AUTHORITATIVE && s.fitResult && s.fitResult.seal) { try { sv = _sealView(s.fitResult.seal); } catch (e) { sv = null; } }
+    return sv ? { chi: sv.statistics.chi2r, r: sv.rPanel ? sv.rPanel.rPct : null, sealed: true }
+              : { chi: s.chi, r: s.rFactor, sealed: false };
+  };
+  list.innerHTML = snaps.map(s => { const st = statsOf(s); return `
     <div class="hist-row" id="hist-row-${s.id}">
       <div class="hist-row-main">
         <div class="hist-row-label">${_escHtml(s.label)}</div>
-        <div class="hist-row-meta">${s.timestamp} &middot; ${(s.peaks || []).length} peak${(s.peaks || []).length !== 1 ? 's' : ''}${typeof s.chi === 'number' && isFinite(s.chi) ? ' &middot; <span class="hist-row-chi">' + _escHtml(_fitStatLabel(s.fitResult)) + ' = ' + s.chi.toFixed(3) + (_isLocalFit(s.fitResult) ? ' (starting point)' : '') + '</span>' : ''}${typeof s.rFactor === 'number' && isFinite(s.rFactor) ? ', R = ' + s.rFactor.toFixed(1) + '%' : ''}</div>
+        <div class="hist-row-meta">${s.timestamp} &middot; ${(s.peaks || []).length} peak${(s.peaks || []).length !== 1 ? 's' : ''}${typeof st.chi === 'number' && isFinite(st.chi) ? ' &middot; <span class="hist-row-chi"' + (st.sealed ? ' data-sealed="1"' : '') + '>' + _escHtml(_fitStatLabel(s.fitResult)) + ' = ' + st.chi.toFixed(3) + (_isLocalFit(s.fitResult) ? ' (starting point)' : '') + (st.sealed ? ' (as recorded)' : '') + '</span>' : ''}${typeof st.r === 'number' && isFinite(st.r) ? ', R = ' + st.r.toFixed(1) + '%' : ''}</div>
       </div>
       <div class="hist-row-btns">
         <button class="btn btn-sm" onclick="_historyPreviewSnap(${s.id})" title="Overlay this snapshot on the chart">Preview</button>
         <button class="btn btn-sm btn-accent" onclick="_historyRestoreSnap(${s.id})" title="Restore this snapshot">Restore</button>
         <button class="btn btn-sm" onclick="_historyDeleteSnap(${s.id})" title="Delete this snapshot" style="color:var(--red,#f87171)">&#x2715;</button>
       </div>
-    </div>`).join('');
+    </div>`; }).join('');
 }
 
 function _escHtml(s) {

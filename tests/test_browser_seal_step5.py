@@ -236,3 +236,90 @@ def test_an_edit_makes_every_panel_say_model_changed(browser, server):  # noqa: 
         assert "model changed" in got["header"] and got["state"] == "stale" and got["banner"], got
     finally:
         pg.close()
+
+
+# ── group 3: uncertainties, evidence, history, designation ──
+def test_uncertainty_rules_read_the_records_sigma_and_bounds(browser, server):  # noqa: F811
+    pg = _page(browser, server)
+    try:
+        # a recorded bound at the recorded value: the rule fires on the RECORD while it describes the model
+        pg.evaluate(TAMPER, """const c = s.O.individual_peaks[0].params.center; c.min = c.value - 1e-6; c.max = c.value + 10;""")
+        got = pg.evaluate("() => _validateUncertainties().warnings.join(' ')")
+        assert "at lower bound" in got, got
+        pg.evaluate(VERIFY)                               # the server's check fails: no rule is judged
+        assert pg.evaluate(STATE) == "stale"
+        assert pg.evaluate("() => _validateUncertainties().warnings.length") == 0
+    finally:
+        pg.close()
+
+
+def test_the_starts_panel_and_use_this_solution_follow_the_state(browser, server):  # noqa: F811
+    pg = _page(browser, server, "gauss_voigt_linear_avg3_window")
+    try:
+        # an alternative in the recorded starts (the server's check reads their form, not their values: "as recorded")
+        pg.evaluate(TAMPER, """const st = s.O.starts, ips = s.O.individual_peaks;
+            st.alternatives = [{ chi2r: st.fit.chi2r * 0.9, n_starts: 1,
+              components: st.fit.components.map(c => { const ip = ips.find(q => q.id === c.id);
+                return { ...c, area: ip.params.area.value,
+                         params: Object.fromEntries(Object.entries(ip.params).filter(([k]) => k !== 'area').map(([k, v]) => [k, v.value])) }; }),
+              largest_centre_shift_from_start: st.fit.largest_centre_shift_from_start, largest_fraction_difference_pp: 2.0 }];
+            st.n_in_alternatives = 1;""")
+        panel = """() => { renderResults(); const sp = document.querySelector('#results-area .starts-panel');
+            return { state: sp.getAttribute('data-seal-state'), text: sp.textContent,
+                     blocked: sp.querySelectorAll('.use-alt-blocked').length,
+                     use: Array.from(sp.querySelectorAll('button')).filter(b => b.textContent === 'Use this solution').length }; }"""
+        got = pg.evaluate(panel)
+        assert got["state"] == "pending" and "confirming" in got["text"] and got["blocked"] == 1 and got["use"] == 0, got
+        pg.route("**/api/verify-fit", lambda route: route.abort())
+        pg.evaluate(VERIFY)
+        assert pg.evaluate(STATE) == "unconfirmed"
+        got = pg.evaluate(panel)
+        assert got["state"] == "unconfirmed" and got["blocked"] == 1 and "unconfirmed" in got["text"], got
+        # the handler itself refuses: no fit is started
+        calls = []
+        pg.on("request", lambda r: calls.append(r.url) if "/api/fit" in r.url else None)
+        pg.evaluate("async () => { await useAlternative(0); }")
+        assert calls == [], calls
+        # Preview stays available
+        pg.evaluate("() => previewAlternative(0)")
+        assert pg.evaluate("() => !!(_historyPreview && _historyPreview.snapId === 'alt:0')")
+        pg.unroute("**/api/verify-fit")
+        pg.evaluate("async () => { await _ensureVerified(_activeTab(), true); }")   # check again
+        assert pg.evaluate(STATE) == "current", pg.evaluate("() => { const s = sealedState(state.fitResult, _activeTab()); return [s.check, s.reason]; }")
+        got = pg.evaluate(panel)
+        assert got["state"] == "current" and got["blocked"] == 0 and got["use"] == 1 and "confirming" not in got["text"], got
+        # an edit: the comparison no longer applies and the preview is dropped
+        pg.evaluate("() => { state.peaks[0].fwhm *= 1.05; updatePlot(); }")
+        got = pg.evaluate("() => ({ text: document.querySelector('#results-area .starts-panel').textContent, prev: !!_historyPreview })")
+        assert "no longer applies" in got["text"] and not got["prev"], got
+    finally:
+        pg.close()
+
+
+def test_history_rows_and_previews_are_the_snapshots_record(browser, server):  # noqa: F811
+    pg = _page(browser, server)
+    try:
+        got = pg.evaluate("""() => { const tab = _activeTab(), snap = tab.snapshots[0];
+            _renderHistoryList(); const meta = document.querySelector('#hist-row-' + snap.id + ' .hist-row-chi');
+            const v = _sealView(snap.fitResult.seal);
+            _historyPreviewSnap(snap.id);
+            const ds = state.chart.data.datasets.find(d => d._historyPreview);
+            return { text: meta.textContent, sealed: meta.getAttribute('data-sealed'), chi: v.statistics.chi2r.toFixed(3),
+                     label: ds.label, data: ds.data.every((p, i) => Object.is(p.x, v.energies[i]) && Object.is(p.y, v.fittedY[i])) }; }""")
+        assert got["sealed"] == "1" and got["chi"] in got["text"] and "as recorded" in got["text"], got
+        assert got["label"] == "Preview (as recorded)" and got["data"], got
+    finally:
+        pg.close()
+
+
+def test_the_designation_is_the_records_engine(browser, server):  # noqa: F811
+    pg = _page(browser, server, "gauss_voigt_linear_avg3_window", local=True)
+    try:
+        got = pg.evaluate("""() => { const fr = state.fitResult;
+            const out = [_isLocalFit(fr), !!_provenanceOf({ fitResult: fr })];
+            state.fitResult = { ...fr, engine: 'server', objective: undefined };   // today's fields say server
+            out.push(_isLocalFit(state.fitResult), _isLocalModel());
+            return out; }""")
+        assert got == [True, True, True, True], got
+    finally:
+        pg.close()
