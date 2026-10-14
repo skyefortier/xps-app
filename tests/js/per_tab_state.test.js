@@ -51,7 +51,8 @@ const ALLOWLIST = {
   _sealBindingMemo: 'B', _sealVerdicts: 'B', _sealUnreachable: 'B',   // seal 1c step 4: WeakMaps keyed by the immutable seal (derived answers; no tab content)
   _sealAttempts: 'A', _sealAttemptSeq: 'A',   // seal 1c step 4: verification attempts in flight, WeakMap keyed by the tab record (like _fitOpByOwner)
   _stagedTxns: 'A', _stagedTxnSeq: 'A',   // seal 1c step 4: Auto-Fit's staged verification transactions, WeakMap keyed by the tab record (like _sealAttempts)
-  _serverNumerics: 'B', _NUMERICS_IDENTITY_KEYS: 'B', _numericsEpoch: 'B', _numericsAllowance: 'B', _numericsSplit: 'B', _checksInFlight: 'B',   // owner 2026-10-15: the server's declared numerics, epoch, allowance and split (page-wide, not per tab)
+  _serverNumerics: 'B', _NUMERICS_IDENTITY_KEYS: 'B', _numericsEpoch: 'B', _numericsSettled: 'B', _numericsSplit: 'B',   // owner 2026-10-15: the server's declared numerics, epoch and settlement (page-wide, not per tab)
+  _SEAL_AUTHORITATIVE: 'A',   // seal 1c step 5: the readers' switch (a `let` for the tests; removed in step 7)
   BG_LABELS: 'B',            // constant table: background methods' display names (background math, 2026-10-01)
   FP_TIER_META: 'B', FP_STRINGS: 'B', FP_MODEL_LABELS: 'B', FP_ROLE_LABELS: 'B', FP_SHAPE_LABELS: 'B', FP_TIER_RANK: 'B',
   REF_PT_LAYOUT: 'B',        // periodic-table layout table (built by a call at load; read-only)
