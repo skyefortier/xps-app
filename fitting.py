@@ -3243,14 +3243,20 @@ def _typed(v, spec) -> bool:
     return False
 
 
-def _has_nan(value) -> bool:
-    if isinstance(value, float):
-        return math.isnan(value)
-    if isinstance(value, (list, tuple)):
-        return any(_has_nan(v) for v in value)
-    if isinstance(value, dict):
-        return any(_has_nan(v) for v in value.values())
-    return False
+def _non_finite_request(peak_specs, manual_bg) -> bool:
+    """A request number with no exact reading: a NaN anywhere, or ±Infinity anywhere but a bound
+    (a key ending "_min" / "_max", where Infinity is an open side, as lmfit reads it). An infinite
+    START, splitting or anchor is never a fit the routes return (Codex round 6: a forged pairing of
+    such a request with a finite response read consistent once O's values replaced the start)."""
+    def bad(v, bound):
+        if isinstance(v, float):
+            return math.isnan(v) or (math.isinf(v) and not bound)
+        if isinstance(v, (list, tuple)):
+            return any(bad(e, False) for e in v)
+        if isinstance(v, dict):
+            return any(bad(e, str(k).endswith(("_min", "_max"))) for k, e in v.items())
+        return False
+    return bad(list(peak_specs), False) or bad(manual_bg, False)
 
 
 def verify_fit(O, *, energy, counts, peak_specs, background_method="shirley", bg_start_idx=None,
@@ -3342,9 +3348,11 @@ def _verify(O, *, energy, counts, peak_specs, background_method, bg_start_idx, b
         raise _Mismatch("request", f"the request is not one a fit accepts: {exc}")
     # a NaN in the request (a bound, a start, an anchor — accepted by a JSON parser that reads the NaN token;
     # a browser writes null) has no exact reading: differential evolution searches a NaN bound as open, a
-    # range check never holds (Codex round 5). Unjudgeable, never current — not a mismatch.
-    if _has_nan(peak_specs) or _has_nan(manual_bg):
-        raise _Unverifiable("non_finite", "the request holds a NaN; its fit cannot be verified exactly")
+    # range check never holds (Codex round 5); nor has an infinite start (round 6; `1e400` parses as one).
+    # Unjudgeable, never current — not a mismatch.
+    if _non_finite_request(peak_specs, manual_bg):
+        raise _Unverifiable("non_finite", "the request holds a number with no exact reading (NaN, or an infinite "
+                                          "start); its fit cannot be verified exactly")
     x, y, n = energy, counts, len(energy)
     unstable = sorted({s.get("shape", "pseudo_voigt_gl") for s in peak_specs} & NOT_BIT_STABLE_SHAPES)
 

@@ -127,3 +127,10 @@ both labelled "GL" now names the backend shapes (bfca83a).
   it; a browser writes null) is `unconfirmed` ("non_finite"): differential evolution searched a NaN
   bound as open, and no range check holds against NaN.
 - A body nested past the JSON parser's depth is the route's 400, not a 500.
+
+## Round-6 fix (Codex run A NO-GO; run B failed on HTTP 429, no review)
+
+- A request number with no exact reading is `unconfirmed`: a NaN anywhere, or ±Infinity anywhere
+  but a bound key (`_min` / `_max`, where Infinity is an open side). An infinite start (also the
+  JSON number 1e400) paired with a finite record had read consistent once the record's values
+  replaced the start.
