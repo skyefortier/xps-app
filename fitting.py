@@ -22,6 +22,7 @@ Spin‑orbit constraints are handled via lmfit parameter expressions.
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import inspect
 import json
@@ -1612,8 +1613,10 @@ def _make_peak_params(
         if master_spec is None:
             raise ValueError(f"Master peak '{master_id}' not found for spin‑orbit constraint")
         m_prefix = f"p{master_spec['id']}_"
-        splitting = float(spec.get("splitting", 0.0))
-        area_ratio = float(spec.get("area_ratio", 1.0))
+        # + 0.0 folds −0.0 to 0.0: the number is written INTO the expression's text, and a JSON
+        # writer spells −0 as 0 — one reading of the field (seal 1a′ Codex round 1)
+        splitting = float(spec.get("splitting", 0.0)) + 0.0
+        area_ratio = float(spec.get("area_ratio", 1.0)) + 0.0
 
         _set("center", center, expr=f"{m_prefix}center + {splitting}")
         _set("amplitude", amp, expr=f"{m_prefix}amplitude * {area_ratio}")
@@ -2201,15 +2204,23 @@ def _scattered_start(params: Parameters, rng) -> Parameters:
     return out
 
 
+def _component_of(model, spec):
+    """The component model of ``spec`` and the parameter names that are ITS OWN: its model's
+    ``param_names``, never a prefix match — ids "1" and "1_x" give prefixes "p1_" and "p1_x_",
+    and "p1_x_center" starts with both (seal 1a′ Codex round 1)."""
+    prefix = f"p{spec['id']}_"
+    comp = next(c for c in model.components if c.prefix == prefix)
+    return comp, prefix, list(comp.param_names)
+
+
 def _solution_components(model, result, peak_specs, x) -> list[dict[str, Any]]:
     """Per component, in the request's order: area, area %, and every fitted
     parameter value (what the page needs to show and to apply a solution)."""
     comps = []
     for spec in peak_specs:
-        prefix = f"p{spec['id']}_"
-        comp = next(c for c in model.components if c.prefix == prefix)
+        comp, prefix, names = _component_of(model, spec)
         area = float(abs(trapezoid(comp.eval(result.params, x=x), x)))
-        values = {n[len(prefix):]: float(par.value) for n, par in result.params.items() if n.startswith(prefix)}
+        values = {n[len(prefix):]: float(par.value) for n, par in result.params.items() if n in names}
         comps.append({"id": spec["id"], "area": area, "params": values})
     total = sum(c["area"] for c in comps)
     for c, spec in zip(comps, peak_specs):
@@ -2332,7 +2343,7 @@ def _component_support(y_sub, fitted_sub, comp_y, weights, n_free_comp, n_free_t
 # charge-reference anchor: an anchor that is not required must not set the
 # energy reference of a whole spectrum). Same threshold as `support`.
 def _component_required(fit_reduced, params_full, removed_prefixes, y_sub, weights,
-                        chi2_with, n_free_comp, n_free_total) -> dict[str, Any]:
+                        chi2_with, n_free_comp, n_free_total, removed_names=None) -> dict[str, Any]:
     """``fit_reduced(params)`` is the run's own fitter for the reduced model
     (the same candidate machinery and seeding the fit used, so differential
     evolution's box/refinement and the request seed apply to the refit too).
@@ -2340,7 +2351,12 @@ def _component_required(fit_reduced, params_full, removed_prefixes, y_sub, weigh
     transitively. The reduced start is built in dependency order: plain
     parameters first, expressions after, so a child ordered before its parent
     in the request still resolves."""
-    kept = [(name, par) for name, par in params_full.items() if not any(name.startswith(r) for r in removed_prefixes)]
+    # run_fit passes the removed components' OWN parameter names (_component_of); a bare prefix
+    # list (direct callers) is matched by prefix
+    if removed_names is not None:
+        kept = [(name, par) for name, par in params_full.items() if name not in removed_names]
+    else:
+        kept = [(name, par) for name, par in params_full.items() if not any(name.startswith(r) for r in removed_prefixes)]
     # ALL retained parameters exist before any expression is assigned, so a
     # chain of links in any request order resolves (lmfit evaluates an
     # expression when it is set).
@@ -2389,6 +2405,12 @@ def _component_required(fit_reduced, params_full, removed_prefixes, y_sub, weigh
 # ─────────────────────────────────────────────────────────────────────────────
 # Main fitting API
 # ─────────────────────────────────────────────────────────────────────────────
+
+def _determined(n_free, n_data) -> bool:
+    """Determinacy (unit F2): fewer free parameters than finite data points — run_fit's refusal and
+    the verification's check, one rule."""
+    return n_free < n_data
+
 
 def _normalise_fit_kws(fit_kws):
     """``(fit_kws, caller_seed, method)``: the method case-folded and checked, a caller's seed taken
@@ -2645,7 +2667,7 @@ def _run_fit_impl(
     # zero or negative degrees of freedom is refused outright.
     n_free_request = sum(1 for par in all_params.values() if par.vary and not par.expr)
     n_data_request = int(np.count_nonzero(np.isfinite(y_sub)))
-    if n_free_request >= n_data_request:
+    if not _determined(n_free_request, n_data_request):
         raise ValueError(
             f"The model is not determined by these data: {n_free_request} free parameters for "
             f"{n_data_request} data points leaves no degrees of freedom. Widen the fitted range, "
@@ -2824,11 +2846,14 @@ def _run_fit_impl(
                 if without is None:
                     required = {"ran": False, "reason": "nothing_left"}
                 else:
-                    n_free_comp = sum(1 for n, par in result.params.items()
-                                      if n.startswith(rprefix) and par.vary and par.expr is None)
+                    own = {spec_id: _component_of(composite_model, spec)[2]
+                           for spec_id, spec in ((str(sp["id"]), sp) for sp in peak_specs)}
+                    n_free_comp = sum(1 for n in own[str(require_component)]
+                                      if result.params[n].vary and result.params[n].expr is None)
+                    removed_names = {n for pid in removed for n in own[pid]}
                     required = {"ran": True, **_component_required(
                         lambda params: fit_model(without, params), result.params, removed_prefixes, y_sub, weights,
-                        float(result.chisqr), n_free_comp, result.nvarys)}
+                        float(result.chisqr), n_free_comp, result.nvarys, removed_names=removed_names)}
             except Exception as exc:                              # the check must never cost the student the fit
                 log.exception("required-component refit failed")
                 required = {"ran": False, "reason": "error", "error": f"{type(exc).__name__}: {exc}"[:200]}
@@ -2844,11 +2869,8 @@ def _run_fit_impl(
     individual_peaks = []
     for spec in peak_specs:
         pid = spec["id"]
-        prefix = f"p{pid}_"
-        peak_y = composite_model.components[
-            next(i for i, c in enumerate(composite_model.components)
-                 if c.prefix == prefix)
-        ].eval(result.params, x=x)
+        comp, prefix, own = _component_of(composite_model, spec)
+        peak_y = comp.eval(result.params, x=x)
 
         # Area by numerical integration. abs(): real XPS grids are
         # BE-descending, which makes the raw trapezoid integral negative —
@@ -2858,7 +2880,7 @@ def _run_fit_impl(
         # Parameter extraction with stderr
         param_info: dict[str, Any] = {}
         for pname in result.params:
-            if pname.startswith(prefix):
+            if pname in own:                       # exact membership (_component_of), in the fit's own order
                 short = pname[len(prefix):]
                 par = result.params[pname]
                 param_info[short] = {
@@ -2883,7 +2905,7 @@ def _run_fit_impl(
             )
             param_info["area"]["stderr"] = abs(area) * rel_err
 
-        n_free_comp = sum(1 for n, par in result.params.items() if n.startswith(prefix) and par.vary and par.expr is None)
+        n_free_comp = sum(1 for n in own if result.params[n].vary and result.params[n].expr is None)
         support = _component_support(y_sub, fitted_sub, peak_y, weights, n_free_comp, result.nvarys)
         # A linked component follows its parent: it is supported exactly when the
         # parent is (its own removal test would double-count the parent's role).
@@ -3100,6 +3122,14 @@ RESPONSE_KEYS = frozenset({
     "background_verdict", "software", "starts", "required", "certificate"})
 _PEAK_KEYS = frozenset({"id", "shape", "y", "params", "support"})
 _PARAM_KEYS = frozenset({"value", "stderr", "vary", "expr", "min", "max"})
+# Lineshapes whose evaluation is NOT bit-stable on this server (V6.5, owner Q7: such a fit is
+# UNCONFIRMED — never compared within a tolerance — until its evaluator is made deterministic, a
+# unit of its own). LA(α,β,m): np.convolve's inner product is an alignment-dependent BLAS dot
+# (CLAUDE.md "Reproducibility"); measured in seal 1a′ (docs/findings/seal-1a: two evaluations of one
+# model's LA components differ in one process) and 1b.
+NOT_BIT_STABLE_SHAPES = frozenset({"la_casaxps"})
+# the checks a curve evaluation decides (a non-bit-stable shape makes their failure UNCONFIRMED)
+_CURVE_CHECKS = frozenset({"components", "fitted_sub", "fitted_y", "residuals", "statistics", "support"})
 
 
 class _Mismatch(Exception):
@@ -3108,9 +3138,56 @@ class _Mismatch(Exception):
         self.check, self.reason = check, reason
 
 
+class _Unverifiable(Exception):
+    def __init__(self, check, reason):
+        super().__init__(reason)
+        self.check, self.reason = check, reason
+
+
+def _is_number(v) -> bool:
+    """A JSON number as a JSON reader holds it — never a bool, never a numeric string."""
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+def _same(a, b) -> bool:
+    """JSON-typed equality: numbers by value (a JavaScript writer spells 3.0 as 3), but a flag is a
+    flag, a text a text, null null — Python's ``==`` would take ``False`` for ``0`` and ``1`` for
+    ``True`` (seal 1a′ Codex round 1)."""
+    if isinstance(a, bool) or isinstance(b, bool):
+        return isinstance(a, bool) and isinstance(b, bool) and a == b
+    if _is_number(a) or _is_number(b):
+        return _is_number(a) and _is_number(b) and a == b
+    if a is None or b is None:
+        return a is None and b is None
+    if isinstance(a, str) or isinstance(b, str):
+        return isinstance(a, str) and isinstance(b, str) and a == b
+    if isinstance(a, list) and isinstance(b, list):
+        return len(a) == len(b) and all(_same(x, y) for x, y in zip(a, b))
+    if isinstance(a, dict) and isinstance(b, dict):
+        return a.keys() == b.keys() and all(_same(a[k], b[k]) for k in a)
+    return False
+
+
 def _as_json(value):
     """``value`` as a JSON reader of the response holds it (tuples → lists, numpy → Python)."""
     return json.loads(json.dumps(value, default=lambda o: o.item() if hasattr(o, "item") else o.tolist()))
+
+
+def _non_finite(value, path="O"):
+    """The path of the first non-finite number in ``value``, or None."""
+    if _is_number(value):
+        return None if math.isfinite(value) else path
+    if isinstance(value, list):
+        for k, v in enumerate(value):
+            hit = _non_finite(v, f"{path}[{k}]")
+            if hit:
+                return hit
+    if isinstance(value, dict):
+        for k, v in value.items():
+            hit = _non_finite(v, f"{path}.{k}")
+            if hit:
+                return hit
+    return None
 
 
 def verify_fit(O, *, energy, counts, peak_specs, background_method="shirley", bg_start_idx=None,
@@ -3119,28 +3196,38 @@ def verify_fit(O, *, energy, counts, peak_specs, background_method="shirley", bg
     """Is the recorded response ``O`` what THIS server's code computes from the request? (seal 1a′,
     V6.5 step 2; the keyword arguments are ``run_fit``'s, as ``/api/verify-fit`` normalises them.)
 
-    Recomputes — never fits — and compares EXACTLY, no tolerance anywhere: the parameters' roles
-    as the request builds them, every held value, every expression from O's free values, the
-    method, the shift, the seed, the whole background and its verdict, each component's curve and
-    area, the model sum, ``fitted_y`` and the residuals in their associations, the statistics
-    (``_fit_statistics``) and each component's support. ``{"state": "consistent" | "mismatch" |
-    "unconfirmed", "check", "reason", "software"}``. ``unconfirmed`` = O was computed by other
-    software (it cannot be judged here). CONSISTENT is consistency under this verifier's code, not
-    acceptance: ``success``, ``message``, the σ, ``certificate``, ``starts`` and ``required`` are
-    the producer's statements, shown AS RECORDED (option (b), owner 2026-10-11) — a re-run is what
-    tests them."""
+    Recomputes — never fits — and compares EXACTLY, no tolerance anywhere: the structure and JSON
+    types of every field, the parameters' roles as the fitter holds them, every held value, every
+    parameter value against the one evaluated, every expression from O's free values, the method,
+    the shift, the seed, the whole background and its verdict, each component's curve and area,
+    the model sum, ``fitted_y`` and the residuals in their associations, the statistics
+    (``_fit_statistics``) and each component's support.
+
+    ``{"state": "consistent" | "mismatch" | "unconfirmed", "check", "reason", "software"}``.
+    ``unconfirmed`` = it cannot be judged exactly here: O was computed by other software, holds a
+    non-finite number, or a curve-derived check failed on a request with a lineshape that is not
+    evaluated bit-identically (``NOT_BIT_STABLE_SHAPES``, owner Q7). CONSISTENT is consistency under
+    this verifier's code, not acceptance: ``success``, ``message``, the σ, ``certificate``,
+    ``starts`` and ``required`` are the producer's statements, shown AS RECORDED (option (b),
+    owner 2026-10-11) — a re-run is what tests them."""
     def answer(state, check=None, reason=""):
         return {"state": state, "check": check, "reason": reason, "software": SOFTWARE}
 
     try:
         if not isinstance(O, dict):
             raise _Mismatch("schema", "the recorded result is not an object")
-        if O.get("software") != SOFTWARE:
+        if not _same(O.get("software"), _as_json(SOFTWARE)):
             return answer("unconfirmed", "software", "computed by different software")
+        bad = _non_finite(O)
+        if bad:
+            return answer("unconfirmed", "non_finite",
+                          f"the record holds a non-finite number ({bad}); it cannot be verified exactly")
         _verify(O, energy=energy, counts=counts, peak_specs=peak_specs, background_method=background_method,
                 bg_start_idx=bg_start_idx, bg_end_idx=bg_end_idx, charge_shift_ev=charge_shift_ev, fit_kws=fit_kws,
                 n_perturb=n_perturb, manual_bg=manual_bg, endpoint_avg=endpoint_avg, n_starts=n_starts,
                 require_component=require_component)
+    except _Unverifiable as exc:
+        return answer("unconfirmed", exc.check, exc.reason)
     except _Mismatch as exc:
         return answer("mismatch", exc.check, exc.reason)
     return answer("consistent")
@@ -3148,6 +3235,7 @@ def verify_fit(O, *, energy, counts, peak_specs, background_method="shirley", bg
 
 def _verify(O, *, energy, counts, peak_specs, background_method, bg_start_idx, bg_end_idx, charge_shift_ev,
             fit_kws, n_perturb, manual_bg, endpoint_avg, n_starts, require_component):
+    # ── structure and JSON types (no field is read through a coercion) ──
     if set(O) != RESPONSE_KEYS:
         extra, missing = sorted(set(O) - RESPONSE_KEYS), sorted(RESPONSE_KEYS - set(O))
         raise _Mismatch("schema", f"the recorded result's fields differ from a response's (extra {extra}, missing {missing})")
@@ -3156,8 +3244,13 @@ def _verify(O, *, energy, counts, peak_specs, background_method, bg_start_idx, b
     for k in ("starts", "required", "certificate"):
         if O[k] is not None and not isinstance(O[k], dict):
             raise _Mismatch("schema", f"{k} is neither null nor an object")
+    if not _is_number(O["charge_shift_applied"]) or not isinstance(O["random_seed"], int) \
+            or isinstance(O["random_seed"], bool) or not isinstance(O["fit_method"], str) \
+            or not isinstance(O["seed_source"], str) or not isinstance(O["statistics"], dict) \
+            or not isinstance(O["background_verdict"], dict):
+        raise _Mismatch("schema", "a recorded field is not of its type")
 
-    # the request, read as run_fit reads it (a request run_fit refuses has no response)
+    # ── the request, read as run_fit reads it (a request run_fit refuses has no response) ──
     try:
         energy = np.asarray(energy, dtype=float)
         counts = np.asarray(counts, dtype=float)
@@ -3169,135 +3262,146 @@ def _verify(O, *, energy, counts, peak_specs, background_method, bg_start_idx, b
         endpoint_avg = check_endpoint_avg(endpoint_avg)
         if isinstance(n_starts, bool) or not isinstance(n_starts, (int, np.integer)) or not 0 <= n_starts <= MAX_N_STARTS:
             raise ValueError("n_starts out of range")
-        ordered, composite_model, params = _build_model(peak_specs)
+        ordered, composite_model, start_params = _build_model(peak_specs)
         if require_component is not None and (str(require_component) not in [str(s["id"]) for s in peak_specs]
                                               or len(peak_specs) < 2):
             raise ValueError("require_component is not one of two or more peaks")
-    except _Mismatch:
-        raise
+        # the parameters AS THE FITTER HOLDS THEM: Model.fit deep-copies its start, and the copy
+        # orders reversed bounds and clips a value into them (lmfit Parameter._init_bounds; Codex
+        # round 1); the seed is derived from the start itself, as run_fit derives it
+        params = copy.deepcopy(start_params)
     except Exception as exc:
         raise _Mismatch("request", f"the request is not one a fit accepts: {exc}")
     x, y, n = energy, counts, len(energy)
+    unstable = sorted({s.get("shape", "pseudo_voigt_gl") for s in peak_specs} & NOT_BIT_STABLE_SHAPES)
 
-    def arr(key, src=O, name=None):
-        try:
-            a = np.asarray(src[key], dtype=float)
-        except Exception:
-            raise _Mismatch("schema", f"{name or key} is not an array of numbers")
-        if a.shape != (n,) or not np.all(np.isfinite(a)):
-            raise _Mismatch("schema", f"{name or key} is not {n} finite numbers")
-        return a
+    def arr(value, name):
+        if not isinstance(value, list) or len(value) != n or not all(_is_number(v) for v in value):
+            raise _Mismatch("schema", f"{name} is not {n} numbers")
+        return np.asarray(value, dtype=float)
 
-    O_energy, O_counts = arr("energy"), arr("counts")
-    if not np.array_equal(O_energy, x) or not np.array_equal(O_counts, y):
+    if not np.array_equal(arr(O["energy"], "energy"), x) or not np.array_equal(arr(O["counts"], "counts"), y):
         raise _Mismatch("data", "the recorded energies or counts are not the request's")
     if O["fit_method"] != method:
         raise _Mismatch("method", f"recorded method {O['fit_method']!r}, requested {method!r}")
     if O["charge_shift_applied"] != charge_shift_ev:
         raise _Mismatch("shift", "the recorded charge shift is not the request's")
 
-    # the background: run_fit's one assembly, on the request's data
+    # ── the background: run_fit's one assembly, on the request's data ──
     try:
         bg, bg_cert, bg_effect, bg_method = _assemble_background(
             x, y, background_method, bg_start_idx, bg_end_idx, endpoint_avg, manual_bg)
     except Exception as exc:
         raise _Mismatch("background", f"the request's background cannot be computed ({exc})")
-    if not np.array_equal(arr("background_y"), bg):
+    if not np.array_equal(arr(O["background_y"], "background_y"), bg):
         raise _Mismatch("background", "the recorded background is not the request's")
-    if O["background_verdict"] != _as_json(_background_verdict(bg_method, bg_cert, bg_effect)):
+    if not _same(O["background_verdict"], _as_json(_background_verdict(bg_method, bg_cert, bg_effect))):
         raise _Mismatch("background", "the recorded background verdict is not the request's")
     y_sub = y - bg
     weights = 1.0 / np.sqrt(np.maximum(y, 1.0))
 
-    # the seed — from the request's STARTING parameters, before O's values are set
+    # ── the seed — from the request's STARTING parameters ──
     if caller_seed is not None:
         if O["random_seed"] != int(caller_seed) or O["seed_source"] != "caller":
             raise _Mismatch("seed", "the recorded seed is not the caller's")
     else:
         seed = _request_seed(x, y, bg_effect, [s.get("shape", "pseudo_voigt_gl") for s in ordered],
-                             [f"p{s['id']}_" for s in ordered], params, fit_kws=fit_kws, n_perturb=n_perturb)
+                             [f"p{s['id']}_" for s in ordered], start_params, fit_kws=fit_kws, n_perturb=n_perturb)
         if O["random_seed"] != seed or O["seed_source"] != "request":
             raise _Mismatch("seed", "the recorded seed is not the one the request derives")
 
-    # each component, in request order, with the parameters the request builds
+    # ── each component, in request order: its OWN parameters (exact membership) ──
     peaks = O["individual_peaks"]
     if not isinstance(peaks, list) or len(peaks) != len(peak_specs):
         raise _Mismatch("schema", "one recorded component per requested peak")
-    components = {c.prefix: c for c in composite_model.components}
-    free = []
+    owned = []
     for spec, ip in zip(peak_specs, peaks):
-        if not isinstance(ip, dict) or set(ip) != _PEAK_KEYS:
+        comp, prefix, own = _component_of(composite_model, spec)
+        owned.append((comp, prefix, own))
+        if not isinstance(ip, dict) or set(ip) != _PEAK_KEYS or not isinstance(ip["params"], dict) \
+                or not isinstance(ip["support"], dict):
             raise _Mismatch("schema", "a recorded component's fields differ from a response's")
-        if _as_json(ip["id"]) != _as_json(spec["id"]) or ip["shape"] != spec.get("shape", "pseudo_voigt_gl"):
+        if not _same(ip["id"], _as_json(spec["id"])) or ip["shape"] != spec.get("shape", "pseudo_voigt_gl"):
             raise _Mismatch("schema", f"component {spec['id']!r}: the recorded id or lineshape is not the request's")
-        prefix = f"p{spec['id']}_"
-        names = [p for p in params if p.startswith(prefix)]
         rp = ip["params"]
-        if not isinstance(rp, dict) or set(rp) != {p[len(prefix):] for p in names} | {"area"}:
+        if set(rp) != {nm[len(prefix):] for nm in own} | {"area"}:
             raise _Mismatch("schema", f"component {spec['id']!r}: the recorded parameters are not the model's")
-        for name in names:
-            par, rec = params[name], rp[name[len(prefix):]]
-            if not isinstance(rec, dict) or set(rec) != _PARAM_KEYS:
-                raise _Mismatch("schema", f"{name}: the recorded parameter's fields differ from a response's")
-            v = rec["value"]
-            if isinstance(v, bool) or not isinstance(v, (int, float)) or not np.isfinite(v):
-                raise _Mismatch("schema", f"{name}: the recorded value is not a finite number")
-            if (rec["stderr"] is not None and (isinstance(rec["stderr"], bool) or not isinstance(rec["stderr"], (int, float)))):
-                raise _Mismatch("schema", f"{name}: the recorded uncertainty is not a number or null")
+        for name in own:
+            rec = rp[name[len(prefix):]]
+            if not isinstance(rec, dict) or set(rec) != _PARAM_KEYS or not _is_number(rec["value"]) \
+                    or not (rec["stderr"] is None or _is_number(rec["stderr"])) or not isinstance(rec["vary"], bool) \
+                    or not (rec["expr"] is None or isinstance(rec["expr"], str)) \
+                    or not all(rec[b] is None or _is_number(rec[b]) for b in ("min", "max")):
+                raise _Mismatch("schema", f"{name}: the recorded parameter is not of a response's form")
+        area = rp["area"]
+        if not isinstance(area, dict) or set(area) != {"value", "stderr"} or not _is_number(area["value"]) \
+                or not (area["stderr"] is None or _is_number(area["stderr"])):
+            raise _Mismatch("schema", f"component {spec['id']!r}: the recorded area is not of a response's form")
+
+    for (comp, prefix, own), spec, ip in zip(owned, peak_specs, peaks):
+        for name in own:
+            par, rec = params[name], ip["params"][name[len(prefix):]]
             lo = float(par.min) if np.isfinite(par.min) else None
             hi = float(par.max) if np.isfinite(par.max) else None
-            if rec["vary"] is not par.vary or rec["expr"] != par.expr or rec["min"] != lo or rec["max"] != hi:
+            if rec["vary"] is not bool(par.vary) or rec["expr"] != par.expr or not _same(rec["min"], lo) \
+                    or not _same(rec["max"], hi):
                 raise _Mismatch("roles", f"{name}: the recorded role (vary / expression / bounds) is not the request's")
-            if par.expr is None and not par.vary:
-                if float(v) != par.value:
-                    raise _Mismatch("held", f"{name}: the recorded held value is not the request's")
-            elif par.expr is None:
-                if not par.min <= float(v) <= par.max:
-                    raise _Mismatch("roles", f"{name}: the recorded value lies outside the request's bounds")
-                free.append((name, float(v)))
-        area = rp["area"]
-        if not isinstance(area, dict) or set(area) != {"value", "stderr"}:
-            raise _Mismatch("schema", f"component {spec['id']!r}: the recorded area's fields differ from a response's")
+            if par.expr is None and not par.vary and rec["value"] != par.value:
+                raise _Mismatch("held", f"{name}: the recorded held value is not the request's")
+            if par.expr is None and par.vary and not par.min <= rec["value"] <= par.max:
+                raise _Mismatch("roles", f"{name}: the recorded value lies outside the request's bounds")
 
     n_varys = sum(1 for par in params.values() if par.vary and par.expr is None)
-    if n_varys >= int(np.count_nonzero(np.isfinite(y_sub))):
+    if not _determined(n_varys, int(np.count_nonzero(np.isfinite(y_sub)))):
         raise _Mismatch("determinacy", "the request is not determined by its data: no fit has this response")
 
-    for name, v in free:
-        params[name].value = v
+    # set the free values, evaluate every expression; then EVERY recorded value (free, held, expression)
+    # must be the value the evaluation holds (each parameter is recorded exactly once, by its owner)
+    for (comp, prefix, own), ip in zip(owned, peaks):
+        for name in own:
+            if params[name].expr is None and params[name].vary:
+                params[name].value = float(ip["params"][name[len(prefix):]]["value"])
     params.update_constraints()
-    for spec, ip in zip(peak_specs, peaks):
-        prefix = f"p{spec['id']}_"
-        for name in params:
-            if name.startswith(prefix) and params[name].expr is not None:
-                if ip["params"][name[len(prefix):]]["value"] != params[name].value:
-                    raise _Mismatch("expressions", f"{name}: the recorded value is not its expression's")
+    for (comp, prefix, own), ip in zip(owned, peaks):
+        for name in own:
+            if ip["params"][name[len(prefix):]]["value"] != params[name].value:
+                check = "expressions" if params[name].expr is not None else "roles"
+                raise _Mismatch(check, f"{name}: the recorded value is not the value evaluated")
 
-    # the curves, in run_fit's own evaluations and associations
+    try:
+        _verify_curves(O, peaks, peak_specs, owned, composite_model, params, x, bg, y_sub, weights, n_varys, arr)
+    except _Mismatch as exc:
+        if unstable and exc.check in _CURVE_CHECKS:
+            raise _Unverifiable(exc.check, f"{exc.reason} — the request holds a lineshape this server does not "
+                                           f"evaluate bit-identically ({', '.join(unstable)}), so it cannot be "
+                                           f"verified exactly")
+        raise
+
+
+def _verify_curves(O, peaks, peak_specs, owned, composite_model, params, x, bg, y_sub, weights, n_varys, arr):
+    """The curves, in run_fit's own evaluations and associations; the statistics; the support."""
     fitted_sub = composite_model.eval(params, x=x)
     comp_ys = []
-    for spec, ip in zip(peak_specs, peaks):
-        prefix = f"p{spec['id']}_"
-        cy = components[prefix].eval(params, x=x)
-        if not np.array_equal(arr("y", ip, f"component {spec['id']!r} curve"), cy):
+    for (comp, prefix, own), spec, ip in zip(owned, peak_specs, peaks):
+        cy = comp.eval(params, x=x)
+        if not np.array_equal(arr(ip["y"], f"component {spec['id']!r} curve"), cy):
             raise _Mismatch("components", f"component {spec['id']!r}: the recorded curve is not its parameters'")
         if ip["params"]["area"]["value"] != float(abs(trapezoid(cy, x))):
             raise _Mismatch("components", f"component {spec['id']!r}: the recorded area is not its curve's")
         comp_ys.append(cy)
-    if not np.array_equal(arr("fitted_sub"), fitted_sub):
+    if not np.array_equal(arr(O["fitted_sub"], "fitted_sub"), fitted_sub):
         raise _Mismatch("fitted_sub", "the recorded model sum is not its components'")
-    if not np.array_equal(arr("fitted_y"), fitted_sub + bg):
+    if not np.array_equal(arr(O["fitted_y"], "fitted_y"), fitted_sub + bg):
         raise _Mismatch("fitted_y", "the recorded fitted curve is not the model sum plus the background")
-    if not np.array_equal(arr("residuals"), y_sub - fitted_sub):
+    if not np.array_equal(arr(O["residuals"], "residuals"), y_sub - fitted_sub):
         raise _Mismatch("residuals", "the recorded residuals are not the data less the background and the model")
-    if O["statistics"] != _as_json(_fit_statistics(y_sub, fitted_sub, weights, n_varys)):
+    if not _same(O["statistics"], _as_json(_fit_statistics(y_sub, fitted_sub, weights, n_varys))):
         raise _Mismatch("statistics", "the recorded statistics are not the ones its arrays give")
 
     # support, as run_fit forms it (a linked component follows its root)
     supports = []
-    for spec, cy in zip(peak_specs, comp_ys):
-        prefix = f"p{spec['id']}_"
-        n_free_comp = sum(1 for nm, par in params.items() if nm.startswith(prefix) and par.vary and par.expr is None)
+    for (comp, prefix, own), cy in zip(owned, comp_ys):
+        n_free_comp = sum(1 for nm in own if params[nm].vary and params[nm].expr is None)
         supports.append(_component_support(y_sub, fitted_sub, cy, weights, n_free_comp, n_varys))
     by_id = {str(s["id"]): sup for s, sup in zip(peak_specs, supports)}
     master_of = {str(s["id"]): s.get("constrain_to") for s in peak_specs}
@@ -3311,5 +3415,5 @@ def _verify(O, *, energy, counts, peak_specs, background_method, bg_start_idx, b
             sup["follows"] = ids[pid]
             sup["supported"] = by_id[pid]["supported"]
     for spec, ip, sup in zip(peak_specs, peaks, supports):
-        if ip["support"] != _as_json(sup):
+        if not _same(ip["support"], _as_json(sup)):
             raise _Mismatch("support", f"component {spec['id']!r}: the recorded support is not the one its fit gives")

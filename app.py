@@ -226,25 +226,37 @@ def create_app(upload_folder: str = "uploads", data_folder: str = "data/xps") ->
 # ─────────────────────────────────────────────────────────────────────────────
 
 class _DigestingLoader:
-    """Wraps the app's Jinja loader and records the SHA-256 of each template's source each time
-    Jinja (re)loads it — the source the cached compiled template was built from."""
+    """Wraps the app's Jinja loader so every COMPILED template carries the SHA-256 of the source it
+    was compiled from (``template.xps_source_sha256``). The digest belongs to the template object a
+    render uses — not to its name — so a reload by another request between getting a template and
+    rendering it cannot lend it another source's digest (seal 1a′ Codex round 1). ``load`` is Jinja's
+    ``BaseLoader.load`` with the digest added."""
 
     def __init__(self, inner):
         self.inner = inner
-        self.digests: dict = {}
 
     def get_source(self, environment, template):
-        import hashlib
-        source, filename, uptodate = self.inner.get_source(environment, template)
-        self.digests[template] = hashlib.sha256(source.encode("utf-8")).hexdigest()
-        return source, filename, uptodate
-
-    def load(self, environment, name, globals=None):
-        from jinja2 import BaseLoader
-        return BaseLoader.load(self, environment, name, globals)
+        return self.inner.get_source(environment, template)
 
     def list_templates(self):
         return self.inner.list_templates()
+
+    def load(self, environment, name, globals=None):
+        import hashlib
+        if globals is None:
+            globals = {}
+        source, filename, uptodate = self.get_source(environment, name)
+        bcc = environment.bytecode_cache
+        bucket = bcc.get_bucket(environment, name, filename, source) if bcc is not None else None
+        code = bucket.code if bucket is not None else None
+        if code is None:
+            code = environment.compile(source, name, filename)
+        if bucket is not None and bucket.code is None:
+            bucket.code = code
+            bcc.set_bucket(bucket)
+        tmpl = environment.template_class.from_code(environment, code, globals, uptodate)
+        tmpl.xps_source_sha256 = hashlib.sha256(source.encode("utf-8")).hexdigest()
+        return tmpl
 
 
 def _reference_sha256(legacy) -> str:
@@ -867,7 +879,7 @@ def _register_routes(app: Flask) -> None:
             # and what THIS page was rendered from (seal 1a′, V6.7): the template source as compiled and the
             # reference data injected — digests of the render's inputs, so the page never hashes itself
             tmpl = app.jinja_env.get_template("index.html")
-            page = {"page_sha256": app.jinja_env.loader.digests.get("index.html"),
+            page = {"page_sha256": getattr(tmpl, "xps_source_sha256", None),
                     "reference_sha256": _reference_sha256(legacy)}
             return render_template(tmpl, legacy_reference=legacy, software=fitting.SOFTWARE, page=page)
         if static.exists() and (static / "index.html").exists():

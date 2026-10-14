@@ -56,8 +56,23 @@ server; the page is not changed in this unit except the provenance meta tag it i
      the linked-root rule).
    Answer: `{state: consistent | mismatch | unconfirmed, check, reason, software}`. NOT
    recomputed — shown as recorded (option (b)): `success`, `message`, σ, `certificate`,
-   `starts`, `required`. Bit-stability per lineshape is 1b's measurement; a shape that is not
-   bit-stable reads `mismatch` here until 1b / Q7 decide.
+   `starts`, `required`. Every field is checked by its JSON TYPE (a numeric string, a flag for a
+   number, a number for a flag are not a response's), never through a coercion. `unconfirmed`:
+   other software; a non-finite number anywhere in O; or a curve-derived check failing on a
+   request with a lineshape that is not evaluated bit-identically (`NOT_BIT_STABLE_SHAPES` =
+   LA(α,β,m), owner Q7 — never a tolerance; 1b measures the rest).
+
+## Round-1 fixes (Codex NO-GO ×2)
+
+- Parameter membership is EXACT (`_component_of`: the component model's own `param_names`) in
+  the response, the support, the scattered starts, the required refit and the verifier — ids "1"
+  and "1_x" no longer echo each other's parameters (a page's integer ids never overlapped).
+- A link's splitting / ratio is written into its expression with −0.0 folded to 0.0 (a JSON
+  writer spells −0 as 0); requests the page can send are unchanged.
+- The verifier reads the parameters as the fitter holds them (Model.fit's deep copy orders
+  reversed bounds and clips into them); the seed is still derived from the start.
+- Every recorded value — free, held and expression — must be the value evaluated.
+- The page digest is carried by the compiled template object, not keyed by name.
 
 ## Not in this unit
 

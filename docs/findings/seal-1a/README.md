@@ -17,8 +17,9 @@ whether `result.nvarys` is the roles count, and the in-process verification's ve
 | Trust-Region (`statistics_tr.jsonl`) | 202, all converged | 202 / 202 | 202 / 202 | 202 / 202 | 202 / 202 |
 | Levenberg-Marquardt (`statistics_lm.jsonl`) | 202, all converged | 202 / 202 | 202 / 202 | 202 / 202 | 202 / 202 |
 
-Reading: on the committed targets lmfit's last residual evaluation IS the returned model, so the
-array-formed statistics are bit-for-bit lmfit's. The change makes them recomputable from the
+Reading: on the committed targets the array-formed statistics equal lmfit's bit for bit (each of
+the four, every fit) and `best_fit` equals the returned `fitted_sub`; the residual vectors
+themselves were not compared, so nothing further is claimed about lmfit's last evaluation. The change makes them recomputable from the
 response; it moves no reported number on these targets. (It can differ where the minimiser's last
 evaluation is not at the returned parameters; none of the 404 fits is such a case. The unit
 reports no size it did not measure.) Release note: none needed for the numbers; `rmse` and
@@ -48,5 +49,5 @@ process, each target fitted by both (Levenberg-Marquardt, n_perturb 3), complete
 Every one of the 404 fits above verifies `consistent` in the process that made it. Cross-process
 bit-stability per lineshape (LA's `np.convolve`, DS+G's FFT) is unit 1b's measurement (V6.5, Q7):
 the identity run above already shows LA curves can differ between two evaluations of the same
-parameters in one process, so an LA fit recorded by one worker may read `mismatch` in another
-until 1b decides.
+parameters in one process, so LA(α,β,m) is listed as not bit-stable (`NOT_BIT_STABLE_SHAPES`): a
+curve-derived failure on a request holding it reads `unconfirmed`, never `mismatch`.

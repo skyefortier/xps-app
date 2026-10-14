@@ -89,12 +89,29 @@ def test_the_global_methods_report_the_same_association(method):
     assert r["statistics"] == _recompute_statistics(r)
 
 
-def test_internal_decisions_keep_their_own_statistic():
-    # the required refit compares against lmfit's chi-square of the fit, as before (recorded, not reported)
+def test_internal_decisions_keep_their_own_statistic(monkeypatch):
+    # the REPORTED statistics are formed from the arrays; every decision inside the fit keeps lmfit's:
+    # replace the reported ones with nonsense and the required refit's chi2_with does not move
     x, y, specs = SS._well_posed()
-    r = fitting.run_fit(x, y, specs, background_method="linear", n_perturb=0, fit_kws={"method": "leastsq"},
-                        require_component=2)
-    assert r["required"]["ran"] is True and r["required"]["chi2_with"] > 0
+    kw = dict(background_method="linear", n_perturb=2, n_starts=2, fit_kws={"method": "leastsq"}, require_component=2)
+    a = fitting.run_fit(x, y, specs, **kw)
+    monkeypatch.setattr(fitting, "_fit_statistics", lambda *a_, **k_: {"chi_square": -1.0})
+    b = fitting.run_fit(x, y, specs, **kw)
+    assert b["statistics"] == {"chi_square": -1.0}
+    assert a["required"] == b["required"] and a["required"]["ran"] is True
+    assert a["starts"] == b["starts"] and a["certificate"] == b["certificate"]
+    assert [p["params"] for p in a["individual_peaks"]] == [p["params"] for p in b["individual_peaks"]]
+
+
+def test_the_statistics_floor_and_null_cases():
+    n = 5
+    y_sub = np.array([1.0, 2.0, 3.0, 2.0, 1.0])
+    s = fitting._fit_statistics(y_sub, y_sub.copy(), np.ones(n), 2)
+    # a zero residual: reduced chi-square 0 (formed BEFORE the floor), chi-square floored at 1e-250·n
+    assert s["reduced_chi_square"] == 0.0 and s["chi_square"] == 1e-250 * n and s["rmse"] == 0.0
+    assert s["aic"] == n * np.log(1e-250) + 4 and s["r_factor"] == 0.0
+    z = fitting._fit_statistics(np.zeros(n), np.ones(n), np.ones(n), 1)
+    assert z["r_factor"] is None and z["chi_square"] == 5.0 and z["reduced_chi_square"] == 5.0 / 4
 
 
 # ── provenance ─────────────────────────────────────────────────────────────────────────────────
@@ -150,3 +167,24 @@ def test_the_page_digest_is_of_the_source_jinja_compiled_not_a_later_file(tmp_pa
     meta = lambda h: re.search(r"<meta name=\"xps-page\" content='([^']*)'>", h).group(1)
     assert "<!-- edited -->" not in second          # still the compiled template …
     assert meta(first) == meta(second)              # … and the digest says so
+
+
+def test_the_digest_belongs_to_the_compiled_template_not_its_name(tmp_path):
+    # Codex round 1: a digest stored by NAME could be overwritten by another request's reload between
+    # getting a template and rendering it; each compiled template carries its own source's digest
+    import shutil
+    tdir = tmp_path / "tpl"
+    tdir.mkdir()
+    shutil.copy("templates/index.html", tdir / "index.html")
+    app = create_app(upload_folder=str(tmp_path / "up"))
+    app.template_folder = str(tdir)
+    app.jinja_env.auto_reload = True
+    old = app.jinja_env.get_template("index.html")
+    src = (tdir / "index.html").read_text(encoding="utf-8")
+    (tdir / "index.html").write_text(src + "\n<!-- edited -->\n", encoding="utf-8")
+    import os
+    os.utime(tdir / "index.html", (1e10, 1e10))                 # a later mtime: the cache is out of date
+    new = app.jinja_env.get_template("index.html")
+    assert new is not old
+    assert old.xps_source_sha256 == hashlib.sha256(src.encode("utf-8")).hexdigest()
+    assert new.xps_source_sha256 == hashlib.sha256((src + "\n<!-- edited -->\n").encode("utf-8")).hexdigest()
