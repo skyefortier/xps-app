@@ -42,7 +42,8 @@ rounding-scale tolerance" means: minima closer than 1e-3 of EVERY quantity's
 own scale are not told apart. The comparison fails closed: a component driven
 exactly to zero amplitude would be compared on its own ~0 height and would
 fail, never pass wrongly (the tests' models have none).
-NOT compared: the optimiser's message; the certificate's restart count /
+NOT compared: the optimiser's message; the `request_digest` (seal 1a′: it names the REQUEST — two
+requests a rounding apart are different requests whose fits can be the same fit); the certificate's restart count /
 moved flag / moves (how the point was reached — its `certified` verdict is
 compared); and the reported UNCERTAINTIES (stderr), which are not reproducible
 within one minimum near a bound — committed evidence: B4C-UCl4 U4f Scan_1,
@@ -66,8 +67,8 @@ _OBJECTIVE = ("chi_square", "reduced_chi_square", "chi2r", "not_better_chi2r")
 _LOG_OBJECTIVE = ("aic", "bic")                     # n ln(chi2 / n) + 2k: an absolute difference of n x relative
 _POSITIONS = ("center", "center_shift_from_start", "ev")
 _PERCENTAGES = ("area_percent", "largest_fraction_difference_pp")
-_SIGNAL_CURVES = ("fitted_y", "residuals", "background_y")
-_NOT_COMPARED = ("message", "stderr")
+_SIGNAL_CURVES = ("fitted_y", "fitted_sub", "residuals", "background_y")
+_NOT_COMPARED = ("message", "stderr", "request_digest")
 
 
 def _as_curve(v):
