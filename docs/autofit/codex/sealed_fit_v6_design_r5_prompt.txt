@@ -1,0 +1,7 @@
+ADVERSARIAL DESIGN review, round 5 — no code has been written. Same scope and questions as docs/autofit/codex/sealed_fit_v6_design_review_prompt.txt; branch design-sealed-fit-v6 at its HEAD; main = c643c5f is the code described. Rounds 1-4: docs/autofit/codex/sealed_fit_v6_design_r{1,2,3,4}_verdict_run{A,B}.md (NO-GO x2 each).
+
+The v6 section is now REVISION 5; V6.16 maps every round-4 finding to its answer: the whole link graph validated on page, server and in verification (links resolve, unique ids, no cycles, the same frontend shape — carried to the server as a new `frontend_shape` field); the Auto-Fit anchor evidence E = (R1, O1) inside the seal and its verification identity, R1 bound to the same tab's raw data, O1 verified and positively accepted with the gates, R2 = derive(R1, O1) exactly; the two-fit transaction (one operation token, nothing published until the end, commit with one undo entry, rollback as today's failure paths, the anchor fit alone never sets a charge correction); a typed recursive normalisation expanding each field to its effective value, identifiers as lossless strings; complete-key publication by link and per-use keyring reads.
+
+Check: is each round-4 BLOCKER / MAJOR resolved — name any that is not; any NEW defect revision 5 introduced. Same severity rules. Read-only. Budget your time: a verdict is required within the run.
+
+Finish with VERDICT: GO (the design may go to the owner for approval) or VERDICT: NO-GO.

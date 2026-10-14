@@ -1,0 +1,7 @@
+ADVERSARIAL DESIGN review, round 7 — no code has been written. Same scope and questions as docs/autofit/codex/sealed_fit_v6_design_review_prompt.txt; branch design-sealed-fit-v6 at its HEAD; main = c643c5f is the code described. Rounds 1-6: docs/autofit/codex/sealed_fit_v6_design_r{1,2,3,4,5,6}_verdict_run{A,B}.md (NO-GO x2 each).
+
+The v6 section is now REVISION 7; V6.18 maps the one round-6 finding to its answer: the trust generation is {incarnation, revision} from one atomically replaced keyring state file; a verification reports the generation of the snapshot it used; any difference drops a cached authentication; a reply of another generation is not attached.
+
+Check: is the round-6 finding (and every earlier one) BLOCKER / MAJOR resolved — name any that is not; any NEW defect revision 5 introduced. Same severity rules. Read-only. Budget your time: a verdict is required within the run.
+
+Finish with VERDICT: GO (the design may go to the owner for approval) or VERDICT: NO-GO.

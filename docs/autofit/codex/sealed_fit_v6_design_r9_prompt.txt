@@ -1,0 +1,7 @@
+ADVERSARIAL DESIGN review, round 9 — no code has been written. Same scope and questions as docs/autofit/codex/sealed_fit_v6_design_review_prompt.txt; branch design-sealed-fit-v6 at its HEAD; main = c643c5f is the code described. Rounds 1-8: docs/autofit/codex/sealed_fit_v6_design_r{1,2,3,4,5,6,7,8}_verdict_run{A,B}.md (NO-GO x2 each).
+
+The v6 section is now REVISION 9; V6.20 maps the round-8 finding to its answer: the keyring is ONE state file with ONE writer protocol — every mutation (creation, rotation, revocation, restore) re-reads, modifies, allocates the revision and publishes durably under an exclusive cross-process lock; mutations other than the first creation are an owner's command. Try hard to break the WHOLE trust protocol end to end (server state, workers, every mutation, crashes, restarts, restore, another server, the page's fetches and verifications in any interleaving, O and the Auto-Fit anchor evidence), and re-check every earlier finding.
+
+Check: is the round-8 finding (and every earlier one) BLOCKER / MAJOR resolved — name any that is not; any NEW defect revision 5 introduced. Same severity rules. Read-only. Budget your time: a verdict is required within the run.
+
+Finish with VERDICT: GO (the design may go to the owner for approval) or VERDICT: NO-GO.

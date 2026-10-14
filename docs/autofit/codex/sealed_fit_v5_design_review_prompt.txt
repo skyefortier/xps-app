@@ -1,0 +1,50 @@
+You are running an ADVERSARIAL DESIGN review — no code has been written for this design;
+challenge the architecture, its assumptions, its evidence and its claims about the current
+code before anything is implemented.
+
+REPO: this checkout (XPS peak-fitting web app; Python/Flask backend fitting.py + app.py,
+single-file frontend templates/index.html). Branch design-sealed-fit-v5 at its HEAD; main =
+90651e6 is the code the design describes.
+
+THE DESIGN TO REVIEW: docs/superpowers/plans/2026-09-02-background-architecture-sealed-fit-record.md,
+section "v5 (2026-10-10) — the sealed fit record as a regeneration PROOF" (V5.1-V5.8). Read the
+earlier parts (v4 Parts 1-7, Round-4..7 notes) for context: v5 updates them. The owner's goal,
+verbatim: "a saved fit carries everything needed to regenerate it and prove it current —
+inputs, settings, seed, software version, background verdict, certificate verdict — and a
+loaded fit is current only if that proof checks." Every claim about current code is labelled
+VERIFIED (path:line on main) or HYPOTHESIS.
+
+ANSWER EACH, against the actual code:
+1. VERIFIED claims: check every one (V5.1 table, V5.2 gaps 1-8, the citations in V5.3-V5.5).
+   Name any that is false, mis-cited, or overstated. Name any HYPOTHESIS you can settle.
+2. Completeness of the record (V5.3): can a fit be regenerated from `sealed` alone? Name any
+   input run_fit reads that the record does not carry (e.g. anything in app.py's request
+   parsing, the upload's parsing, the ROI selection, the charge shift path, the manual
+   background, endpoint averaging, linked peaks, Auto-Fit's bounds, require_component, the
+   caller seed, solver defaults that a version could change).
+3. The proof (V5.4): is each step sound and sufficient? Can a fit whose statistics do not
+   describe what is shown pass all steps (a false CURRENT)? Can a correct fit fail one (a false
+   STALE) on ordinary data? Is step 2 ("the request the live state would send equals
+   sealed.request") actually implementable with the existing builders, and does it close gap 2
+   by construction? Is step 3's "exact, no tolerance" justified by the page/server background
+   bit-identity — on every background method, both grid directions, averaging, manual anchors,
+   Tougaard, ROI past the data? Is step 4 (lineshapes within the identity bound) achievable for
+   every shape incl. DS+G's FFT and LA's convolution? Is step 6's software-version handling
+   coherent with step 7?
+4. Regeneration (step 7): is "within rounding" (tests/fit_equality.py) the right criterion
+   given Trust-Region's non-bit-reproducibility (CLAUDE.md, owner 2026-09-21) and the
+   perturbed restarts' basin sensitivity (docs/superpowers/plans/2026-10-09-two-basin-fixture.md
+   §2)? What fraction of committed targets would fail it — is that measured or a HYPOTHESIS?
+5. Legacy (V5.5): consistent with the owner's 2026-10-05 rule and the shipped restore rule?
+   Is the Q1 recommendation sound?
+6. Migration (V5.6, V5.8): what breaks if a consumer reads the old fields during the
+   transition? Is the retire list complete — any other binding mechanism left beside the seal?
+7. Design rules (CLAUDE.md): "thresholds on data-scaled quantities fail", "two readings of one
+   field" — does any part of v5 introduce a magnitude tolerance or a second reading of a field?
+
+Rank findings BLOCKER / MAJOR / MINOR with file:line evidence. BLOCKER / MAJOR: a false
+VERIFIED claim, a record that cannot regenerate the fit, a proof step that admits a false
+CURRENT, or a design-rule violation; MINOR: wording, ordering. Read-only. Budget your time:
+a verdict is required within the run.
+
+Finish with VERDICT: GO (the design may go to the owner for approval) or VERDICT: NO-GO.
