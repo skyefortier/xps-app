@@ -478,3 +478,37 @@ def test_a_stable_components_mismatch_is_not_hidden_behind_an_unstable_one():
         O["individual_peaks"][k]["params"]["area"]["value"] = float(abs(fitting.trapezoid(yk, xs)))
     v = fitting.verify_fit(O, **args)
     assert v["state"] == "mismatch" and v["check"] == "components" and v["reason"].startswith("component 2"), v
+
+
+def test_a_free_value_at_an_integer_bound_is_read_as_the_float_bound(client):
+    # Codex round 4: the recorded bound and value are floats; the free value was checked against the integer
+    x, y, specs = SS._well_posed()
+    for bound in ({"amplitude_min": 10 ** 16 + 1}, {"amplitude_max": 10 ** 16 + 3, "amplitude": 10 ** 16 + 3}):
+        sp = [{**specs[0], "shape": "gaussian", "amplitude": 10 ** 16 + 1, "fix_center": True, "fix_fwhm": True, **bound}]
+        R, O = _seal(client, x, y * 1e10, sp, background={"method": "none"})
+        _consistent(client, R, O)
+
+
+@pytest.mark.parametrize("shape", ["lorentzian", "doniach_sunjic", "pseudo_voigt_gl"])
+def test_parameters_that_cannot_be_evaluated_are_a_mismatch_never_a_500(client, shape):
+    x, y, specs = SS._well_posed()
+    R, O = _seal(client, x, y, [{**specs[0], "shape": shape, **SHAPES[shape], "fwhm_max": None}])
+    _consistent(client, R, O)
+    O2 = copy.deepcopy(O)
+    O2["individual_peaks"][0]["params"]["fwhm"]["value"] = 1e308
+    v = _verify(client, R, O2)
+    assert v["state"] == "mismatch", v
+
+
+def test_an_inline_array_beyond_any_float_is_a_400(client, sealed):
+    R, O = sealed
+    for key in ("energies", "counts"):
+        bad = {**R, key: [10 ** 400] + R[key][1:]}
+        assert client.post("/api/verify-fit", json={"R": bad, "O": O}).status_code == 400
+
+
+def test_an_error_inside_the_verifier_is_unconfirmed_never_a_500(client, sealed, monkeypatch):
+    R, O = sealed
+    monkeypatch.setattr(fitting, "_component_support", lambda *a, **k: 1 / 0)
+    v = _verify(client, R, O)
+    assert v["state"] == "unconfirmed" and v["check"] == "error", v

@@ -3283,6 +3283,9 @@ def verify_fit(O, *, energy, counts, peak_specs, background_method="shirley", bg
         return answer("unconfirmed", exc.check, exc.reason)
     except _Mismatch as exc:
         return answer("mismatch", exc.check, exc.reason)
+    except Exception as exc:                 # never a 500 and never current: a record this verifier could not judge
+        log.exception("verification raised")
+        return answer("unconfirmed", "error", f"the verification could not judge this record ({type(exc).__name__})")
     return answer("consistent")
 
 
@@ -3415,7 +3418,9 @@ def _verify(O, *, energy, counts, peak_specs, background_method, bg_start_idx, b
                 raise _Mismatch("roles", f"{name}: the recorded role (vary / expression / bounds) is not the request's")
             if par.expr is None and not par.vary and rec["value"] != effective[name]:
                 raise _Mismatch("held", f"{name}: the recorded held value is not the request's")
-            if par.expr is None and par.vary and not par.min <= rec["value"] <= par.max:
+            # the bounds as the producer records and the fit reads them: floats (an integer bound of
+            # 10000000000000001 is 1e16 to both — Codex round 4: one reading)
+            if par.expr is None and par.vary and not float(par.min) <= rec["value"] <= float(par.max):
                 raise _Mismatch("roles", f"{name}: the recorded value lies outside the request's bounds")
 
     n_varys = sum(1 for par in params.values() if par.vary and par.expr is None)
@@ -3456,16 +3461,26 @@ def _verify(O, *, energy, counts, peak_specs, background_method, bg_start_idx, b
                              f"the lineshape ({', '.join(shapes)}) is not evaluated bit-identically here, so it "
                              f"cannot be verified exactly")
     # every stable evaluation is judged before an unstable one can answer "unconfirmed" (Codex round 3)
+    def evaluate(model, what):
+        # the producer evaluated its own parameters without error, so parameters this server cannot
+        # evaluate (an overflow, Codex round 4) are not the producer's
+        try:
+            with np.errstate(all="ignore"):
+                return model.eval(params, x=x)
+        except Exception as exc:
+            raise _Mismatch("components" if what != "the model sum" else "fitted_sub",
+                            f"{what}: the recorded parameters cannot be evaluated ({type(exc).__name__})")
+
     deferred = None
     for (comp, prefix, own), spec, rec_y in zip(owned, peak_specs, rec_ys):
-        if not equal(rec_y, comp.eval(params, x=x)):
+        if not equal(rec_y, evaluate(comp, f"component {spec['id']!r}")):
             shape = spec.get("shape", "pseudo_voigt_gl")
             if shape not in NOT_BIT_STABLE_SHAPES:
                 raise _Mismatch("components", f"component {spec['id']!r}: the recorded curve is not its parameters'")
             deferred = deferred or unverifiable(f"component {spec['id']!r}", [shape])
     if deferred is not None:
         raise deferred
-    if not equal(rec_sub, composite_model.eval(params, x=x)):
+    if not equal(rec_sub, evaluate(composite_model, "the model sum")):
         if unstable:
             raise unverifiable("the model sum", unstable)
         raise _Mismatch("fitted_sub", "the recorded model sum is not its components'")

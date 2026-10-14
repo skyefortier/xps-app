@@ -1399,7 +1399,7 @@ def _register_routes(app: Flask) -> None:
             if energy.ndim != 1 or counts.shape != energy.shape or not np.all(np.isfinite(energy)) \
                     or not np.all(np.isfinite(counts)):
                 raise ValueError
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
             return _err("R.energies and R.counts must be equal-length arrays of finite numbers")
         def mismatch(reason):
             return jsonify({"state": "mismatch", "check": "request", "reason": reason, "software": fitting.SOFTWARE})
