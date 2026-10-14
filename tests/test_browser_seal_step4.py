@@ -5,6 +5,8 @@ tests call it directly on real fits made by the real page and server.
 
 Skips cleanly when Playwright / Chromium / gunicorn are absent.
 """
+import json
+
 import pytest
 
 pytest.importorskip("playwright.sync_api")
@@ -279,15 +281,20 @@ def test_raw_data_edited_in_place_is_new_data(browser, server):  # noqa: F811
         pg.close()
 
 
+INV = "const inv = (s) => { s.O.paramMap = _localInventory(structuredClone(s.R.pageModel)).paramMap; }; "
+
+
 @pytest.mark.parametrize("src,checks", [
     ("s.O.energies[0] += 1e-9", ("samples",)),
     ("s.O.net[0] += 1e-9", ("samples",)),
-    ("s.R.pageModel[0].fixCenter = !s.R.pageModel[0].fixCenter; s.O.model[0].fixCenter = s.R.pageModel[0].fixCenter",
-     ("inventory", "model")),                                                     # a lock substituted consistently
-    ("s.R.pageModel[1].linked = s.R.pageModel[0].id; s.O.model[1].linked = s.R.pageModel[0].id",
-     ("inventory", "model", "links")),                                            # a link substituted consistently
-    ("s.O.model[0].fwhm = s.R.pageModel[0].fwhm + 0.01; s.R.pageModel[0].fixFwhm = true; s.O.model[0].fixFwhm = true",
-     ("inventory", "model")),                                                     # a held value moved
+    # each substitution made CONSISTENT everywhere but the values: the inventory is rebuilt from the substituted
+    # start model, so only the projection (structure from R, free values from the engine) can catch it
+    (INV + "s.R.pageModel[0].fixCenter = !s.R.pageModel[0].fixCenter; s.O.model[0].fixCenter = s.R.pageModel[0].fixCenter; inv(s)",
+     ("model",)),                                                                 # a lock substituted
+    (INV + "for (const m of [s.R.pageModel, s.O.model]) { m[1].shape = m[0].shape; m[1].linked = m[0].id; m[1].linkOffset = 1; m[1].linkRatio = 0.5; } inv(s)",
+     ("model",)),                                                                 # a (valid) link substituted
+    (INV + "s.R.pageModel[0].fixFwhm = true; s.O.model[0].fixFwhm = true; s.O.model[0].fwhm = s.R.pageModel[0].fwhm + 0.01; inv(s)",
+     ("model",)),                                                                 # a held value moved
 ])
 def test_a_local_record_that_does_not_hold_together_is_stale(browser, server, src, checks):  # noqa: F811
     pg = browser.new_page(viewport={"width": 1500, "height": 950})
@@ -345,7 +352,6 @@ def _autofitted(browser, server):  # noqa: F811
     ("s.R.context0.producer.require_component = null; s.R.request.require_component = null", "evidence"),
     # both fits asked about a component that is not the anchor
     ("for (const r of [s.E.R, s.R]) { r.context0.producer.require_component = 'nope'; r.request.require_component = 'nope'; }", "evidence"),
-    ("s.E.R.counts[0] += 1", "evidence"),                                            # the anchor fit on another spectrum
 ])
 def test_auto_fit_evidence_must_be_the_same_producer_on_the_same_spectrum(browser, server, src, check):  # noqa: F811
     pg = _autofitted(browser, server)
@@ -353,6 +359,20 @@ def test_auto_fit_evidence_must_be_the_same_producer_on_the_same_spectrum(browse
         st = pg.evaluate("(src) => { const s = structuredClone(state.fitResult.seal); (new Function('s', src))(s);"
                          " const r = sealedState({ seal: _makeSeal(s) }, _activeTab()); return [r.state, r.check]; }", src)
         assert st == ["stale", check], (src, st)
+    finally:
+        pg.close()
+
+
+def test_auto_fit_evidence_from_another_spectrum_is_stale(browser, server):  # noqa: F811
+    pg = _autofitted(browser, server)
+    try:
+        # the anchor fit's R and O are coherent with each other but NOT with this spectrum: the raw data change
+        # where only the anchor fit sampled (its window, before the charge shift moved it)
+        got = pg.evaluate("""() => { const s = state.fitResult.seal, only = s.E.R.idx.filter(i => !s.R.idx.includes(i));
+            if (!only.length) return null;
+            state.rawIntensity[only[0]] += 1;
+            const r = sealedState(state.fitResult, _activeTab()); return [r.state, r.check]; }""")
+        assert got == ["stale", "evidence"], got
     finally:
         pg.close()
 
@@ -424,6 +444,47 @@ def test_auto_fit_with_one_check_outstanding_is_pending_unless_the_other_is_a_mi
         pg.close()
 
 
+def test_auto_fit_with_an_unreachable_check_waits_for_the_outstanding_one(browser, server):  # noqa: F811
+    for partner, expect in ((MISMATCH, ["stale", "components"]), ("continue", ["unconfirmed", "unreachable"])):
+        pg = _autofitted(browser, server)
+        try:
+            held = _route_by_fit(pg, {"E": "abort", "R": "hold"})
+            pg.evaluate("() => { window.__p = _ensureVerified(_activeTab()); }")
+            pg.wait_for_timeout(1500)
+            assert pg.evaluate(STATE) == ["pending", None]                # never UNCONFIRMED before the other answers
+            if partner == "continue":
+                held[0].continue_()
+            else:
+                held[0].fulfill(status=200, content_type="application/json", body=json.dumps(partner))
+            pg.evaluate("async () => { await window.__p; }")
+            assert pg.evaluate(STATE) == expect, partner
+        finally:
+            pg.close()
+
+
+def test_check_again_supersedes_an_attempt_in_flight(browser, server):  # noqa: F811
+    pg = _fitted(browser, server)
+    try:
+        held = []
+        pg.route("**/api/verify-fit", lambda route: held.append(route))
+        pg.evaluate("() => { window.__p1 = _ensureVerified(_activeTab()); }")
+        pg.wait_for_timeout(500)
+        pg.evaluate("() => { window.__p0 = _ensureVerified(_activeTab()); }")   # a background trigger: no second attempt
+        pg.wait_for_timeout(500)
+        assert len(held) == 1
+        pg.evaluate("() => { window.__p2 = _ensureVerified(_activeTab(), true); }")   # "check again"
+        pg.wait_for_timeout(500)
+        assert len(held) == 2
+        held[1].continue_()
+        pg.evaluate("async () => { await window.__p2; }")
+        assert pg.evaluate(STATE) == ["current", None]
+        held[0].fulfill(status=200, content_type="application/json", body=json.dumps(MISMATCH))   # the superseded reply
+        assert pg.evaluate("async () => await window.__p1") is None
+        assert pg.evaluate(STATE) == ["current", None]
+    finally:
+        pg.close()
+
+
 def test_staged_checks_resolve_only_their_current_transaction(browser, server):  # noqa: F811
     pg = _autofitted(browser, server)
     try:
@@ -441,21 +502,37 @@ def test_staged_checks_resolve_only_their_current_transaction(browser, server): 
             _beginStaged(owner, op);
             const b2 = await p;
             const committedStale = _commitStaged(txn, seal);
-            // a current transaction resolves both and its commit enters the answers for the seal it installs
-            const fresh = _makeSeal(structuredClone(seal));
-            state.fitResult = { ...state.fitResult, seal: fresh };
+            // a current transaction checks the PRODUCER'S objects (not yet a seal); the seal built from them
+            // (_makeSeal: its own deep copy) takes both answers at the commit, with no further request
+            const parts = structuredClone(seal);                                   // what a producer holds before sealing
             op = _claimFitOp(owner); txn = _beginStaged(owner, op);
-            const c1 = await _verifyStagedCheck(txn, fresh.E.R, fresh.E.O), c2 = await _verifyStagedCheck(txn, fresh.R, fresh.O);
+            const c1 = await _verifyStagedCheck(txn, parts.E.R, parts.E.O), c2 = await _verifyStagedCheck(txn, parts.R, parts.O);
+            const fresh = _makeSeal(parts);
+            state.fitResult = { ...state.fitResult, seal: fresh };
             const pendingBefore = sealedState(state.fitResult, owner).state;
+            let posts = 0; const f0 = window.fetch; window.fetch = (...a) => { if (String(a[0]).includes('verify-fit')) posts++; return f0(...a); };
             const committed = _commitStaged(txn, fresh);
-            return [a, b1 && b1.state, b2, committedStale, c1.state, c2.state, pendingBefore, committed, sealedState(state.fitResult, owner).state]; }""")
-        assert got == [None, "consistent", None, False, "consistent", "consistent", "pending", True, "current"], got
+            window.fetch = f0;
+            return [a, b1 && b1.state, b2, committedStale.committed, c1.state, c2.state, pendingBefore, committed.committed,
+                    committed.verdict.state, posts, sealedState(state.fitResult, owner).state]; }""")
+        assert got == [None, "consistent", None, False, "consistent", "consistent", "pending", True, "consistent", 0, "current"], got
+        # an object changed while its check was in flight: the answer is about what was SENT, and a seal made from
+        # the changed object does not receive it
+        got = pg.evaluate("""async () => {
+            const owner = _activeTab(), parts = structuredClone(state.fitResult.seal);
+            const op = _claimFitOp(owner), txn = _beginStaged(owner, op);
+            const p1 = _verifyStagedCheck(txn, parts.E.R, parts.E.O), p2 = _verifyStagedCheck(txn, parts.R, parts.O);
+            parts.R.counts[0] = 999;
+            const v = [(await p1).state, (await p2).state];
+            const changed = _makeSeal(parts);
+            return [...v, _commitStaged(txn, changed).committed, _sealVerdicts.has(changed)]; }""")
+        assert got == ["consistent", "consistent", False, False], got
         # a tab switch during a staged check: superseded
         got = pg.evaluate("""async () => {
             const owner = _activeTab(), seal = state.fitResult.seal, op = _claimFitOp(owner), txn = _beginStaged(owner, op);
             const p = _verifyStagedCheck(txn, seal.R, seal.O);
             tabManager.createTab('B', state.rawBE.slice(), state.rawIntensity.slice());
-            return [await p, _commitStaged(txn, seal)]; }""")
+            return [await p, _commitStaged(txn, seal).committed]; }""")
         assert got == [None, False], got
     finally:
         pg.close()

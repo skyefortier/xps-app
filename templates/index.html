@@ -8860,7 +8860,11 @@ function _jsonEqual(x, y) {
   if (typeof x === 'number' || typeof y === 'number') return typeof x === 'number' && typeof y === 'number' && _recNumEq(x, y);
   if (x === null || y === null || typeof x !== 'object' || typeof y !== 'object') return x === y;
   if (Array.isArray(x) !== Array.isArray(y)) return false;
-  if (Array.isArray(x)) return x.length === y.length && x.every((v, i) => _jsonEqual(v === undefined ? null : v, y[i] === undefined ? null : y[i]));
+  if (Array.isArray(x)) {   // every index, holes included (a hole is undefined: null in JSON)
+    if (x.length !== y.length) return false;
+    for (let i = 0; i < x.length; i++) if (!_jsonEqual(x[i] === undefined ? null : x[i], y[i] === undefined ? null : y[i])) return false;
+    return true;
+  }
   const kx = Object.keys(x).filter(k => x[k] !== undefined), ky = Object.keys(y).filter(k => y[k] !== undefined);
   return kx.length === ky.length && kx.every(k => y[k] !== undefined && Object.hasOwn(y, k) && _jsonEqual(x[k], y[k]));
 }
@@ -8929,7 +8933,9 @@ function _sealBindings(seal, owner) {
   const raw = _rawOf(owner);
   const memo = _sealBindingMemo.get(seal);
   // valid only for the SAME arrays holding the SAME values (an array edited in place is new data)
-  const same = (a, copy) => a.length === copy.length && a.every((v, i) => Object.is(v, copy[i]));
+  const same = (a, copy) => { if (a.length !== copy.length) return false;
+    for (let i = 0; i < a.length; i++) if (!(i in a) || !Object.is(a[i], copy[i])) return false;   // a deleted element is new data
+    return true; };
   if (memo && memo.be === raw.be && memo.inten === raw.inten && same(raw.be, memo.beCopy) && same(raw.inten, memo.intenCopy)) return memo.result;
   const result = _sealBindingsUncached(seal, raw);
   _sealBindingMemo.set(seal, { be: raw.be, inten: raw.inten, beCopy: Array.from(raw.be), intenCopy: Array.from(raw.inten), result });
@@ -9099,24 +9105,30 @@ function _beginStaged(owner, op) {
 function _stagedCurrent(txn) {
   return !!txn && _stagedTxns.get(txn.owner) === txn && _ownerLive(txn.owner) && _ownerActive(txn.owner) && _fitOpCurrent(txn.op);
 }
+// A staged check checks a SNAPSHOT of what it was handed (deep-frozen before it is sent): a change to the caller's
+// objects while the check is in flight changes nothing the answer is about.
 async function _verifyStagedCheck(txn, R, O) {
-  const v = await _checkOutcome(R, O);
+  const R0 = _deepFreeze(structuredClone(R)), O0 = _deepFreeze(structuredClone(O));
+  const v = await _checkOutcome(R0, O0);
   if (!_stagedCurrent(txn)) return null;                                // superseded: nothing resolved
-  txn.answers.push({ R, O, v });
+  txn.answers.push({ R: R0, O: O0, v });
   return v;
 }
-// The commit: the seal installed by the transaction takes the answers its checks received for ITS R / O (the
-// final fit's, and for Auto-Fit the anchor fit's as E) — numerical answers are cached, "unreachable" is not.
+// The commit (plan §9): the seal the transaction installs takes the answers its checks received — each matched to
+// the seal's own R / O BY CONTENT under the record rule (the seal is its own deep copy, _makeSeal), the final
+// fit's and, for Auto-Fit, the anchor fit's (E). Only a current transaction with an answer for EVERY check
+// commits: `{ committed: true, verdict }` (a numerical answer cached, "unreachable" not); otherwise nothing is
+// written and the transaction stays as it was: `{ committed: false }`.
 function _commitStaged(txn, seal) {
-  if (!_stagedCurrent(txn)) return false;
-  _stagedTxns.delete(txn.owner);
+  if (!_stagedCurrent(txn)) return { committed: false };
   const checks = seal.producer === 'autoFit' && seal.E ? [[seal.E.R, seal.E.O], [seal.R, seal.O]] : [[seal.R, seal.O]];
-  const vs = checks.map(([R, O]) => { const a = txn.answers.find(x => x.R === R && x.O === O); return a ? a.v : undefined; });
+  const vs = checks.map(([R, O]) => { const a = txn.answers.find(x => _jsonEqual(x.R, R) && _jsonEqual(x.O, O)); return a ? a.v : undefined; });
+  if (vs.some(v => v === undefined)) return { committed: false };
+  _stagedTxns.delete(txn.owner);
   const agg = _aggregateVerdicts(vs);
-  if (agg === undefined) return true;                                   // a check without an answer: background attempts settle it
   if (agg.unreachable) _sealUnreachable.set(seal, true);
   else _sealVerdicts.set(seal, { state: agg.state, check: agg.check || null, reason: agg.reason || '', software: agg.software || null });
-  return true;
+  return { committed: true, verdict: agg };
 }
 // PRODUCER-BOUND (kind 'producer', under the fit's operation `op`) or BACKGROUND (kind 'background': load, activation,
 // reinstall, retry — never claims a fit operation).
@@ -9151,10 +9163,12 @@ function _verifySeal(owner, seal, kind = 'background', op = null) {
 function _ensureVerified(owner, retry = false) {
   const fr = _fitResultOf(owner), seal = fr && fr.seal;
   if (!seal || seal.engine !== 'server') return null;
-  const cur = _sealAttempts.get(owner);
-  if (cur && cur.seal === seal) return null;
-  if (!retry && (_sealVerdicts.has(seal) || _sealUnreachable.has(seal))) return null;
-  return _verifySeal(owner, seal, 'background');
+  if (!retry) {                                    // a background trigger: never a second attempt, never a repeat
+    const cur = _sealAttempts.get(owner);
+    if (cur && cur.seal === seal) return null;
+    if (_sealVerdicts.has(seal) || _sealUnreachable.has(seal)) return null;
+  }
+  return _verifySeal(owner, seal, 'background');   // "check again" supersedes an attempt in flight (the latest attaches)
 }
 // A seal's verdict changed: the consumers repaint (step 7 wires them; until then an event for tests and observers).
 function _onSealVerdict(owner, seal) {

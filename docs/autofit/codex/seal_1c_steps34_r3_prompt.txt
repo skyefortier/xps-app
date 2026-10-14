@@ -1,0 +1,20 @@
+CORRECTNESS REVIEW, ROUND 3, of steps 3 and 4 of unit 1c ("sealed fit record") in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software.
+
+REPO: this checkout, branch seal-1c-s34fix. Steps 3-4 are `git diff 70e1097..115c1c2`; round 1 (NO-GO x2) led to 115c1c2..ffb7b94; round 2 (NO-GO x2; verdicts docs/autofit/codex/seal_1c_steps34_r2_verdict_run{A,B}.md, prompt seal_1c_steps34_r2_prompt.txt — read it for what the round-1 fix does) found: staged answers lost across `_makeSeal`'s deep copy (MAJOR); staged contents not protected while a check is in flight (MAJOR); "check again" blocked by an attempt in flight; sparse-array holes in `_jsonEqual` and the sample memo; tests not isolating their defects (staged success through an installed seal, held-value / lock / link failing at the inventory, wrong-spectrum E caught by R/O disagreement, no unreachable + outstanding case, no retry during an outstanding attempt). Review THIS round's fix: `git diff 46737f2..HEAD` (templates/index.html, tests/test_browser_seal_step4.py), and re-check steps 3-4 where it touches them. THE PLAN: docs/superpowers/plans/2026-10-14-seal-1c-page.md §2-§6, §9, §11.
+
+WHAT THIS ROUND CHANGES:
+- `_verifyStagedCheck` sends and records a deep-frozen SNAPSHOT of R / O; `_commitStaged(txn, seal)` matches the seal's own R / O to the snapshots BY CONTENT under the record rule (`_jsonEqual`), commits only with an answer for every check (`{committed, verdict}`), and otherwise writes nothing and leaves the transaction in place.
+- `_ensureVerified(owner, true)` ("check again") always starts a new attempt, superseding one in flight (only the latest attempt attaches); background triggers still never start a second attempt or repeat an answered one.
+- `_jsonEqual` walks every array index (a hole is null, as in JSON); the sample memo treats a deleted element as new data.
+- Tests: staged checks on a producer's pre-seal objects, sealed by `_makeSeal` and committed with no further request; an object changed while its check is in flight (no answer transferred); check again during an attempt in flight (a superseded mismatch reply ignored); unreachable + outstanding (PENDING until the other answers; then STALE or UNCONFIRMED by precedence); local lock / link / held-value substitutions made consistent in the inventory so only the projection can catch them; the anchor fit coherent with itself but not with the spectrum.
+
+ANSWER EACH (cite file:line):
+1. Is every round-2 finding (both runs) resolved? List each with its status.
+2. The staged lifecycle against plan §6.3 / §9: can an answer be transferred to a seal it is not about, a commit report success without an answer per check, or a superseded / changed check resolve anything? Is content matching under the record rule sound here?
+3. "Check again" and the ownership rules: can a superseded attempt's reply attach, or a background trigger now start duplicate attempts?
+4. Any regression with the switch off?
+5. Do the new tests each fail on the defect they name?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.
