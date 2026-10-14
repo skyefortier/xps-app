@@ -148,6 +148,16 @@ both labelled "GL" now names the backend shapes (bfca83a).
 - R's saved arrays are read as saved: JSON numbers only (a numeric string is the route's 400), each
   exactly a finite float, else `unconfirmed` — never rounded into agreement with O.
 - The verifier performs the fit's FIRST step, the evaluation of the START model on the fitter's copy
-  (nothing fitted): a start the routes refuse (a Lorentzian fwhm of 1e160 overflows; HTTP 422) has
-  no response — `mismatch / request`.
+  (nothing fitted): a start whose evaluation RAISES (a Lorentzian fwhm of 1e160 overflows; HTTP 422)
+  has no response — `mismatch / request`. (Superseded as the general rule by round 8's digest.)
 - The verifier's docstring states Q7's exact scope.
+
+## Round-8 fix (both runs NO-GO, the same class: a start the routes refuse, paired with an honest record)
+
+The class is closed, not enumerated: every response reports `request_digest` — the full SHA-256 of
+every input the fit started from, by effect (data, the background's effect, shapes, each parameter's
+role with its start value and bounds, the method, solver options, n_perturb), the very digest the seed
+is the first 32 bits of (seeds unchanged). The verifier recomputes it exactly, whatever the seed's
+source, so a recorded response is bound to every starting number of its request: a changed start —
+one the routes refuse (an amplitude of 1e308, a width of 0) or any other — is `mismatch /
+request_digest`. Additive in the response (`RESPONSE_KEYS`).

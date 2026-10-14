@@ -97,7 +97,7 @@ def test_the_analyze_least_squares_method_carries_the_record():
 def test_the_seed_derivation_tag_recorded_is_the_one_hashed():
     import inspect
     assert fitting.SEED_TAG == fitting.SOFTWARE["seed_derivation"] == "xps-fit-seed-v2"
-    assert "SEED_TAG.encode()" in inspect.getsource(fitting._request_seed)
+    assert "SEED_TAG.encode()" in inspect.getsource(fitting._request_digest)      # the seed is its first 32 bits
 
 
 def test_global_methods_record_their_method_and_a_null_certificate():

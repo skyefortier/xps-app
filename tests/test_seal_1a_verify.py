@@ -221,9 +221,9 @@ def test_a_record_paired_with_another_request_is_a_mismatch(client, sealed):
     R, O = sealed
     cases = [
         ({**R["request"], "background": {"method": "smart"}}, "background"),
-        ({**R["request"], "peaks": [{**R["request"]["peaks"][0], "center": 284.7}, R["request"]["peaks"][1]]}, "seed"),
+        ({**R["request"], "peaks": [{**R["request"]["peaks"][0], "center": 284.7}, R["request"]["peaks"][1]]}, "request_digest"),
         ({**R["request"], "fit_method": "nelder"}, "method"),
-        ({**R["request"], "n_perturb": 1}, "seed"),
+        ({**R["request"], "n_perturb": 1}, "request_digest"),
         ({**R["request"], "fit_method": "ampgo"}, "request"),
         ({**R["request"], "peaks": []}, "request"),
     ]
@@ -600,3 +600,44 @@ def test_a_start_the_fit_cannot_evaluate_has_no_consistent_record(client, method
     assert client.post("/api/fit", json={**R2["request"], "session_id": sid}).status_code == 422
     v = _verify(client, R2, O)
     assert v["state"] == "mismatch" and v["check"] == "request", v
+
+
+@pytest.mark.parametrize("change", [{"amplitude": 1e308}, {"amplitude": 281.0}, {"center": 285.001}, {"fwhm_max": 9.0},
+                                    {"fix_center": True}])
+def test_every_start_is_bound_by_the_request_digest_whatever_the_seed(client, change):
+    # Codex round 8: with a caller's seed nothing bound R's starting values to O; the response's request_digest
+    # (the seed's full SHA-256 over every input by effect) binds them — one rule instead of an enumeration of
+    # starts the fit routes refuse
+    x = np.linspace(280.0, 290.0, 101)
+    y = 20.0 + 300.0 / (1.0 + ((x - 285.0) / 0.5) ** 2)
+    specs = [{"id": 1, "shape": "lorentzian", "center": 285.0, "amplitude": 280.0, "fwhm": 4.0,
+              "amplitude_min": None, "amplitude_max": None}]
+    R, O = _seal(client, x, y, specs, background={"method": "none"}, seed=12345)
+    _consistent(client, R, O)
+    R2 = copy.deepcopy(R)
+    R2["request"]["peaks"][0].update(change)
+    v = _verify(client, R2, O)
+    assert v["state"] == "mismatch" and v["check"] in ("request_digest", "request"), v
+
+
+def test_the_digest_is_the_seeds_own_derivation():
+    x, y, specs = SS._well_posed()
+    r = fitting.run_fit(x, y, specs, background_method="linear", n_perturb=0, fit_kws={"method": "leastsq"})
+    assert r["random_seed"] == int.from_bytes(bytes.fromhex(r["request_digest"])[:4], "little")
+    c = fitting.run_fit(x, y, specs, background_method="linear", n_perturb=0,
+                        fit_kws={"method": "leastsq", "fit_kws": {"seed": 7}})
+    assert c["request_digest"] == r["request_digest"] and c["random_seed"] == 7
+
+
+def test_a_start_whose_curve_is_nan_is_bound_too(client):
+    # Codex round 8 run B: a Gaussian start of width 0 evaluates to NaN without raising (the routes answer 422);
+    # the request digest binds it like every other start
+    x = np.linspace(-5.0, 5.0, 101)
+    y = 10.0 + 100.0 * np.exp(-x * x)
+    specs = [{"id": 1, "shape": "gaussian", "center": 0.0, "amplitude": 100.0, "fwhm": 1.5, "fwhm_min": 0.0, "fwhm_max": 15.0}]
+    R, O = _seal(client, x, y, specs, background={"method": "none"}, seed=123)
+    _consistent(client, R, O)
+    R2 = copy.deepcopy(R)
+    R2["request"]["peaks"][0]["fwhm"] = 0.0
+    v = _verify(client, R2, O)
+    assert v["state"] == "mismatch" and v["check"] in ("request_digest", "request"), v

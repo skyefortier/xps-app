@@ -2087,7 +2087,19 @@ def _background_effect(method, n_roi, i0, i1, endpoint_avg, manual_bg) -> dict:
 
 
 def _request_seed(x, counts, background_effect, shapes, prefixes, params, *, fit_kws, n_perturb) -> int:
-    """The seed for every random draw of one fit: a pure function of the fit's
+    """The seed: the first 32 bits of ``_request_digest`` (unchanged by seal 1a′, which only names the
+    digest)."""
+    return int.from_bytes(bytes.fromhex(_request_digest(x, counts, background_effect, shapes, prefixes, params,
+                                                        fit_kws=fit_kws, n_perturb=n_perturb))[:4], "little")
+
+
+def _request_digest(x, counts, background_effect, shapes, prefixes, params, *, fit_kws, n_perturb) -> str:
+    """SHA-256 (hex) of the fit's INPUTS, by effect — the seed's derivation before it is cut to 32 bits.
+    Reported with every fit as ``request_digest`` whatever the seed's source (seal 1a′ Codex round 8): it
+    binds a recorded response to every number the fit started from, so the verification needs no
+    enumeration of starts the fit routes would refuse.
+
+    The seed for every random draw of one fit: a pure function of the fit's
     INPUTS — energies and counts (little-endian float64), what the background is
     computed from (`_background_effect`: method, window, averaging as it acts,
     anchors), the lineshape of each component in fitting order, each lmfit
@@ -2143,7 +2155,7 @@ def _request_seed(x, counts, background_effect, shapes, prefixes, params, *, fit
         a = np.ascontiguousarray(arr, dtype="<f8") + 0.0       # -0.0 -> 0.0 (the CSV path keeps "-0.00")
         h.update(str(a.size).encode() + b"\0" + a.tobytes())
     h.update(json.dumps(rest, sort_keys=True, separators=(",", ":"), allow_nan=True).encode())
-    return int.from_bytes(h.digest()[:4], "little")            # 32 bits: what scipy's seed accepts
+    return h.hexdigest()                                        # the seed is its first 32 bits (scipy's limit)
 
 
 # ── Scattered starts: is the fit the only solution the data allow? ────────────
@@ -2638,14 +2650,15 @@ def _run_fit_impl(
     # generator) comes from this one seed, so an identical request gives
     # identical DRAWS. (Not an identical Trust-Region result: see CLAUDE.md,
     # "Reproducibility".)
+    request_digest = _request_digest(
+        x, y, bg_effect,
+        [spec.get("shape", "pseudo_voigt_gl") for spec in ordered],
+        [f"p{spec['id']}_" for spec in ordered], all_params,
+        fit_kws=fit_kws, n_perturb=n_perturb)
     if caller_seed is not None:
         random_seed = int(caller_seed)
     else:
-        random_seed = _request_seed(
-            x, y, bg_effect,
-            [spec.get("shape", "pseudo_voigt_gl") for spec in ordered],
-            [f"p{spec['id']}_" for spec in ordered], all_params,
-            fit_kws=fit_kws, n_perturb=n_perturb)
+        random_seed = int.from_bytes(bytes.fromhex(request_digest)[:4], "little")   # = _request_seed
     # spawn(3) yields the same first two children as spawn(2): adding the
     # scattered-starts stream leaves every existing draw (and its pins) alone.
     perturb_rng, solver_rng, starts_rng = (np.random.default_rng(child)
@@ -2966,6 +2979,8 @@ def _run_fit_impl(
         "statistics": statistics,
         "charge_shift_applied": charge_shift_ev,
         "random_seed": random_seed,
+        # the SHA-256 of every input the fit started from, by effect (seal 1a′): binds this response to its request
+        "request_digest": request_digest,
         # RECORDING (owner 2026-10-10; additive — nothing here changes a fitted number or decides
         # whether a fit is current): the method, where the seed came from, the background's
         # verdict against its defining statement, and the software that computed the fit
@@ -3114,7 +3129,7 @@ run_fit.__wrapped__ = _run_fit_impl
 # The keys of a fit response, exactly: a recorded O with more or fewer is not a response.
 RESPONSE_KEYS = frozenset({
     "success", "message", "energy", "counts", "fitted_y", "fitted_sub", "background_y", "residuals",
-    "individual_peaks", "statistics", "charge_shift_applied", "random_seed", "fit_method", "seed_source",
+    "individual_peaks", "statistics", "charge_shift_applied", "random_seed", "request_digest", "fit_method", "seed_source",
     "background_verdict", "software", "starts", "required", "certificate"})
 _PEAK_KEYS = frozenset({"id", "shape", "y", "params", "support"})
 _PARAM_KEYS = frozenset({"value", "stderr", "vary", "expr", "min", "max"})
@@ -3323,6 +3338,7 @@ def _verify(O, *, energy, counts, peak_specs, background_method, bg_start_idx, b
         raise _Mismatch("schema", "the recorded statistics are not of a response's form")
     if not _is_number(O["charge_shift_applied"]) or not isinstance(O["random_seed"], int) \
             or isinstance(O["random_seed"], bool) or not isinstance(O["fit_method"], str) \
+            or not isinstance(O["request_digest"], str) \
             or not isinstance(O["seed_source"], str) or not isinstance(O["background_verdict"], dict):
         raise _Mismatch("schema", "a recorded field is not of its type")
 
@@ -3399,15 +3415,16 @@ def _verify(O, *, energy, counts, peak_specs, background_method, bg_start_idx, b
     y_sub = y - bg
     weights = 1.0 / np.sqrt(np.maximum(y, 1.0))
 
-    # ── the seed — from the request's STARTING parameters ──
+    # ── the request digest and the seed — from the request's STARTING parameters ──
+    digest = _request_digest(x, y, bg_effect, [s.get("shape", "pseudo_voigt_gl") for s in ordered],
+                             [f"p{s['id']}_" for s in ordered], start_params, fit_kws=fit_kws, n_perturb=n_perturb)
+    if O["request_digest"] != digest:
+        raise _Mismatch("request_digest", "the recorded response was not fitted from this request's inputs")
     if caller_seed is not None:
         if O["random_seed"] != int(caller_seed) or O["seed_source"] != "caller":
             raise _Mismatch("seed", "the recorded seed is not the caller's")
-    else:
-        seed = _request_seed(x, y, bg_effect, [s.get("shape", "pseudo_voigt_gl") for s in ordered],
-                             [f"p{s['id']}_" for s in ordered], start_params, fit_kws=fit_kws, n_perturb=n_perturb)
-        if O["random_seed"] != seed or O["seed_source"] != "request":
-            raise _Mismatch("seed", "the recorded seed is not the one the request derives")
+    elif O["random_seed"] != int.from_bytes(bytes.fromhex(digest)[:4], "little") or O["seed_source"] != "request":
+        raise _Mismatch("seed", "the recorded seed is not the one the request derives")
 
     # ── each component, in request order: its OWN parameters (exact membership) ──
     peaks = O["individual_peaks"]
