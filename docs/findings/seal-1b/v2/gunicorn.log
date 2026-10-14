@@ -1,0 +1,14 @@
+[2026-10-14 06:10:10 -0600] [62440] [INFO] Starting gunicorn 26.0.0
+[2026-10-14 06:10:10 -0600] [62440] [INFO] Listening at: http://127.0.0.1:5153 (62440)
+[2026-10-14 06:10:10 -0600] [62440] [INFO] Using worker: sync
+[2026-10-14 06:10:10 -0600] [62442] [INFO] Booting worker with pid: 62442
+[2026-10-14 06:10:10 -0600] [62445] [INFO] Booting worker with pid: 62445
+[2026-10-14 06:10:10 -0600] [62446] [INFO] Booting worker with pid: 62446
+[2026-10-14 06:10:10 -0600] [62447] [INFO] Booting worker with pid: 62447
+[2026-10-14 06:10:10 -0600] [62440] [INFO] Control socket listening at /Users/skyefortier/.gunicorn/gunicorn.ctl
+[2026-10-14 06:10:25 -0600] [62440] [INFO] Handling signal: term
+[2026-10-14 06:10:25 -0600] [62445] [INFO] Worker exiting (pid: 62445)
+[2026-10-14 06:10:25 -0600] [62447] [INFO] Worker exiting (pid: 62447)
+[2026-10-14 06:10:25 -0600] [62446] [INFO] Worker exiting (pid: 62446)
+[2026-10-14 06:10:25 -0600] [62442] [INFO] Worker exiting (pid: 62442)
+[2026-10-14 06:10:26 -0600] [62440] [INFO] Shutting down: Master

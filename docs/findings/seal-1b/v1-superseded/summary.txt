@@ -1,0 +1,43 @@
+== records: 328 ({'committed': 202, 'synthetic': 126}); HTTP status {200: 328}; converged 328
+== verify_fresh_1.jsonl: 328; verifying pid(s) of the CLIENT process [73705]
+   committed: {('consistent', None): 175, ('unconfirmed', 'components'): 27}
+   synthetic: {('consistent', None): 126}
+   not consistent: 27; all hold la_casaxps: no index; reason names la_casaxps: 27; checks {'components': 27}
+== verify_fresh_2.jsonl: 328; verifying pid(s) of the CLIENT process [73778]
+   committed: {('consistent', None): 177, ('unconfirmed', 'components'): 25}
+   synthetic: {('consistent', None): 126}
+   not consistent: 25; all hold la_casaxps: no index; reason names la_casaxps: 25; checks {'components': 25}
+== verify_shake.jsonl: 328; verifying pid(s) of the CLIENT process [73808]
+   committed: {('consistent', None): 179, ('unconfirmed', 'components'): 23}
+   synthetic: {('consistent', None): 126}
+   not consistent: 23; all hold la_casaxps: no index; reason names la_casaxps: 23; checks {'components': 23}
+== verify_gunicorn.jsonl: 328; verifying pid(s) of the CLIENT process [73948]
+   committed: {('consistent', None): 168, ('unconfirmed', 'components'): 34}
+   synthetic: {('consistent', None): 119, ('unconfirmed', 'components'): 7}
+   not consistent: 41; all hold la_casaxps: no index; reason names la_casaxps: 41; checks {'components': 41}
+== all verifications: 1312; {'consistent': 1196, 'unconfirmed': 116}; mismatch 0
+== size R_bytes (committed): median 9458.5 (n 202), min 4990, max 15375, total 2245548
+== size O_bytes (committed): median 52704.5 (n 202), min 17714, max 76740, total 11180628
+== size R_gzip (committed): median 3198.5 (n 202), min 1843, max 5126, total 759379
+== size O_gzip (committed): median 23817.5 (n 202), min 6516, max 35131, total 5055760
+== size R_bytes (synthetic): median 4441.0 (n 126), min 4358, max 8458, total 724158
+== size O_bytes (synthetic): median 25393.5 (n 126), min 22213, max 48795, total 4015283
+== size R_gzip (synthetic): median 1143.5 (n 126), min 1107, max 1959, total 175726
+== size O_gzip (synthetic): median 10921.0 (n 126), min 8003, max 20603, total 1623707
+   committed R+O per fit: median 62174.0 raw, 27007.5 gzip (each gzipped separately); 30 x median: 1865220.0 raw, 810225.0 gzip
+   points per committed fit: median (191.0, 202), max 350; components: median (4.0, 202), max 7
+== background twin committed: 202; window recovered 202; converged 202; bit-identical 202; by (method, endpoint_avg, identical) {('shirley', 1, True): 69, ('smart', 1, True): 97, ('smart', 6, True): 11, ('smart', 2, True): 1, ('smart_exp', 25, True): 18, ('smart_exp', 31, True): 1, ('smart_exp', 1, True): 5}; differing []
+== background twin synthetic: 126; window recovered 126; converged 126; bit-identical 126; by (method, endpoint_avg, identical) {('shirley', 3, True): 21, ('smart', None, True): 21, ('tougaard', None, True): 21, ('linear', None, True): 21, ('none', None, True): 21, ('manual', None, True): 21}; differing []
+== replay committed: 202; {'reproduced': 196, 'different': 6}; equal as sorted JSON once seed_source is restored: 134; success before/after {(True, True): 202}
+   U4f Scan_1 ['LACX', 'Voigt', 'asym-GL']: THE FIT differs; truncated False; ['  starts.fit.chi2r: 9.093700849253393 vs 9.093697835047248', '  statistics.aic: 727.5719232460751 vs 727.5718151898083', '  statistics.bic: 757.8671022970088 vs 757.866994240742', '  statistics.chi_square: 2891.796870062579 vs 2891.795911545025', '  statistics.reduced_chi_square: 9.093700849253393 vs 9.093697835047248']; ['starts.fit.chi2r rel 3.31e-07', 'statistics.aic rel 1.49e-07', 'statistics.bic rel 1.43e-07', 'statistics.chi_square rel 3.31e-07', 'statistics.reduced_chi_square rel 3.31e-07']
+   U4f Scan_3 ['LACX', 'Voigt', 'asym-GL']: THE FIT differs; truncated False; ['  individual_peaks.0.params.amplitude.value: 6349.859860043837 vs 6395.319796850052', '  individual_peaks.1.params.amplitude.value: 4762.394895032878 vs 4796.489847637538']; ['individual_peaks.0.params.amplitude.value rel 7.11e-03', 'individual_peaks.1.params.amplitude.value rel 7.11e-03']
+   U4f Scan_1 ['LACX', 'Voigt']: starts evidence only; truncated False; ['  starts.not_better_chi2r.1: 4.755585888226252 vs 4.7555852411743516']; ['starts.not_better_chi2r.1 rel 1.36e-07']
+   U4f Scan_2 ['LACX', 'Voigt']: starts evidence only; truncated False; ['  starts.not_better_chi2r.0: 3.8222532071757973 vs 3.8222521209676406']; ['starts.not_better_chi2r.0 rel 2.84e-07']
+   U4f Scan_6 ['LACX', 'Voigt']: starts evidence only; truncated False; ['  starts.not_better_chi2r.0: 11.74762004066232 vs 11.747617969683837']; ['starts.not_better_chi2r.0 rel 1.76e-07']
+   U4f Scan_5 ['LACX', 'Voigt']: starts evidence only; truncated False; ['  starts.not_better_chi2r.0: 5.484592454923769 vs 5.484590986247273']; ['starts.not_better_chi2r.0 rel 2.68e-07']
+== replay synthetic: 126; {'reproduced': 121, 'different': 5}; equal as sorted JSON once seed_source is restored: 86; success before/after {(True, True): 126}
+   syn-3-ds_g-3 ['ds_g']: starts evidence only; truncated False; ['  starts.n_converged: 3 vs 2', '  starts.n_not_better_elsewhere: 1 vs 0', '  starts.not_better_chi2r: length 1 vs 0']; ['starts.n_converged rel 3.33e-01', 'starts.n_not_better_elsewhere rel 1.00e+00']
+   syn-3-ds_g-5 ['ds_g']: starts evidence only; truncated False; ['  starts.n_not_better_elsewhere: 1 vs 0', '  starts.n_same_as_fit: 2 vs 3', '  starts.not_better_chi2r: length 1 vs 0']; ['starts.n_not_better_elsewhere rel 1.00e+00', 'starts.n_same_as_fit rel 3.33e-01']
+   syn-4-ds_g-1 ['ds_g']: starts evidence only; truncated False; ['  starts.not_better_chi2r.0: 67.62602435398821 vs 67.62578666261687']; ['starts.not_better_chi2r.0 rel 3.51e-06']
+   syn-4-ds_g-5 ['ds_g']: starts evidence only; truncated False; ['  starts.not_better_chi2r.0: 66.75070169857351 vs 66.75077140585199', '  starts.not_better_chi2r.1: 66.77791135018785 vs 66.77649648374478']; ['starts.not_better_chi2r.0 rel 1.04e-06', 'starts.not_better_chi2r.1 rel 2.12e-05']
+   syn-5-ds_g-2 ['ds_g']: starts evidence only; truncated False; ['  starts.n_not_better_elsewhere: 2 vs 1', '  starts.n_same_as_fit: 1 vs 2', '  starts.not_better_chi2r: length 2 vs 1']; ['starts.n_not_better_elsewhere rel 5.00e-01', 'starts.n_same_as_fit rel 5.00e-01']

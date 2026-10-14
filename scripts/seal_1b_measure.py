@@ -18,6 +18,13 @@ on the 202 committed targets.
                                tests/fit_equality.py (same fit within rounding) — reproduced / a
                                different solution / failed.
   sizes   RECORDS OUT.jsonl    bytes of R and O as JSON, raw and gzip-compressed.
+  index   RECORDS OUT.jsonl [TARGETS]
+                               one small line per record (the verbatim records are too big to commit):
+                               identity, request settings, the lineshape specs the findings rest on
+                               (Voigt's mix, LA's and DS+G's m), the fit's χ²ᵣ, the commit and its
+                               cleanliness, the software identity's digest, and sha256 digests of the
+                               record line and of R and O as JSON (the bytes `sizes` measures);
+                               TARGETS adds each target's kind (own / batch).
 
 Every phase is resumable (JSONL keyed by target id).
 """
@@ -181,6 +188,51 @@ def sizes(recs, out):
                      "R_gzip": len(gzip.compress(R)), "O_gzip": len(gzip.compress(O))})
 
 
+def index(recs, out, targets=None):
+    import hashlib
+    kinds = {t["id"]: t.get("kind") for t in json.load(open(targets))} if targets else {}
+    sha = lambda b: hashlib.sha256(b).hexdigest()
+    with open(recs, "rb") as f, open(out, "w") as w:
+        for raw in f:
+            raw = raw.rstrip(b"\n")
+            rec = json.loads(raw)
+            R, O, req = rec["R"], rec["O"], rec["R"]["request"]
+            bg = req["background"]
+            fitted = {str(ip["id"]): ip["params"] for ip in O.get("individual_peaks") or []}
+            peaks = []
+            for p in req["peaks"]:
+                e = {"frontend_shape": p.get("frontend_shape"), "shape": p["shape"],
+                     "linked": p.get("constrain_to") is not None}
+                fp = fitted.get(str(p["id"]), {})
+                if p.get("frontend_shape") == "Voigt" or p["shape"] == "pseudo_voigt_gl":
+                    e.update(gl_ratio=p.get("gl_ratio"), fix_gl_ratio=p.get("fix_gl_ratio"))
+                if p["shape"] == "la_casaxps":
+                    e.update(m_start=p.get("m"), fix_m=p.get("fix_m"),
+                             m_vary=fp.get("m", {}).get("vary"), m_fitted=fp.get("m", {}).get("value"))
+                if p["shape"] == "ds_g":
+                    e.update(fix_m_gauss=p.get("fix_m_gauss"), m_gauss_vary=fp.get("m_gauss", {}).get("vary"),
+                             m_gauss_fitted=fp.get("m_gauss", {}).get("value"))
+                peaks.append(e)
+            st = O.get("statistics") or {}
+            w.write(json.dumps({
+                "id": rec["id"], "project": rec["project"], "tab": rec["tab"], "kind": kinds.get(rec["id"]),
+                "shapes": rec["shapes"], "backend_shapes": sorted({p["shape"] for p in req["peaks"]}),
+                "status": rec["status"], "success": O.get("success"), "n": len(R["energies"]),
+                "n_peaks": len(req["peaks"]), "n_free_params": st.get("n_free_params"),
+                "reduced_chi_square": st.get("reduced_chi_square"),
+                "fit_method": req.get("fit_method"), "n_perturb": req.get("n_perturb"), "n_starts": req.get("n_starts"),
+                "background": {"method": bg["method"], "start_idx": bg.get("start_idx"), "end_idx": bg.get("end_idx"),
+                               "endpoint_avg": bg.get("endpoint_avg"), "n_anchors": len(bg.get("manual_bg") or [])},
+                "peaks": peaks, "random_seed": O.get("random_seed"), "seed_source": O.get("seed_source"),
+                "request_digest": O.get("request_digest"),
+                # the software identity verification gates on, as a digest (its full text: the run's manifest)
+                "software_sha256": sha(json.dumps(O.get("software"), sort_keys=True).encode()),
+                "git_commit": (O.get("software") or {}).get("git_commit"),
+                "git_dirty": (O.get("software") or {}).get("git_dirty"),
+                "line_sha256": sha(raw), "R_sha256": sha(json.dumps(R).encode()), "O_sha256": sha(json.dumps(O).encode()),
+            }) + "\n")
+
+
 if __name__ == "__main__":
     mode = sys.argv[1]
     if mode == "record":
@@ -194,5 +246,7 @@ if __name__ == "__main__":
         replay(sys.argv[2], sys.argv[3])
     elif mode == "sizes":
         sizes(sys.argv[2], sys.argv[3])
+    elif mode == "index":
+        index(sys.argv[2], sys.argv[3], sys.argv[4] if len(sys.argv) > 4 else None)
     else:
         raise SystemExit(__doc__)

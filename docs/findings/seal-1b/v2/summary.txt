@@ -1,0 +1,61 @@
+== records: 328 ({'committed': 202, 'synthetic': 126}); HTTP status {200: 328}; converged 328
+   kind {'own': 107, 'batch': 95, 'synthetic': 126}
+   software identities 1; commits {'a46cd3fb3bdf82bf89d5d3f4b8e3dddaa773bfa1': 328}; dirty {False: 328}
+   seed_source {'request': 328}; fit_method {'least_squares': 328}; n_perturb {3: 328}; n_starts {3: 304, 0: 24}
+   committed: records holding each backend lineshape {'asymmetric_gl': 108, 'gaussian': 25, 'la_casaxps': 89, 'pseudo_voigt_gl': 183}; components {('GL', 'pseudo_voigt_gl'): 374, ('Gaussian', 'gaussian'): 25, ('LACX', 'la_casaxps'): 178, ('Voigt', 'pseudo_voigt_gl'): 180, ('asym-GL', 'asymmetric_gl'): 108}
+   committed: background method {'shirley': 69, 'smart': 109, 'smart_exp': 24}; endpoint_avg {1: 171, 6: 11, 2: 1, 25: 18, 31: 1}; explicit window 202
+   committed: Voigt components (gl_ratio, fix_gl_ratio) {(0.5, True): 180}
+   committed: LA components 178; (linked, fix_m sent, m varied) {(False, False, True): 79, (True, False, False): 89, (False, True, False): 10}; fitted m 0–13.62 (n 178); below the 1e-3 no-convolution threshold 20; records whose every LA m is below it 10
+   synthetic: records holding each backend lineshape {'asymmetric_gl': 18, 'doniach_sunjic': 18, 'ds_g': 18, 'gaussian': 18, 'la_casaxps': 18, 'lorentzian': 18, 'pseudo_voigt_gl': 18}; components {(None, 'asymmetric_gl'): 36, (None, 'doniach_sunjic'): 36, (None, 'ds_g'): 36, (None, 'gaussian'): 36, (None, 'la_casaxps'): 36, (None, 'lorentzian'): 36, (None, 'pseudo_voigt_gl'): 36}
+   synthetic: background method {'shirley': 21, 'smart': 21, 'tougaard': 21, 'linear': 21, 'none': 21, 'manual': 21}; endpoint_avg {3: 21, None: 105}; explicit window 0
+   synthetic: Voigt components (gl_ratio, fix_gl_ratio) {}
+   synthetic: LA components 36; (linked, fix_m sent, m varied) {(False, None, False): 36}; fitted m 6–6 (n 36); below the 1e-3 no-convolution threshold 0; records whose every LA m is below it 0
+   synthetic: DS+G components 36; m_gauss varied {True: 36}; fitted m_gauss 0.6303–1.303 (n 36)
+== verify_fresh_1.jsonl: 328; verifying pid(s) of the CLIENT process [62043]
+   committed: {('consistent', None): 199, ('unconfirmed', 'components'): 3}
+   synthetic: {('consistent', None): 126}
+   not consistent: 3; all hold la_casaxps: True; reason names la_casaxps: 3; checks {'components': 3}
+   records holding each backend lineshape, by verdict: {asymmetric_gl: {'consistent': 125, 'unconfirmed': 1}, doniach_sunjic: {'consistent': 18}, ds_g: {'consistent': 18}, gaussian: {'consistent': 43}, la_casaxps: {'consistent': 104, 'unconfirmed': 3}, lorentzian: {'consistent': 18}, pseudo_voigt_gl: {'consistent': 198, 'unconfirmed': 3}}
+   records WITHOUT la_casaxps: 221, verdicts {'consistent': 221}
+== verify_fresh_2.jsonl: 328; verifying pid(s) of the CLIENT process [62218]
+   committed: {('consistent', None): 190, ('unconfirmed', 'components'): 12}
+   synthetic: {('consistent', None): 126}
+   not consistent: 12; all hold la_casaxps: True; reason names la_casaxps: 12; checks {'components': 12}
+   records holding each backend lineshape, by verdict: {asymmetric_gl: {'consistent': 126}, doniach_sunjic: {'consistent': 18}, ds_g: {'consistent': 18}, gaussian: {'consistent': 43}, la_casaxps: {'unconfirmed': 12, 'consistent': 95}, lorentzian: {'consistent': 18}, pseudo_voigt_gl: {'consistent': 189, 'unconfirmed': 12}}
+   records WITHOUT la_casaxps: 221, verdicts {'consistent': 221}
+== verify_shake.jsonl: 328; verifying pid(s) of the CLIENT process [62274]
+   committed: {('consistent', None): 199, ('unconfirmed', 'components'): 3}
+   synthetic: {('consistent', None): 126}
+   not consistent: 3; all hold la_casaxps: True; reason names la_casaxps: 3; checks {'components': 3}
+   records holding each backend lineshape, by verdict: {asymmetric_gl: {'consistent': 125, 'unconfirmed': 1}, doniach_sunjic: {'consistent': 18}, ds_g: {'consistent': 18}, gaussian: {'consistent': 43}, la_casaxps: {'consistent': 104, 'unconfirmed': 3}, lorentzian: {'consistent': 18}, pseudo_voigt_gl: {'consistent': 198, 'unconfirmed': 3}}
+   records WITHOUT la_casaxps: 221, verdicts {'consistent': 221}
+== verify_gunicorn.jsonl: 328; verifying pid(s) of the CLIENT process [62510]
+   committed: {('consistent', None): 164, ('unconfirmed', 'components'): 38}
+   synthetic: {('consistent', None): 118, ('unconfirmed', 'components'): 8}
+   not consistent: 46; all hold la_casaxps: True; reason names la_casaxps: 46; checks {'components': 46}
+   records holding each backend lineshape, by verdict: {asymmetric_gl: {'consistent': 126}, doniach_sunjic: {'consistent': 18}, ds_g: {'consistent': 18}, gaussian: {'consistent': 43}, la_casaxps: {'consistent': 61, 'unconfirmed': 46}, lorentzian: {'consistent': 18}, pseudo_voigt_gl: {'consistent': 163, 'unconfirmed': 38}}
+   records WITHOUT la_casaxps: 221, verdicts {'consistent': 221}
+== all verifications: 1312; {'consistent': 1248, 'unconfirmed': 64}; mismatch 0
+   LA records whose every m is below 1e-3 (no convolution): 10, unconfirmed in any setting: 0
+   records holding la_casaxps: 107 ({'committed': 89, 'synthetic': 18}); unconfirmed in at least one setting: 53 ({'committed': 45, 'synthetic': 8}); consistent in all four: 54
+== size R_bytes (committed): median 9607.5 (n 202), min 5019, max 15479, total 2267723
+== size O_bytes (committed): median 52704.5 (n 202), min 17714, max 76720, total 11126673
+== size R_gzip (committed): median 3222.0 (n 202), min 1858, max 5159, total 764915
+== size O_gzip (committed): median 23819.0 (n 202), min 6516, max 35283, total 5042760
+== size R_bytes (synthetic): median 4441.0 (n 126), min 4358, max 8458, total 724158
+== size O_bytes (synthetic): median 25395.0 (n 126), min 22213, max 48795, total 4015104
+== size R_gzip (synthetic): median 1143.0 (n 126), min 1106, max 1958, total 175737
+== size O_gzip (synthetic): median 10922.5 (n 126), min 8005, max 20583, total 1623937
+   committed R+O per fit: median 62323.0 raw, 27035.0 gzip (each gzipped separately); 30 x median: 1869690.0 raw, 811050.0 gzip
+   points per committed fit: median (191.0, 202), max 350; components: median (4.0, 202), max 7
+== background twin committed: 202; window recovered 202; converged 202; bit-identical 202; by (method, endpoint_avg, identical) {('shirley', 1, True): 69, ('smart', 1, True): 97, ('smart', 6, True): 11, ('smart', 2, True): 1, ('smart_exp', 25, True): 18, ('smart_exp', 31, True): 1, ('smart_exp', 1, True): 5}; differing []
+== background twin synthetic: 126; window recovered 126; converged 126; bit-identical 126; by (method, endpoint_avg, identical) {('shirley', 3, True): 21, ('smart', None, True): 21, ('tougaard', None, True): 21, ('linear', None, True): 21, ('none', None, True): 21, ('manual', None, True): 21}; differing []
+== replay committed: 202; {'reproduced': 200, 'different': 2}; equal as sorted JSON once seed_source is restored: 113; success before/after {(True, True): 202}
+   U4f Scan_2 ['LACX', 'Voigt']: starts evidence only; truncated False; ['  starts.not_better_chi2r.0: 3.1192593208951966 vs 3.1192599875826548']; ['starts.not_better_chi2r.0 rel 2.14e-07']
+   U4f Scan_4 ['LACX', 'Voigt']: starts evidence only; truncated False; ['  starts.not_better_chi2r.0: 2.156287000613904 vs 2.1562867456347177']; ['starts.not_better_chi2r.0 rel 1.18e-07']
+== replay synthetic: 126; {'reproduced': 121, 'different': 5}; equal as sorted JSON once seed_source is restored: 88; success before/after {(True, True): 126}
+   syn-3-ds_g-5 ['ds_g']: starts evidence only; truncated False; ['  starts.n_not_better_elsewhere: 0 vs 1', '  starts.n_same_as_fit: 3 vs 2', '  starts.not_better_chi2r: length 0 vs 1']; ['starts.n_not_better_elsewhere rel 1.00e+00', 'starts.n_same_as_fit rel 3.33e-01']
+   syn-4-ds_g-1 ['ds_g']: starts evidence only; truncated False; ['  starts.not_better_chi2r.0: 67.62602435398821 vs 67.62578666279637']; ['starts.not_better_chi2r.0 rel 3.51e-06']
+   syn-4-ds_g-3 ['ds_g']: starts evidence only; truncated False; ['  starts.not_better_chi2r.1: 67.34743373985822 vs 67.34732692370676']; ['starts.not_better_chi2r.1 rel 1.59e-06']
+   syn-4-ds_g-5 ['ds_g']: starts evidence only; truncated False; ['  starts.not_better_chi2r.1: 66.77790705560574 vs 66.7764969742942']; ['starts.not_better_chi2r.1 rel 2.11e-05']
+   syn-5-ds_g-5 ['ds_g']: starts evidence only; truncated False; ['  starts.not_better_chi2r.0: 63.19070387461031 vs 63.14731294813887']; ['starts.not_better_chi2r.0 rel 6.87e-04']
