@@ -59,7 +59,9 @@ test('the request asks for the Graphite anchor by id, and the gate precedes the 
   const captured = run.indexOf("const anchorId = String((state.peaks.find(p => p.name === 'Graphite') || state.peaks[0]).id);");
   assert.ok(captured > 0 && captured < run.indexOf('await uploadToBackend('), 'the anchor id is captured before the first await');
   assert.match(run, /const req1 = _autoFitRequest\(anchorId\);/);
-  assert.match(extractFn('_autoFitRequest'), /require_component: anchorId,/);
+  // seal 1c step 2: the one request builder sends it; _autoFitRequest hands it the anchor id
+  assert.match(extractFn('_autoFitRequest'), /requireComponent: anchorId/);
+  assert.match(extractFn('_buildFitRequest'), /require_component: producerCtx\.requireComponent/);
   const gates = extractFn('_autoFitAnchorRefusal');
   assert.ok(gates.indexOf('req.required === false') > 0 && gates.indexOf('req.required === false') < gates.indexOf('_autoFitGraphiteIsSupported(gPeak, json)'));
   const apply = extractFn('applyAutoFitResult');

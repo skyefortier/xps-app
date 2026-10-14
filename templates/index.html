@@ -5475,6 +5475,28 @@ function _onCCObsInput() {
   updateChargeCorrection();
 }
 
+// The charge shift a reference setting gives, and the reference field's text — the arithmetic
+// updateChargeCorrection always did, as a PURE function (seal 1c step 2: Auto-Fit's derivation reads it too).
+const _CC_REFERENCE = { c1s: [284.5, '284.5'], 'c1s-adv': [284.8, '284.8'], au4f: [83.98, '83.98'],
+  'b1s-b2o3': [192.99, '192.99'], 'n1s-bn': [398.31, '398.31'], 'b1s-bn': [190.74, '190.74'] };
+function _ccShiftOf(method, obsText, litText) {
+  const obs = parseFloat(obsText);
+  if (_CC_REFERENCE[method]) {
+    const [ref, refText] = _CC_REFERENCE[method];
+    return { shift: isNaN(obs) ? 0 : obs - ref, lit: refText };
+  }
+  if (method === 'custom') {
+    const lit = parseFloat(litText);
+    return { shift: (isNaN(obs) || isNaN(lit)) ? 0 : obs - lit, lit: litText };
+  }
+  return { shift: 0, lit: litText };
+}
+// An energy field moved by the change of the shift: its value − Δ to one decimal, a blank or non-number kept.
+function _ccMoveField(text, delta) {
+  const v = parseFloat(text);
+  return isNaN(v) ? text : (v - delta).toFixed(1);
+}
+
 function updateChargeCorrection() {
   const prevShift = state.ccShift;
   const method = document.getElementById('cc-method').value;
@@ -5484,44 +5506,14 @@ function updateChargeCorrection() {
   refField.style.display = 'none';
   targetField.style.display = 'none';
 
-  if (method === 'c1s') {
-    const obs = parseFloat(document.getElementById('cc-obs').value);
-    state.ccShift = isNaN(obs) ? 0 : obs - 284.5;
+  const cc = _ccShiftOf(method, document.getElementById('cc-obs').value, document.getElementById('cc-lit').value);
+  state.ccShift = cc.shift;
+  if (_CC_REFERENCE[method]) {
     refField.style.display = 'block';
-    document.getElementById('cc-lit').value = '284.5';
-  } else if (method === 'c1s-adv') {
-    const obs = parseFloat(document.getElementById('cc-obs').value);
-    state.ccShift = isNaN(obs) ? 0 : obs - 284.8;
-    refField.style.display = 'block';
-    document.getElementById('cc-lit').value = '284.8';
-  } else if (method === 'au4f') {
-    const obs = parseFloat(document.getElementById('cc-obs').value);
-    state.ccShift = isNaN(obs) ? 0 : obs - 83.98;
-    refField.style.display = 'block';
-    document.getElementById('cc-lit').value = '83.98';
-  } else if (method === 'b1s-b2o3') {
-    const obs = parseFloat(document.getElementById('cc-obs').value);
-    state.ccShift = isNaN(obs) ? 0 : obs - 192.99;
-    refField.style.display = 'block';
-    document.getElementById('cc-lit').value = '192.99';
-  } else if (method === 'n1s-bn') {
-    const obs = parseFloat(document.getElementById('cc-obs').value);
-    state.ccShift = isNaN(obs) ? 0 : obs - 398.31;
-    refField.style.display = 'block';
-    document.getElementById('cc-lit').value = '398.31';
-  } else if (method === 'b1s-bn') {
-    const obs = parseFloat(document.getElementById('cc-obs').value);
-    state.ccShift = isNaN(obs) ? 0 : obs - 190.74;
-    refField.style.display = 'block';
-    document.getElementById('cc-lit').value = '190.74';
+    document.getElementById('cc-lit').value = cc.lit;
   } else if (method === 'custom') {
-    const obs = parseFloat(document.getElementById('cc-obs').value);
-    const lit = parseFloat(document.getElementById('cc-lit').value);
-    state.ccShift = (isNaN(obs) || isNaN(lit)) ? 0 : obs - lit;
     refField.style.display = 'block';
     targetField.style.display = 'block';
-  } else {
-    state.ccShift = 0;
   }
 
   // Shift all energy-dependent values by the change in correction
@@ -5532,16 +5524,16 @@ function updateChargeCorrection() {
     const roiMaxEl = document.getElementById('roi-max');
     const roiMinVal = parseFloat(roiMinEl.value);
     const roiMaxVal = parseFloat(roiMaxEl.value);
-    if (!isNaN(roiMinVal)) roiMinEl.value = (roiMinVal - delta).toFixed(1);
-    if (!isNaN(roiMaxVal)) roiMaxEl.value = (roiMaxVal - delta).toFixed(1);
+    if (!isNaN(roiMinVal)) roiMinEl.value = _ccMoveField(roiMinEl.value, delta);
+    if (!isNaN(roiMaxVal)) roiMaxEl.value = _ccMoveField(roiMaxEl.value, delta);
 
     // Background endpoints
     const bgStartEl = document.getElementById('bg-start');
     const bgEndEl = document.getElementById('bg-end');
     const bgStartVal = parseFloat(bgStartEl.value);
     const bgEndVal = parseFloat(bgEndEl.value);
-    if (!isNaN(bgStartVal)) bgStartEl.value = (bgStartVal - delta).toFixed(1);
-    if (!isNaN(bgEndVal)) bgEndEl.value = (bgEndVal - delta).toFixed(1);
+    if (!isNaN(bgStartVal)) bgStartEl.value = _ccMoveField(bgStartEl.value, delta);
+    if (!isNaN(bgEndVal)) bgEndEl.value = _ccMoveField(bgEndEl.value, delta);
 
     // Peak centers
     for (const p of state.peaks) {
@@ -7021,6 +7013,90 @@ async function uploadToBackend(be, inten, signal) {
   return json.session_id;
 }
 
+// ── Seal 1c step 2 (plan docs/superpowers/plans/2026-10-14-seal-1c-page.md §1-§4): the fit's context, the ONE
+// request builder and the live application as PURE functions. Every producer builds its request with
+// _buildFitRequest; the seal's step 0 will rebuild a recorded request with the same function. Behaviour is
+// unchanged (pinned: tests/test_browser_seal_requests.py against the requests the page sent before).
+
+// The fit's CONTEXT as the page holds it now: every live control a server fit reads, the shift in force and a
+// copy of the manual anchors (plan §1 `context0.live`). Read once, before a producer's first await.
+function _liveFitContext() {
+  const v = id => document.getElementById(id)?.value;
+  return {
+    bgType: v('bg-type'), bgStart: v('bg-start'), bgEnd: v('bg-end'), shirleyIter: v('shirley-iter'),
+    endpointAvg: v('bg-endpoint-avg'), roiMin: v('roi-min'), roiMax: v('roi-max'), fitMethod: v('fit-method'),
+    ccMethod: v('cc-method'), ccObs: v('cc-obs'), ccLit: v('cc-lit'), ccShift: state.ccShift,
+    anchors: _getManualAnchors().map(a => ({ x: a.x, y: a.y })),
+  };
+}
+
+// The wire body of a server fit from a model snapshot and a context, the background window located on the
+// energies the fit receives. 'runFit' / 'useSolution': the page's Run Fit request; 'autoFit': Auto-Fit's
+// (its per-peak overlays, amplitude_min 0, the anchor check). `session_id` is the caller's (transport).
+function _buildFitRequest(producer, pageModel, ctx, energies, producerCtx = {}) {
+  // Inclusive bg window — the same point set computeBackgroundCore draws;
+  // the backend slices end-exclusive, so the request sends i1 + 1.
+  const bgWin = _bgWindowIndices(energies, parseFloat(ctx.bgStart), parseFloat(ctx.bgEnd));
+  const background = { method: ctx.bgType, start_idx: bgWin.i0, end_idx: bgWin.i1 + 1, endpoint_avg: parseInt(ctx.endpointAvg) || 1 };
+  // Anchors are stored in corrected-BE space, same frame as the uploaded
+  // session data; backend expects [x, y] pairs.
+  if (ctx.bgType === 'manual') background.manual_bg = ctx.anchors.map(a => [a.x, a.y]);
+  if (producer === 'autoFit') {
+    // Build peak specs and overlay the per-peak bounds we attached in buildAutoFitModel.
+    const peaks = pageModel.map(p => {
+      const spec = peakToBackendSpec(p);
+      if (Number.isFinite(p._afCenterMin)) spec.center_min = p._afCenterMin;
+      if (Number.isFinite(p._afCenterMax)) spec.center_max = p._afCenterMax;
+      if (Number.isFinite(p._afFwhmMin))   spec.fwhm_min   = p._afFwhmMin;
+      if (Number.isFinite(p._afFwhmMax))   spec.fwhm_max   = p._afFwhmMax;
+      spec.amplitude_min = 0;
+      return spec;
+    });
+    // step (c): is the charge-reference anchor REQUIRED? The server refits
+    // the model without it; a redundant anchor must not set the energy
+    // reference of a whole spectrum (see _autoFitAnchorRefusal).
+    return { background, peaks, fit_method: ctx.fitMethod, n_perturb: 3, require_component: producerCtx.requireComponent };
+  }
+  return {
+    background, peaks: pageModel.map(peakToBackendSpec), fit_method: ctx.fitMethod, n_perturb: 3,
+    // scattered-starts check (the server also skips it for the global methods)
+    n_starts: _startsUnlinkedCount(pageModel) >= 2 ? _STARTS_N : 0,
+  };
+}
+
+// The live application of a server fit as a PURE function (plan §4): a deep copy of the model the fit started
+// from, with _applyBackendParams' own rules applied from O's parameters — a locked field keeps the snapshot's
+// value, a free one takes O's through the live conversion, an expression takes O's whatever the lock.
+function project(pageModel, O) {
+  const out = structuredClone(pageModel);
+  for (const ip of O.individual_peaks) {
+    // Backend returns string IDs; the page's peaks use numeric IDs
+    const q = out.find(x => x.id === Number(ip.id)) || out.find(x => x.id === ip.id);
+    if (!q) continue;
+    _applyBackendParams(q, ip.params);
+    q._backendParams = ip.params;
+  }
+  return out;
+}
+// Two model snapshots are the SAME MODEL when every field is equal except the fit EVIDENCE a fit stamps on
+// its peaks (`support`: re-derived from O whenever a fit is installed, never part of a model's identity) —
+// the equality plan §6.3's derivation and the seal's checks use.
+const _MODEL_EVIDENCE_FIELDS = ['support'];
+function _sameModel(a, b) {
+  const strip = m => m.map(p => { const q = { ...p }; for (const k of _MODEL_EVIDENCE_FIELDS) delete q[k]; return q; });
+  return Array.isArray(a) && Array.isArray(b) && a.length === b.length && JSON.stringify(strip(a)) === JSON.stringify(strip(b));
+}
+// The fields a projection can change (what _applyBackendParams writes, and the server parameters).
+const _PROJECTED_FIELDS = ['center', 'amplitude', 'fwhm', 'glMix', 'asymmetry', 'dsAlpha', 'dsGamma',
+  'laAlpha', 'laBeta', 'laM', 'caAlpha', 'caBeta', 'caM', '_backendParams'];
+function _applyProjected(livePeaks, projected) {
+  for (const q of projected) {
+    const p = livePeaks.find(x => x.id === q.id);
+    if (!p) continue;
+    for (const k of _PROJECTED_FIELDS) if (p[k] !== q[k]) p[k] = q[k];
+  }
+}
+
 function peakToBackendSpec(p) {
   // All initial values go at top level — fitting.py reads spec.get("center") etc.
   const spec = {
@@ -7133,15 +7209,10 @@ function _applyBackendParams(p, par) {
   if (take('m', p.fixCaM) && p.shape === 'LACX')         p.caM     = par.m.value;
 }
 
-function applyBackendResult(result) {
-  for (const ipeak of result.individual_peaks) {
-    // Backend returns string IDs; state.peaks uses numeric IDs
-    const p = getPeak(Number(ipeak.id)) || getPeak(ipeak.id);
-    if (!p) continue;
-    // Only apply parameters that were NOT locked — locked params must stay unchanged
-    _applyBackendParams(p, ipeak.params);
-    p._backendParams = ipeak.params;
-  }
+// `pageModel`: the model the fit started from (its request was built from it); the live peaks take the
+// projection's fitted values (ONE reading of a fit's parameters: project).
+function applyBackendResult(result, pageModel = state.peaks) {
+  _applyProjected(state.peaks, project(pageModel, result));
   // the verdict describes the model as it now stands (values applied) in its fit context
   _applySupport(state.peaks, result, _startsLiveKey());
 }
@@ -7984,6 +8055,30 @@ function applyAutoFitResult(json, graphiteRaw, roi) {
   return true;
 }
 
+// Auto-Fit's DERIVATION as a pure function (seal 1c step 2, plan §6.3): from the anchor fit's model snapshot,
+// context and reply, the model and context the FINAL fit is made from — what applyAutoFitResult and
+// updateChargeCorrection do to the page, step for step: the anchor's fitted raw centre (corrected centre +
+// the shift in force) as the observed C 1s graphite reference (toFixed(3); the reference field reads 284.5),
+// the new shift, Δ = new − old; when Δ ≠ 0 the ROI and background fields re-expressed (toFixed(1)), every
+// centre and manual anchor moved by −Δ; every centre locked. The seal will require the final fit's recorded
+// model and context to equal it.
+function deriveAutoFit(pageModel1, ctx1, O1) {
+  const model = project(pageModel1, O1);
+  const g = model.find(p => p.name === 'Graphite') || model[0];
+  const graphiteFittedRaw = g.center + (Number.isFinite(ctx1.ccShift) ? ctx1.ccShift : 0);
+  const ccObs = graphiteFittedRaw.toFixed(3);
+  const cc = _ccShiftOf('c1s', ccObs, '284.50');
+  const delta = cc.shift - ctx1.ccShift;
+  const ctx = { ...ctx1, ccMethod: 'c1s', ccObs, ccLit: cc.lit, ccShift: cc.shift, anchors: ctx1.anchors.map(a => ({ ...a })) };
+  if (delta !== 0) {
+    for (const k of ['roiMin', 'roiMax', 'bgStart', 'bgEnd']) ctx[k] = _ccMoveField(ctx[k], delta);
+    for (const p of model) p.center -= delta;
+    for (const a of ctx.anchors) a.x -= delta;
+  }
+  for (const p of model) p.fixCenter = true;
+  return { pageModel: model, ctx };
+}
+
 // Publish Auto-Fit's FINAL fit — made in the corrected frame on exactly the points, background and
 // model it shows (Q8) — as runFit() publishes a result: the statistics, the record, the Results, one
 // history snapshot, the 40 % graphite warning. Returns false (nothing published) on a refused background.
@@ -8274,37 +8369,10 @@ async function _serverFitJob(fitReq, guard) {
 // the anchor check. The anchor fit and the final fit (Q8) read it the same way.
 function _autoFitRequest(anchorId) {
   const { be, inten } = getROIData();
-  const bgType = document.getElementById('bg-type').value;
-  const bgStart = parseFloat(document.getElementById('bg-start').value);
-  const bgEnd = parseFloat(document.getElementById('bg-end').value);
-  // Inclusive bg window — the same point set computeBackgroundCore draws;
-  // the backend slices end-exclusive, so the request sends i1 + 1.
-  const bgWin = _bgWindowIndices(be, bgStart, bgEnd);
-  const epAvg = parseInt(document.getElementById('bg-endpoint-avg').value) || 1;
-  const fitMethod = document.getElementById('fit-method').value;
-  // Build peak specs and overlay the per-peak bounds we attached in buildAutoFitModel.
-  const peakSpecs = state.peaks.map(p => {
-    const spec = peakToBackendSpec(p);
-    if (Number.isFinite(p._afCenterMin)) spec.center_min = p._afCenterMin;
-    if (Number.isFinite(p._afCenterMax)) spec.center_max = p._afCenterMax;
-    if (Number.isFinite(p._afFwhmMin))   spec.fwhm_min   = p._afFwhmMin;
-    if (Number.isFinite(p._afFwhmMax))   spec.fwhm_max   = p._afFwhmMax;
-    spec.amplitude_min = 0;
-    return spec;
-  });
-  const background = { method: bgType, start_idx: bgWin.i0, end_idx: bgWin.i1 + 1, endpoint_avg: epAvg };
-  if (bgType === 'manual') {
-    // Anchors are stored in corrected-BE space, same frame as the uploaded
-    // session data; backend expects [x, y] pairs.
-    background.manual_bg = _getManualAnchors().map(a => [a.x, a.y]);
-  }
-  return { be, inten, body: {
-    background, peaks: peakSpecs, fit_method: fitMethod, n_perturb: 3,
-    // step (c): is the charge-reference anchor REQUIRED? The server refits
-    // the model without it; a redundant anchor must not set the energy
-    // reference of a whole spectrum (see _autoFitAnchorRefusal).
-    require_component: anchorId,
-  } };
+  // the model snapshot the request is built from — and the model its result is projected onto (plan §4)
+  const pageModel = structuredClone(state.peaks);
+  const ctx = _liveFitContext();
+  return { be, inten, pageModel, ctx, body: _buildFitRequest('autoFit', pageModel, ctx, be, { requireComponent: anchorId }) };
 }
 
 async function runAutoFitC1sGraphite() {
@@ -8465,7 +8533,7 @@ async function runAutoFitC1sGraphite() {
       return;
     }
 
-    applyBackendResult(json);
+    applyBackendResult(json, req1.pageModel);
 
     // The anchor fit's gates decide the charge shift; the shift moves the frame and locks every centre.
     const ok = applyAutoFitResult(json, graphiteRaw, { be: be2, inten: inten2, bgIntensity: bgI, bgSubtracted: bgSub });
@@ -8515,7 +8583,7 @@ async function runAutoFitC1sGraphite() {
       notify('Auto-fit not applied: the final fit in the corrected frame did not converge' + (json2.message ? ' (' + json2.message + ')' : '') + '. Previous peaks and result restored.', 'red', true);
       return;
     }
-    applyBackendResult(json2);
+    applyBackendResult(json2, req2.pageModel);
     const refusal2 = _autoFitAnchorRefusal(json2);
     if (refusal2) {
       _hideFitSpinnerFor(afOp);
@@ -9123,35 +9191,22 @@ async function runFit(opts = {}) {
   let ctxAtRequest = null;   // set with the other request inputs; read again by the local fallback
   let fitOp = null;         // unit 2: this tab's fit operation, claimed before the first await
   try {
-    const bgType  = document.getElementById('bg-type').value;
-    const bgStart = parseFloat(document.getElementById('bg-start').value);
-    const bgEnd   = parseFloat(document.getElementById('bg-end').value);
-    // Inclusive bg window — the same point set computeBackgroundCore draws;
-    // the backend slices end-exclusive, so the request sends i1 + 1.
-    const bgWin = _bgWindowIndices(be, bgStart, bgEnd);
     // EVERY request input is read from the owner before the upload await:
     // peaks, method, endpoint averaging and manual anchors (Codex round 2: a
     // request could carry A's spectrum with B's averaging and anchors).
     // opts.startPeaks: the request starts from an adopted alternative; the live
     // model is still the student's until this fit succeeds (useAlternative).
     const startModel = opts.startPeaks || state.peaks;
-    const peakSpecs = startModel.map(peakToBackendSpec);
-    // scattered-starts check: decided HERE, with the other request inputs,
-    // before the first await (a tab switch during the upload must not turn it off)
-    const nStarts = _startsUnlinkedCount(startModel) >= 2 ? _STARTS_N : 0;
+    // the snapshot the request is built from — and the model the result is projected onto (plan §4)
+    const pageModel = structuredClone(startModel);
+    // the whole request, scattered-starts decision included, built HERE, before the first await (a tab
+    // switch during the upload must not change it): the one builder (seal 1c step 2)
+    const reqBody = _buildFitRequest(opts.startPeaks ? 'useSolution' : 'runFit', pageModel, _liveFitContext(), be);
     // the live model and its fit context as the student pressed the button: a
     // result must not be written over a model that was edited while it ran
     ctxAtRequest = _startsLiveKey();
     fitOp = _claimFitOp(fittingTab);   // before the first await: the newest claim for a tab is current
     _fitSpinnerOp = fitOp;             // the spinner shown above is this operation's
-    const fitMethod = document.getElementById('fit-method').value;
-    const epAvgVal = parseInt(document.getElementById('bg-endpoint-avg').value) || 1;
-    const bgPayload = { method: bgType, start_idx: bgWin.i0, end_idx: bgWin.i1 + 1, endpoint_avg: epAvgVal };
-    if (bgType === 'manual') {
-      // Anchors are stored in corrected-BE space, same frame as the uploaded
-      // session data; backend expects [x, y] pairs.
-      bgPayload.manual_bg = _getManualAnchors().map(a => [a.x, a.y]);
-    }
     // Transport failures (server unreachable, timeout, non-JSON reply) are
     // the ONLY reason to fall back to the local optimiser. A server-side
     // validation error or a non-converged optimisation surfaces its message
@@ -9167,14 +9222,7 @@ async function runFit(opts = {}) {
     };
     let sessionId;
     try { sessionId = await uploadToBackend(be, inten); } catch (e) { _asTransport(e); }
-    const fitReq = {
-      session_id: sessionId,
-      background: bgPayload,
-      peaks: peakSpecs,
-      fit_method: fitMethod,
-      n_perturb: 3,
-      n_starts: nStarts       // the server also skips it for the global methods
-    };
+    const fitReq = { session_id: sessionId, ...reqBody };
     // Unit 2: started and polled (_serverFitJob) — no request lasts longer than
     // a poll, so none meets the public URL's ~100 s ceiling. An HTTP failure is
     // a SERVER failure (serverError), never a reason to switch engines; a
@@ -9237,7 +9285,7 @@ async function runFit(opts = {}) {
     for (const p of state.peaks) {
       _preFit[p.id] = { center: p.center, fwhm: p.fwhm, amplitude: p.amplitude, glMix: p.glMix };
     }
-    applyBackendResult(backendResult);
+    applyBackendResult(backendResult, pageModel);
     { const _t = _activeTab(); if (_t) _t.modelProvenance = null; }   // a new result supersedes imported provenance
     const stats = backendResult.statistics || {};
     const chiReduced = stats.reduced_chi_square || 0;

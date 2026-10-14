@@ -125,3 +125,50 @@ def test_every_run_fit_request_is_exactly_what_the_page_sent_before(corpus, name
     with open(FIXTURE) as f:
         before = json.load(f)
     assert json.dumps(corpus[name], sort_keys=True) == json.dumps(before[name], sort_keys=True)
+
+
+# ── Auto-Fit: the final request is the pure derivation of the anchor request and reply ────────────────
+AUTOFIT_PROJECT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                               "docs/autofit/test_data/8-JT Graphite.proj.zip")
+
+
+@pytest.mark.parametrize("anchors", [False, True])
+def test_auto_fits_final_request_is_derived_exactly_from_its_anchor_fit(browser, server, anchors):  # noqa: F811
+    # plan §6.3: the seal requires the final fit's model and context to equal deriveAutoFit(R1, O1); this pins
+    # the pure derivation (and the builder) against what the page actually sends, in the same run
+    pg = browser.new_page(viewport={"width": 1200, "height": 900})
+    errors = []
+    pg.on("pageerror", lambda e: errors.append(str(e)))
+    try:
+        pg.goto(server + "/", wait_until="load")
+        pg.set_input_files("#load-session-input", AUTOFIT_PROJECT)
+        pg.wait_for_function("() => tabManager.tabs.some(t => t.name === 'C1s Scan')", timeout=60000)
+        pg.evaluate("() => tabManager.activateTab(tabManager.tabs.find(t => t.name === 'C1s Scan').id)")
+        pg.evaluate("""(anchors) => {
+            window._showAutoFitConfirmModal = () => Promise.resolve(true);
+            if (anchors) { _setManualAnchors([{ x: 283.0, y: 1500 }, { x: 292.0, y: 1200 }]); updatePlot(); }
+            window.__reqs = []; window.__replies = [];
+            const build = _autoFitRequest, job = _serverFitJob;
+            _autoFitRequest = (id) => { const r = build(id); window.__reqs.push(structuredClone({ ...r, anchorId: id })); return r; };
+            _serverFitJob = async (req, guard) => { const out = await job(req, guard); window.__replies.push(structuredClone(out)); return out; };
+        }""", anchors)
+        pg.evaluate("async () => { await runAutoFitC1sGraphite(); }")
+        got = pg.evaluate("""() => {
+            const [r1, r2] = window.__reqs, [o1] = window.__replies;
+            const d = deriveAutoFit(r1.pageModel, r1.ctx, o1);
+            const energies = _roiSelect(state.rawBE, state.rawIntensity, d.ctx.ccShift, d.ctx.roiMin, d.ctx.roiMax).be;
+            const body = _buildFitRequest('autoFit', d.pageModel, d.ctx, energies, { requireComponent: r1.anchorId });
+            const canon = v => JSON.stringify(v, Object.keys(v).sort());
+            return { msg: document.getElementById('sb-msg').textContent, n: window.__reqs.length,
+                     model: _sameModel(d.pageModel, r2.pageModel),   // the fit's evidence (support) aside
+                     ctx: JSON.stringify(d.ctx) === JSON.stringify(r2.ctx),
+                     body: JSON.stringify(body) === JSON.stringify(r2.body),
+                     energies: JSON.stringify(energies) === JSON.stringify(r2.be),
+                     moved: d.ctx.ccShift !== r1.ctx.ccShift, anchorsMoved: JSON.stringify(d.ctx.anchors) !== JSON.stringify(r1.ctx.anchors) }; }""")
+    finally:
+        pg.close()
+    assert got["msg"] == "Auto-fit complete", got
+    assert got["n"] == 2 and got["moved"], got
+    assert got["model"] and got["ctx"] and got["energies"] and got["body"], got
+    assert got["anchorsMoved"] == anchors, got
+    assert errors == [], errors

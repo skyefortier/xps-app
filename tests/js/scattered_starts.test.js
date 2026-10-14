@@ -249,17 +249,20 @@ test('wiring: the trigger is decided with the other request inputs, BEFORE the f
   assert.strictEqual(_startsUnlinkedCount(PEAKS()), 3);
   assert.strictEqual(_startsUnlinkedCount([{ id: 1 }, { id: 2, linked: 1 }]), 1);
   const runFit = extractFn('runFit');
-  const decided = runFit.indexOf('const nStarts = _startsUnlinkedCount(startModel) >= 2 ? _STARTS_N : 0;');
+  // seal 1c step 2: decided by the one request builder, on the snapshot the request is built from, and the
+  // request is built before the first await
+  const decided = runFit.indexOf("const reqBody = _buildFitRequest(opts.startPeaks ? 'useSolution' : 'runFit', pageModel, _liveFitContext(), be);");
   assert.ok(decided > 0);
   assert.ok(decided < runFit.indexOf('await uploadToBackend('), 'a tab switch during the upload must not turn the check off');
-  assert.match(runFit, /n_starts: nStarts/);
+  assert.match(extractFn('_buildFitRequest'), /n_starts: _startsUnlinkedCount\(pageModel\) >= 2 \? _STARTS_N : 0/);
+  assert.match(runFit, /const fitReq = \{ session_id: sessionId, \.\.\.reqBody \};/);
   assert.doesNotMatch(runFit.slice(runFit.indexOf('await uploadToBackend(')), /_startsUnlinkedCount\(state\.peaks\)/);
-  assert.match(runFit, /const startModel = opts\.startPeaks \|\| state\.peaks;\n\s*const peakSpecs = startModel\.map\(peakToBackendSpec\);/);
+  assert.match(runFit, /const startModel = opts\.startPeaks \|\| state\.peaks;[\s\S]{0,200}const pageModel = structuredClone\(startModel\);/);
   assert.match(runFit, /startsModelKey: _startsLiveKey\(\),/);
-  assert.ok(runFit.indexOf('applyBackendResult(backendResult);') < runFit.indexOf('startsModelKey: _startsLiveKey()'), 'the key describes the model AFTER the result was applied');
+  assert.ok(runFit.indexOf('applyBackendResult(backendResult, pageModel);') < runFit.indexOf('startsModelKey: _startsLiveKey()'), 'the key describes the model AFTER the result was applied');
   const captured = runFit.indexOf('ctxAtRequest = _startsLiveKey();');
   assert.ok(captured > 0 && captured < runFit.indexOf('await uploadToBackend('), 'context captured before the first await');
-  assert.ok(runFit.indexOf('if (!_sameFitKey(_startsLiveKey(), ctxAtRequest))') > 0 && runFit.indexOf('if (!_sameFitKey(_startsLiveKey(), ctxAtRequest))') < runFit.indexOf('applyBackendResult(backendResult);'), 'and checked before anything is applied');
+  assert.ok(runFit.indexOf('if (!_sameFitKey(_startsLiveKey(), ctxAtRequest))') > 0 && runFit.indexOf('if (!_sameFitKey(_startsLiveKey(), ctxAtRequest))') < runFit.indexOf('applyBackendResult(backendResult, pageModel);'), 'and checked before anything is applied');
   assert.match(runFit, /chosenAlternative: opts\.chosenAlternative \|\| null/);
   assert.match(extractFn('renderResults'), /_startsPanelHtml\(state\.fitResult\)/);
   assert.doesNotMatch(extractFn('_invalidateFittedY'), /starts/, 'validity is by key comparison: a rename (which calls this) must not delete evidence');

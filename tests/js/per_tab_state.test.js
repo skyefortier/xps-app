@@ -45,6 +45,7 @@ const ALLOWLIST = {
   TAB_COLORS: 'B', SHAPE_PARAM_SCHEMA: 'B', PLACE_MODE_BUTTONS: 'B', LOCK_ALL_KEYS: 'B',
   _BG_SUB_DEPENDENT_CONTROL_IDS: 'B', xpsRefLinesPlugin: 'B',
   _STARTS_MODEL_FIELDS: 'B', _STARTS_UI_FIELDS: 'B',   // constant tables: what the scattered-starts evidence is bound to
+  _PROJECTED_FIELDS: 'B', _MODEL_EVIDENCE_FIELDS: 'B', _CC_REFERENCE: 'B',   // seal 1c step 2: constant tables (projection, model equality, charge references)
   BG_LABELS: 'B',            // constant table: background methods' display names (background math, 2026-10-01)
   FP_TIER_META: 'B', FP_STRINGS: 'B', FP_MODEL_LABELS: 'B', FP_ROLE_LABELS: 'B', FP_SHAPE_LABELS: 'B', FP_TIER_RANK: 'B',
   REF_PT_LAYOUT: 'B',        // periodic-table layout table (built by a call at load; read-only)
@@ -110,18 +111,24 @@ test('async operations capture their owning record before the first await', () =
     assert.doesNotMatch(body, /fittingTabId = tabManager\.activeId/);
     const up = body.indexOf('await uploadToBackend');
     assert.ok(up > 0, fn + ' upload await');
+    // seal 1c step 2: every request input is read by _liveFitContext (the controls, the shift, the anchors) and
+    // turned into the request by _buildFitRequest (the peak specs) — both called before the upload await
+    const ctxSrc = grab('function _liveFitContext(', 1200), buildSrc = grab('function _buildFitRequest(', 3000);
+    for (const input of ["'fit-method'", "'bg-endpoint-avg'", '_getManualAnchors()', 'state.ccShift'])
+      assert.ok(ctxSrc.indexOf(input) > 0, '_liveFitContext reads ' + input);
+    assert.ok(buildSrc.indexOf('peakToBackendSpec') > 0, '_buildFitRequest builds the peak specs');
     if (fn.includes('AutoFit')) {
       // Auto-Fit reads its inputs in _autoFitRequest (Q8: the anchor fit and the final fit alike),
       // each call before that fit's upload await
       const req = grab('function _autoFitRequest(', 3000);
-      for (const input of ["getElementById('fit-method')", "getElementById('bg-endpoint-avg')", '_getManualAnchors()', 'peakToBackendSpec'])
+      for (const input of ['_liveFitContext()', '_buildFitRequest('])
         assert.ok(req.indexOf(input) > 0, '_autoFitRequest: ' + input);
       const r1 = body.indexOf('const req1 = _autoFitRequest(anchorId);'), r2 = body.indexOf('const req2 = _autoFitRequest(anchorId);');
       assert.ok(r1 > 0 && r1 < up, 'the anchor fit\'s inputs before its upload');
       assert.ok(r2 > 0 && r2 < body.indexOf('await uploadToBackend(req2.be, req2.inten'), 'the final fit\'s inputs before its upload');
       continue;
     }
-    for (const input of ["getElementById('fit-method')", "getElementById('bg-endpoint-avg')", '_getManualAnchors()', 'peakToBackendSpec']) {
+    for (const input of ['_liveFitContext()', '_buildFitRequest(']) {
       const at = body.indexOf(input);
       assert.ok(at > 0 && at < up, fn + ': ' + input + ' must be read before the upload await');
     }

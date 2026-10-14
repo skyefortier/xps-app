@@ -124,15 +124,20 @@ test('no request builder uses the old nearest-index idiom for the bg window', ()
   assert.deepStrictEqual(nearest, [], 'nearest-index bg bound selection still present: ' + nearest.join(', '));
 });
 
-test('both /api/fit request builders send the inclusive window as end_idx = i1 + 1', () => {
-  // Every bg payload in the page: { method: bgType, start_idx: <i0>, end_idx: <i1> + 1, ... }
+test('the one /api/fit request builder sends the inclusive window as end_idx = i1 + 1, for every producer', () => {
+  // Every bg payload in the page: { method: bgType, start_idx: <i0>, end_idx: <i1> + 1, ... } — since seal 1c
+  // step 2 ONE site, _buildFitRequest, which Run Fit / "Use this solution" and Auto-Fit all call
   const payloads = html.match(/start_idx:\s*[^,]+,\s*end_idx:\s*[^,}]+/g) || [];
-  assert.strictEqual(payloads.length, 2, 'expected exactly two bg payload sites (runFit + auto-fit), got: ' + JSON.stringify(payloads));
+  assert.strictEqual(payloads.length, 1, 'expected exactly one bg payload site (_buildFitRequest), got: ' + JSON.stringify(payloads));
+  const fnSrc = name => { const i = html.indexOf('function ' + name + '('); assert.ok(i >= 0, name); return html.slice(i, i + 8000); };
+  assert.ok(fnSrc('_buildFitRequest').indexOf('start_idx: bgWin.i0, end_idx: bgWin.i1 + 1') > 0);
+  assert.match(fnSrc('runFit'), /_buildFitRequest\(/);
+  assert.match(fnSrc('_autoFitRequest'), /_buildFitRequest\('autoFit'/);
   for (const p of payloads) {
     assert.match(p, /end_idx:\s*\w+\.i1 \+ 1/, p);
     assert.match(p, /start_idx:\s*\w+\.i0/, p);
   }
   const calls = (html.match(/_bgWindowIndices\(/g) || []).length;
-  // definition + computeBackgroundCore + runFit + auto-fit
-  assert.ok(calls >= 4, '_bgWindowIndices should be defined and called from 3 sites, saw ' + calls);
+  // definition + computeBackgroundCore + _buildFitRequest
+  assert.ok(calls >= 3, '_bgWindowIndices should be defined and called from 2 sites, saw ' + calls);
 });
