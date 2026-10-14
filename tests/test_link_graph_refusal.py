@@ -42,6 +42,26 @@ def test_different_backend_shapes_are_refused_whatever_the_page_shapes_say():
         fitting._validate_constraint_graph(specs)
 
 
+def test_the_refusal_names_the_shapes_that_differ():
+    # Codex 0c' round 4 (run B, logged): two backend shapes both labelled "GL" read "(GL, GL)"; the
+    # refusal names the backend shapes when the page's shapes do not tell them apart
+    x, y, specs = _pair(child_shape="GL", parent_shape="GL", backend_parent="gaussian")
+    with pytest.raises(ValueError, match=r"different lineshape \(pseudo_voigt_gl, gaussian\)"):
+        fitting._validate_constraint_graph(specs)
+    # the page's own names whenever they differ (what the page builds: Voigt and GL are one backend shape)
+    x, y, specs = _pair(child_shape="Voigt", parent_shape="GL")
+    with pytest.raises(ValueError, match=r"different lineshape \(Voigt, GL\)"):
+        fitting._validate_constraint_graph(specs)
+    x, y, specs = _pair(child_shape="Gaussian", parent_shape="GL", backend_child="gaussian")
+    with pytest.raises(ValueError, match=r"different lineshape \(Gaussian, GL\)"):
+        fitting._validate_constraint_graph(specs)
+    # one side unnamed: the backend shapes
+    x, y, specs = _pair(backend_child="gaussian")
+    specs[1].pop("frontend_shape")
+    with pytest.raises(ValueError, match=r"different lineshape \(gaussian, pseudo_voigt_gl\)"):
+        fitting._validate_constraint_graph(specs)
+
+
 def test_one_lineshape_fits_as_before_and_the_new_field_changes_nothing():
     x, y, specs = _pair(child_shape="GL", parent_shape="GL")
     a = fitting.run_fit(x, y, specs, background_method="linear", n_perturb=0, fit_kws={"method": "leastsq"})

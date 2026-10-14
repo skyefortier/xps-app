@@ -1502,9 +1502,12 @@ def _validate_constraint_graph(peak_specs: list[dict]) -> None:
             # two peaks of different backend shapes both labelled "GL" passed)
             differ = s.get("shape") != m.get("shape") or (fs is not None and fm is not None and fs != fm)
             if differ:
+                # name the shapes that differ: the page's when both are named and differ, else the
+                # backend's ("(GL, GL)" named nothing, Codex 0c' round 4 run B)
+                pair = (fs, fm) if (fs is not None and fm is not None and fs != fm) else (s.get("shape"), m.get("shape"))
                 raise ValueError(
                     f"Peak '{s.get('name') or sid}' is linked to '{m.get('name') or master}' but has a different "
-                    f"lineshape ({fs or s.get('shape')}, {fm or m.get('shape')}); a linked peak takes its parent's lineshape")
+                    f"lineshape ({pair[0]}, {pair[1]}); a linked peak takes its parent's lineshape")
 
     # Walk each constrained peak's master chain; a repeat is a cycle.
     for start in parent:
