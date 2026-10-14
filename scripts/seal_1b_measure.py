@@ -32,8 +32,10 @@ ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 sys.path[:0] = [ROOT, os.path.join(ROOT, "tests")]
 import numpy as np  # noqa: E402
 
-TARGETS = ("/Users/skyefortier/xps-app/.claude/worktrees/investigate-optimizer-disagreement/"
-           "docs/findings/optimizer-disagreement/targets.json")
+# the committed fit targets AS TODAY'S PAGE SENDS THEM (Codex 1b round 1): built by
+# scripts/seal_1b_tabs.py + scripts/optimizer_disagreement_targets.js; its path in SEAL_1B_TARGETS
+TARGETS = os.environ.get("SEAL_1B_TARGETS") or ("/Users/skyefortier/xps-app/.claude/worktrees/investigate-optimizer-"
+                                                 "disagreement/docs/findings/optimizer-disagreement/targets.json")
 
 
 def done_ids(out):
