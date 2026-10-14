@@ -50,4 +50,7 @@ Every one of the 404 fits above verifies `consistent` in the process that made i
 bit-stability per lineshape (LA's `np.convolve`, DS+G's FFT) is unit 1b's measurement (V6.5, Q7):
 the identity run above already shows LA curves can differ between two evaluations of the same
 parameters in one process, so LA(α,β,m) is listed as not bit-stable (`NOT_BIT_STABLE_SHAPES`): a
-curve-derived failure on a request holding it reads `unconfirmed`, never `mismatch`.
+failure of one of the two EVALUATION identities (a recorded curve is this server's evaluation of its
+parameters; the recorded model sum is the composite's) on a request holding it reads `unconfirmed`.
+Every relation of the recorded arrays (areas, fitted_y, residuals, statistics, support) stays an
+exact `mismatch`.

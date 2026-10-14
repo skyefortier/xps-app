@@ -550,14 +550,13 @@ def test_a_non_finite_start_paired_with_a_finite_record_is_never_consistent(clie
     R2 = copy.deepcopy(R)
     R2["request"]["peaks"][0][field] = value
     import json as _json
-    # never consistent: unconfirmed (no exact reading), or refused outright where the request cannot be built
-    # (a centre of -inf collapses its default window: min == max)
+    # unconfirmed (no exact reading) — also for a centre of -inf, whose default window would collapse (round 7b)
     v = client.post("/api/verify-fit", data=_json.dumps({"R": R2, "O": O}), content_type="application/json").get_json()
-    assert (v["state"], v["check"]) in (("unconfirmed", "non_finite"), ("mismatch", "request")), v
+    assert (v["state"], v["check"]) == ("unconfirmed", "non_finite"), v     # judged before the parameters are built
     raw = _json.dumps({"R": R2, "O": O}).replace("Infinity", "1e400")      # a plain JSON number that parses as inf
     if "1e400" in raw:
         v = client.post("/api/verify-fit", data=raw, content_type="application/json").get_json()
-        assert v["state"] in ("unconfirmed", "mismatch"), v
+        assert v["state"] == "unconfirmed", v
 
 
 def test_an_infinite_bound_is_an_open_side_and_verifies(client):

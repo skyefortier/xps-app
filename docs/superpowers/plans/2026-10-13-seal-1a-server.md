@@ -58,9 +58,11 @@ server; the page is not changed in this unit except the provenance meta tag it i
    recomputed — shown as recorded (option (b)): `success`, `message`, σ, `certificate`,
    `starts`, `required`. Every field is checked by its JSON TYPE (a numeric string, a flag for a
    number, a number for a flag are not a response's), never through a coercion. `unconfirmed`:
-   other software; a non-finite number anywhere in O; or a curve-derived check failing on a
+   other software; a non-finite number anywhere in O; or one of the two EVALUATION identities
+   failing (a recorded curve / the model sum is this server's evaluation of the parameters) on a
    request with a lineshape that is not evaluated bit-identically (`NOT_BIT_STABLE_SHAPES` =
-   LA(α,β,m), owner Q7 — never a tolerance; 1b measures the rest).
+   LA(α,β,m), owner Q7 — never a tolerance; 1b measures the rest; every relation of the recorded
+   arrays stays exact — round 2).
 
 ## Round-1 fixes (Codex NO-GO ×2)
 
@@ -134,3 +136,9 @@ both labelled "GL" now names the backend shapes (bfca83a).
   but a bound key (`_min` / `_max`, where Infinity is an open side). An infinite start (also the
   JSON number 1e400) paired with a finite record had read consistent once the record's values
   replaced the start.
+
+## Round-7b fixes (run A NO-GO on two MAJORs; no false consistent, no false stale, no 500)
+
+- The non-finite request check runs before the parameters are built (an infinite centre was refused
+  as a mismatch first).
+- The docs say exactly what Q7 exempts: the two evaluation identities, not every curve-derived check.

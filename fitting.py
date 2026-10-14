@@ -3324,6 +3324,14 @@ def _verify(O, *, energy, counts, peak_specs, background_method, bg_start_idx, b
             or not isinstance(O["seed_source"], str) or not isinstance(O["background_verdict"], dict):
         raise _Mismatch("schema", "a recorded field is not of its type")
 
+    # a NaN in the request (a bound, a start, an anchor — accepted by a JSON parser that reads the NaN token;
+    # a browser writes null) has no exact reading: differential evolution searches a NaN bound as open, a
+    # range check never holds (Codex round 5); nor has an infinite start (round 6; `1e400` parses as one).
+    # Unjudgeable, never current — not a mismatch; judged BEFORE the parameters are built (Codex round 7b:
+    # an infinite centre collapsed its default window and was refused as a mismatch first).
+    if _non_finite_request(peak_specs, manual_bg):
+        raise _Unverifiable("non_finite", "the request holds a number with no exact reading (NaN, or an infinite "
+                                          "start); its fit cannot be verified exactly")
     # ── the request, read as run_fit reads it (a request run_fit refuses has no response) ──
     try:
         energy = np.asarray(energy, dtype=float)
@@ -3346,13 +3354,6 @@ def _verify(O, *, energy, counts, peak_specs, background_method, bg_start_idx, b
         params = copy.deepcopy(start_params)
     except Exception as exc:
         raise _Mismatch("request", f"the request is not one a fit accepts: {exc}")
-    # a NaN in the request (a bound, a start, an anchor — accepted by a JSON parser that reads the NaN token;
-    # a browser writes null) has no exact reading: differential evolution searches a NaN bound as open, a
-    # range check never holds (Codex round 5); nor has an infinite start (round 6; `1e400` parses as one).
-    # Unjudgeable, never current — not a mismatch.
-    if _non_finite_request(peak_specs, manual_bg):
-        raise _Unverifiable("non_finite", "the request holds a number with no exact reading (NaN, or an infinite "
-                                          "start); its fit cannot be verified exactly")
     x, y, n = energy, counts, len(energy)
     unstable = sorted({s.get("shape", "pseudo_voigt_gl") for s in peak_specs} & NOT_BIT_STABLE_SHAPES)
 
