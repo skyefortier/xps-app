@@ -4,8 +4,13 @@
 'use strict';
 const SEAL_READER_FNS = ['_readsSeal', '_sealedDisplay', '_sealComponent', '_sealUnsupported', '_ownerOfFit', '_sealStatsState',
   '_shownStats', '_sealSig', '_sealStateText', '_sealStaleNote', '_componentArea', '_shownPeak', '_exportSealState',
-  '_exportRecordOf', '_chosenOf', '_altKeyOf', '_sealDesignation', '_sealReadableView', '_sealStateOf', '_fitRoiRange', '_sealProvenanceOf', '_sealProvenanceText'];
-// `var`: a harness may concatenate this source twice
-const SEAL_READER_CONSTS = 'var _sealIds = new WeakMap(); var _sealIdSeq = 0;';
+  '_exportRecordOf', '_chosenOf', '_altKeyOf', '_sealDesignation', '_sealReadableView', '_sealStateOf', '_fitRoiRange', '_sealProvenanceOf', '_sealProvenanceText',
+  '_isLegacyFit', '_exportFitState'];
+// `var`: a harness may concatenate this source twice; the state wording is the page's own (read, never copied)
+const fs = require('node:fs'), path = require('node:path');
+const PAGE = fs.readFileSync(path.join(__dirname, '../../templates/index.html'), 'utf8');
+const pageConst = name => { const m = PAGE.match(new RegExp('^const ' + name + ' = (.*);$', 'm')); if (!m) throw new Error(name); return 'var ' + name + ' = ' + m[1] + ';'; };
+const SEAL_READER_CONSTS = ['var _sealIds = new WeakMap(); var _sealIdSeq = 0;', pageConst('_SEAL_NOT_PROVEN'), pageConst('_LEGACY_FIT_NOTE')].join('
+');
 module.exports = (extractFn) => [SEAL_READER_CONSTS, ...SEAL_READER_FNS.map(extractFn)].join('\n');
 module.exports.SEAL_READER_FNS = SEAL_READER_FNS;

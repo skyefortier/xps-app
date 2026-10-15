@@ -171,7 +171,7 @@ test('a local fit result is Poisson-weighted: objective, weighting and the desig
   assert.equal(env.state.fitResult.engine, 'local');
   assert.equal(env.state.fitResult.reportable, false);
   assert.ok(Number.isFinite(out.chiReduced), 'the fitter returns its own chi-square');
-  assert.match(env.dom['fit-quality'].textContent, /^\u03c7\u00b2\u1d63 = .* \(local, starting point\)$/, env.dom['fit-quality'].textContent);
+  assert.match(env.dom['fit-quality'].textContent, /^\u03c7\u00b2\u1d63 = .* \(local, starting point\) \(saved before sealed records\)$/, env.dom['fit-quality'].textContent);
 });
 
 // ── Codex round-1 findings (2026-09-15): bound stationarity and derivative accuracy ──

@@ -336,11 +336,13 @@ test('_applyStatDisplay keeps header, tooltip, caption and value consistent thro
   const constLine = html.match(/^const _LOCAL_FIT_CAVEAT\w* = .*$/mg).join('\n');
   const dom = {}; const el = id => (dom[id] ||= { textContent: '', innerHTML: '', tip: null, setAttribute(k, v) { this.tip = v; }, removeAttribute() { this.tip = null; } });
   const apply = new Function('document', '_CHISQ_TOOLTIP', '_LOCALFIT_TOOLTIP', '_updateLocalModelBanner', 'state', constLine + '\n' + src + '\nreturn _applyStatDisplay;')({ getElementById: el }, 'CHI', 'LOCAL', () => {}, { fitResult: null });
+  // (results without a seal: since step 7 a page fit is sealed, so these are fits saved before it — LEGACY, qualified)
+  const LEG = '\n\nThis fit was saved before sealed records \u2014 re-run this fit to confirm.';
   apply({ objective: 'unweighted_residual_variance', chiReduced: 12345 });
-  assert.equal(dom['fit-quality'].textContent, 'Residual variance = 12345.00 (starting point)');
-  assert.equal(dom['fit-quality'].tip, 'LOCAL'); assert.match(dom['sb-chi-caption'].innerHTML, /starting point/); assert.equal(dom['sb-chi'].textContent, '12345.000');
+  assert.equal(dom['fit-quality'].textContent, 'Residual variance = 12345.00 (starting point) (saved before sealed records)');
+  assert.equal(dom['fit-quality'].tip, 'LOCAL' + LEG); assert.match(dom['sb-chi-caption'].innerHTML, /starting point/); assert.equal(dom['sb-chi'].textContent, '12345.000');
   apply({ chiReduced: 1.25 });
-  assert.equal(dom['fit-quality'].textContent, '\u03c7\u00b2\u1d63 = 1.25'); assert.equal(dom['fit-quality'].tip, 'CHI');
+  assert.equal(dom['fit-quality'].textContent, '\u03c7\u00b2\u1d63 = 1.25 (saved before sealed records)'); assert.equal(dom['fit-quality'].tip, 'CHI' + LEG);
   assert.doesNotMatch(dom['sb-chi-caption'].innerHTML, /starting point/); assert.equal(dom['sb-chi'].textContent, '1.250');
   apply(null);
   assert.equal(dom['sb-chi'].textContent, '\u2014'); assert.equal(dom['fit-quality'].tip, null);

@@ -184,7 +184,7 @@ test('status-bar R: the previous model\'s R is not shown on a stale result; an u
   assert.strictEqual(doc.els['sb-runs'].textContent, 'R: —');
   env.key = 'K1';
   api._updateRFactorUI(state.fitResult.rFactor);
-  assert.strictEqual(doc.els['sb-runs'].textContent, 'R: 3.2%');
+  assert.strictEqual(doc.els['sb-runs'].textContent, 'R: 3.2% (legacy)');   // an unsealed result: saved before sealed records (step 8)
   api._updateRFactorUI(null);
   assert.strictEqual(doc.els['sb-runs'].textContent, '');
 });
