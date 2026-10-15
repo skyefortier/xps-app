@@ -1447,6 +1447,24 @@ def _register_routes(app: Flask) -> None:
     # explicitly, so it reads 'caller' by construction; the seed itself is compared).
     _COMPARE_APART = ("starts", "software", "seed_source")
 
+    def _link_master(e):
+        # the master parameter of an expression of the fit's own grammar, else None
+        try:
+            body = ast.parse(e, mode="eval").body
+        except (SyntaxError, ValueError, RecursionError, MemoryError):
+            return None
+
+        def number(n):
+            if isinstance(n, ast.UnaryOp) and isinstance(n.op, (ast.USub, ast.UAdd)):
+                n = n.operand
+            return isinstance(n, ast.Constant) and type(n.value) in (int, float)
+        if isinstance(body, ast.Name):
+            return body.id
+        if isinstance(body, ast.BinOp) and isinstance(body.op, (ast.Add, ast.Sub, ast.Mult)) \
+                and isinstance(body.left, ast.Name) and number(body.right):
+            return body.left.id
+        return None
+
     def _comparable_failure(O):
         # Every SCALE the comparison measures a difference against, finite on BOTH sides, decided before comparing
         # and whatever the comparison would traverse (Codex 1d round 3: a scale that overflows to infinity makes
@@ -1473,6 +1491,8 @@ def _register_routes(app: Flask) -> None:
                 if not isinstance(info, dict):
                     continue
                 key = f"p{pk.get('id')}_{name}"
+                if key in names:                                     # p1 + x_fwhm and p1_x + fwhm: one name, two parameters
+                    return f"two parameters share the name {key[:60]}"
                 names.add(key)
                 lo, hi = info.get("min"), info.get("max")
                 if lo is not None and hi is not None:
@@ -1485,14 +1505,14 @@ def _register_routes(app: Flask) -> None:
         # links form chains, each followed here exactly as the comparison follows it (Codex 1d round 4)
         target = {}
         for key, e in exprs.items():
-            # the expression's NAMES, parsed (a numeric literal such as 1e-05 names nothing; Codex 1d round 5)
-            try:
-                refs = {n.id for n in ast.walk(ast.parse(e, mode="eval")) if isinstance(n, ast.Name)}
-            except (SyntaxError, ValueError, RecursionError, MemoryError):
-                refs = set()
-            if len(refs) != 1 or next(iter(refs)) not in names:
+            # EXACTLY the grammar the fit writes (fitting.py: `p<id>_<param>`, `... + <number>`, `... * <number>`;
+            # all 630 links in seal 1b's records): one master parameter, at most one numeric offset or factor. Nothing
+            # else — no string, call or second name — so the comparison's own reading of the text (a regex over it)
+            # sees the same single name (Codex 1d rounds 5-6; a numeric literal such as 1e-05 names nothing)
+            master = _link_master(e)
+            if master is None or master not in names:
                 return f"a link ({key}: {e[:40]}) is not one a fit writes"
-            target[key] = next(iter(refs))
+            target[key] = master
         limit = sys.getrecursionlimit() // 4
         for start in target:
             cur, steps, seen = start, 0, {start}

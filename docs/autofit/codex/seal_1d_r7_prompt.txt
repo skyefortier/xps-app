@@ -1,0 +1,15 @@
+CORRECTNESS REVIEW, ROUND 7, of unit 1d ("Re-run this fit") of the sealed fit record in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software.
+
+REPO: this checkout, branch seal-1d, on seal-1c-s8. 1d is `git diff seal-1c-s8..HEAD`. Read docs/autofit/codex/seal_1d_r1_prompt.txt … r6_prompt.txt for what 1d is. Round 6 (both runs NO-GO on MINORs only; verdicts seal_1d_r6_verdict_run{A,B}.md; both confirmed no page-produced fit is refused beyond the stated ±1e308 limit — run B with 22 further real fits across all seven lineshapes): (1) distinct component ids can synthesize one parameter name (component 1 + `x_fwhm` and component `1_x` + `fwhm` are both `p1_x_fwhm`), so a later link overwrote an earlier one before validation; (2) the validator (ast names) and the comparator (`linked_bounds`, a regex over the text) read different link graphs — a name inside a string literal is followed by one and not the other.
+
+WHAT THIS ROUND CHANGES: (1) two parameters whose synthesized names coincide are refused ("two parameters share the name …"); (2) a link must be EXACTLY the grammar the fit writes (fitting.py lines ~1730-1764: `p<id>_<param>`, `p<id>_<param> + <number>` — the number possibly negative, `+ -0.5` — or `p<id>_<param> * <number>`; `_link_master`, parsed with `ast`): one master name and at most one numeric offset or factor, nothing else — no string, call, second name or other operator — so the comparator's regex reading sees the same single name (a numeric literal such as 1e-05 names nothing it can follow). All 630 links in seal 1b's 328 records have that form and all 328 still compare `same`. Tests: the name collision on a, b and both; seven expressions outside the grammar (a quoted name, two names, a call, `+ inf`, a division, a leading factor, a string offset) refused on either side; real fits with offsets 1e-05, -2.5e-07, 1e5, 10.9 and -0.5 compare `same`. Both fixes mutation-checked (removing the name check fails its test; reverting to "one ast name" lets four grammar cases through).
+
+ANSWER EACH (cite file:line):
+1. Is every round-6 finding resolved, or a stated limit? List each with its status.
+2. Is there any remaining input, on either side, that /api/compare-fits compares although a scale or link structure the comparison relies on is non-finite, ambiguous or beyond what it follows, or answers 500? Name the path.
+3. Can the check refuse a response a real fit produces (any lineshape, link, offset, ratio, lock or background the page can send)?
+4. Do the new tests fail on the defects they name?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

@@ -203,7 +203,7 @@ def test_no_real_record_is_refused():
 
 
 # ── Codex 1d round 5 ─────────────────────────────────────────────────────────────────────────────────────────────────
-@pytest.mark.parametrize("offset", [0.00001, -2.5e-7, 1e5, 10.9])
+@pytest.mark.parametrize("offset", [0.00001, -2.5e-7, 1e5, 10.9, -0.5])
 def test_a_link_with_an_exponent_the_page_can_send_is_compared_not_refused(client, offset):  # noqa: F811
     """A real fit's link: the page's linked offset 0.00001 is written `p1_center + 1e-05` — one parameter named."""
     x, y, specs = SS._well_posed()
@@ -251,3 +251,31 @@ def test_b_curves_on_as_grid_are_bounded_by_the_longer_side(client):  # noqa: F8
     assert _compare(client, a, a)["same"] is True                         # a alone is comparable
     got = _compare(client, a, b, status=400)                              # 10 n x a's span overflows
     assert "on a's grid" in got["error"], got
+
+
+
+# ── Codex 1d round 6 ─────────────────────────────────────────────────────────────────────────────────────────────────
+def test_two_parameters_with_one_synthesized_name_are_refused(client):  # noqa: F811
+    a = _record(client)
+    h = copy.deepcopy(a)
+    pk = h["individual_peaks"][0]
+    other = copy.deepcopy(pk)
+    other["id"] = f"{pk['id']}_x"                                          # p<id>_x + fwhm ...
+    pk["params"]["x_fwhm"] = {**pk["params"]["fwhm"], "expr": "nothing_here * 2"}   # ... and p<id> + x_fwhm
+    other["params"]["fwhm"]["expr"] = f"p{pk['id']}_center"
+    h["individual_peaks"].append(other)
+    for pair in ((h, a), (a, h), (h, copy.deepcopy(h))):
+        got = _compare(client, *pair, status=400)
+        assert "share the name" in got["error"], got
+
+
+@pytest.mark.parametrize("expr", ["'p1_l1' and p1_center", "p1_center + p1_fwhm", "abs(p1_center)", "p1_center + inf",
+                                  "p1_center / 2", "2 * p1_center", "p1_center + 'x'"])
+def test_a_link_outside_the_fits_grammar_is_refused_on_either_side(client, expr):  # noqa: F811
+    a = _record(client)
+    pid = a["individual_peaks"][0]["id"]
+    h = copy.deepcopy(a)
+    _with_link(h, expr.replace("p1_", f"p{pid}_"))
+    for pair in ((h, a), (a, h)):
+        got = _compare(client, *pair, status=400)
+        assert "not one a fit writes" in got["error"], got
