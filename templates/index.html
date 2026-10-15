@@ -8043,6 +8043,8 @@ function _autoFitRestore(snap, owner) {
       ccMethod: snap.ccMethodDom, ccObs: snap.ccObsDom, ccLit: snap.ccLitDom,
       roiMin: snap.roiMinDom, roiMax: snap.roiMaxDom,
       bgStart: snap.bgStartDom, bgEnd: snap.bgEndDom };
+    // seal step 7 (§9): the reinstalled seal gets a background check here too (Codex step 7 round 1)
+    if (t.fitResult && t.fitResult.seal) _ensureVerified(t);
     return;
   }
   state.peaks     = snap.peaks;
@@ -8848,7 +8850,7 @@ async function runAutoFitC1sGraphite() {
     }
 
     applyBackendResult(json, req1.pageModel);
-    check1 = _verifyStagedCheck(txn, req1.sealR, json);   // the anchor fit's record, checked while the final fit runs
+    check1 = _verifyStagedCheck(txn, req1.sealR, json, ctrl.signal);   // the anchor fit's record, checked while the final fit runs
 
     // The anchor fit's gates decide the charge shift; the shift moves the frame and locks every centre.
     const ok = applyAutoFitResult(json, graphiteRaw, { be: be2, inten: inten2, bgIntensity: bgI, bgSubtracted: bgSub });
@@ -8909,9 +8911,12 @@ async function runAutoFitC1sGraphite() {
     // seal step 7 (plan §6.3): both records checked by the server BEFORE the commit
     if (spinLabel) spinLabel.textContent = 'Auto-Fit: confirming both fits…';
     _autoFitBusyLabel('Auto-Fit: confirming both fits…');
-    const check2 = _verifyStagedCheck(txn, req2.sealR, json2);
+    // the confirmation is part of the transaction: Cancel and its own 2 minutes end it at once (Codex step 7 round 1)
+    timer = setTimeout(() => ctrl.abort(new DOMException('timeout', 'AbortError')), 120000);
+    const check2 = _verifyStagedCheck(txn, req2.sealR, json2, ctrl.signal);
     const v1 = await check1, v2 = await check2;
-    if (userCancelled) throw new DOMException('cancelled', 'AbortError');
+    clearTimeout(timer);
+    if (userCancelled || ctrl.signal.aborted) throw new DOMException(userCancelled ? 'cancelled' : 'timeout', 'AbortError');
     if (!_fitOpCurrent(afOp)) return;                                      // superseded: the newer fit owns the tab
     if (v1 === null || v2 === null || !_ownerActive(fittingTab)) {
       _hideFitSpinnerFor(afOp);
@@ -8935,6 +8940,7 @@ async function runAutoFitC1sGraphite() {
     const committed = _commitStaged(txn, seal);
     const st = sealedState(Object.freeze({ seal }), fittingTab);
     if (!committed.committed || st.state !== 'current') {
+      _sealVerdicts.delete(seal); _sealUnreachable.delete(seal);   // a seal that is not published keeps no answer
       _hideFitSpinnerFor(afOp);
       _autoFitRestore(snap, fittingTab);
       notify('Auto-Fit could not be confirmed (' + (st.check || 'commit') + ': ' + (st.reason || 'the checks could not be committed') + '); nothing was changed.', 'red', true);
@@ -8969,6 +8975,7 @@ async function runAutoFitC1sGraphite() {
     notify(msg, 'red', true);
   }
   } finally {
+    _abandonStaged(txn);   // a transaction that did not publish ends here: a late check retains nothing (Codex step 7 round 1)
     _autoFitBusyEnd(afOp);
   }
 }
@@ -9351,13 +9358,13 @@ function _noteServerSoftware(sw, sentEpoch) {
   return false;                                    // this reply was SENT under the old numerics: it does not count
 }
 // A check's reply: its numerics, the epoch it was sent in and whether it COUNTS (invariant 1).
-async function _postVerifyFit(R, O) {
+async function _postVerifyFit(R, O, signal) {
   const sentEpoch = _numericsEpoch;
   _checksInFlight++;
   let v;
   try {
     const resp = await fetch('/api/verify-fit', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ R: { request: R.request, energies: R.energies, counts: R.counts }, O }) });
+      body: JSON.stringify({ R: { request: R.request, energies: R.energies, counts: R.counts }, O }), signal });
     if (!resp.ok) throw Object.assign(new Error('verify-fit HTTP ' + resp.status), { httpStatus: resp.status });
     v = await resp.json();
   } finally { _checksInFlight--; }
@@ -9396,9 +9403,9 @@ function _cachedVerdict(seal) {
 }
 // One check's OUTCOME: the server's answer, or { unreachable: true, sentEpoch } (never thrown: a failed check must
 // not hide another check's answer — steps 3-4 Codex round 1).
-async function _checkOutcome(R, O) {
+async function _checkOutcome(R, O, signal) {
   const sentEpoch = _numericsEpoch;
-  try { return await _postVerifyFit(R, O); } catch (e) { return { unreachable: true, sentEpoch }; }
+  try { return await _postVerifyFit(R, O, signal); } catch (e) { return { unreachable: true, sentEpoch }; }
 }
 // One answer from several checks (Auto-Fit: its anchor fit and its final fit; plan §6.3's precedence): any
 // mismatch; else any check OUTSTANDING (undefined: no answer yet) → undefined; else any unreachable; else any
@@ -9434,14 +9441,18 @@ function _beginStaged(owner, op) {
   _stagedTxns.set(owner, txn);
   return txn;
 }
+// The end of a transaction that did not commit: it is no longer its owner's (its answers are dropped with it).
+function _abandonStaged(txn) {
+  if (txn && _stagedTxns.get(txn.owner) === txn) _stagedTxns.delete(txn.owner);
+}
 function _stagedCurrent(txn) {
   return !!txn && _stagedTxns.get(txn.owner) === txn && _ownerLive(txn.owner) && _ownerActive(txn.owner) && _fitOpCurrent(txn.op);
 }
 // A staged check checks a SNAPSHOT of what it was handed (deep-frozen before it is sent): a change to the caller's
 // objects while the check is in flight changes nothing the answer is about.
-async function _verifyStagedCheck(txn, R, O) {
+async function _verifyStagedCheck(txn, R, O, signal) {
   const R0 = _deepFreeze(structuredClone(R)), O0 = _deepFreeze(structuredClone(O));
-  const v = await _checkOutcome(R0, O0);
+  const v = await _checkOutcome(R0, O0, signal);
   if (!_stagedCurrent(txn)) return null;                                // superseded: nothing resolved
   txn.answers.push({ R: R0, O: O0, v });
   return v;
@@ -9477,7 +9488,13 @@ function _verifySeal(owner, seal, kind = 'background', op = null) {
     _sealAttempts.delete(owner);
     if (!_ownerLive(owner)) return false;                                 // the tab was closed
     if (_fitResultOf(owner) === null || !_fitResultOf(owner) || _fitResultOf(owner).seal !== seal) return false;   // another seal installed
-    if (kind === 'producer' && (!_fitOpCurrent(op) || !_ownerActive(owner))) return false;   // superseded or switched: recovered by _ensureVerified
+    if (kind === 'producer' && (!_fitOpCurrent(op) || !_ownerActive(owner))) {
+      // superseded or switched: not this operation's reply to attach — but its seal is still the one installed (a
+      // newer operation that failed or was discarded leaves it there), so a background check takes over at once:
+      // no seal is stranded PENDING (Codex step 7 round 1)
+      Promise.resolve().then(() => _ensureVerified(owner));
+      return false;
+    }
     return true;
   };
   return _settleChecks(checks).then(({ verdict: v, outcomes }) => {

@@ -87,8 +87,8 @@ test('the anchor fit decides the shift; the FINAL fit, in the corrected frame wi
   assert.strictEqual(out.uploads[1].locked, true, 'with every centre locked');
   assert.ok(out.labels.includes('Auto-Fit: anchor fitted, refitting in the corrected frame…'), JSON.stringify(out.labels));
   assert.strictEqual(out.restored, false);
-  // seal step 7: the statistic announced is the published seal's (the seal layer is stubbed here: its value is 1)
-  assert.ok(out.notes.some(([m, k]) => k === 'green' && /^Auto-fit complete\. χ²ᵣ = \d+\.\d{3}$/.test(m)), JSON.stringify(out.notes));
+  // seal step 7: the statistic announced is the published seal's — the final fit's (the stubbed view reads its O)
+  assert.ok(out.notes.some(([m, k]) => k === 'green' && /^Auto-fit complete\. χ²ᵣ = 2\.000$/.test(m)), JSON.stringify(out.notes));
 });
 
 test('a final fit that does not converge restores everything; nothing is published', async () => {

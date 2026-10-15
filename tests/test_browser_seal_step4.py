@@ -184,9 +184,13 @@ def test_a_producer_bound_reply_is_attached_only_under_its_operation_and_active_
             const newer = _claimFitOp(owner);
             const r = await p;
             const out = [r, _fitOpCurrent(op), _fitOpCurrent(newer), sealedState(state.fitResult, owner).state, _sealVerdicts.has(seal)];
-            await _ensureVerified(owner);
-            return [...out, sealedState(state.fitResult, owner).state]; }""")
-        assert got == [None, False, True, "pending", False, "current"], got
+            // step 7 (Codex round 1): the seal is still installed, so a background check takes over BY ITSELF — the
+            // page asks nothing (a newer operation that failed would otherwise leave it PENDING for good)
+            await Promise.resolve();
+            const recovering = _sealAttempts.has(owner) && _sealAttempts.get(owner).kind === 'background';
+            for (let k = 0; k < 600 && _sealAttempts.has(owner); k++) await new Promise(r => setTimeout(r, 50));
+            return [...out, recovering, sealedState(state.fitResult, owner).state]; }""")
+        assert got == [None, False, True, "pending", False, True, "current"], got
         # a TAB SWITCH while it is in flight (the operation still current): discarded, re-verified on return
         pg.evaluate("() => { const s = state.fitResult.seal; state.fitResult = { ...state.fitResult, seal: _makeSeal(structuredClone(s)) }; }")
         got = pg.evaluate("""async () => {

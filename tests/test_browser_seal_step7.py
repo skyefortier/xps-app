@@ -274,3 +274,127 @@ def test_every_committed_saved_fit_loads_legacy_and_re_saves_without_a_seal(brow
         finally:
             pg.close()
     assert n_fit == 121, n_fit
+
+
+# ── Codex step 7 round 1: the lifecycle ───────────────────────────────────────────────────────────────────────────
+
+def _hold(pg, pattern):
+    """Requests to `pattern` are HELD while hold[0] (released with release()); otherwise they go through."""
+    held, hold = [], [True]
+
+    def handler(route):
+        if hold[0]:
+            held.append(route)
+        else:
+            route.continue_()
+    pg.route(pattern, handler)
+
+    def release():
+        hold[0] = False
+        for r in held:
+            try:
+                r.continue_()
+            except Exception:
+                pass
+    return held, release
+
+
+def _until(pg, cond, timeout_ms=60000):
+    for _ in range(timeout_ms // 100):
+        if cond():
+            return True
+        pg.wait_for_timeout(100)
+    return cond()
+
+
+def test_a_fit_whose_check_is_discarded_by_a_failed_newer_fit_is_still_confirmed(browser, server):  # noqa: F811
+    """Run Fit A installs its seal with its check in flight; Run Fit B claims the tab and fails on the server (A's
+    result stays). A's producer-bound reply is not B's operation's to attach — a background check takes over, so A
+    reaches CURRENT with nothing else asked of the page."""
+    pg = _page(browser, server)
+    try:
+        _setup(pg, SCENARIOS["gauss_voigt_linear_avg3_window"])
+        held, release = _hold(pg, "**/api/verify-fit")
+        pg.evaluate("async () => { await runFit(); window.__a = state.fitResult.seal; }")
+        assert _until(pg, lambda: len(held) == 1), held
+        pg.route("**/api/fit/start", lambda route: route.fulfill(status=500, content_type="application/json", body='{"error": "boom"}'))
+        pg.evaluate("async () => { await runFit(); }")
+        assert pg.evaluate("() => state.fitResult.seal === window.__a")          # B failed: A's result kept
+        pg.unroute("**/api/fit/start")
+        release()
+        pg.wait_for_function("() => sealedState(state.fitResult, _activeTab()).state === 'current'", timeout=30000)
+        assert pg.errors == [], pg.errors
+    finally:
+        pg.unroute_all(behavior="ignoreErrors")
+        pg.close()
+
+
+def test_cancel_during_auto_fits_confirmation_restores_at_once(browser, server):  # noqa: F811
+    pg = _autofit_page(browser, server)
+    try:
+        before = pg.evaluate(BEFORE)
+        held, release = _hold(pg, "**/api/verify-fit")
+        pg.evaluate("() => { window.__af = runAutoFitC1sGraphite(); }")
+        assert _until(pg, lambda: len(held) == 2, 120000), len(held)              # both staged checks in flight
+        pg.evaluate("() => { window.__afDone = false; window.__af.then(() => { window.__afDone = true; }); }")
+        pg.evaluate("() => document.getElementById('autofit-busy-cancel').click()")
+        pg.wait_for_function("() => window.__afDone", timeout=15000)              # ends at once, without any reply
+        got = pg.evaluate("""() => ({ overlay: document.getElementById('autofit-busy-overlay').style.display,
+                                      txn: _stagedTxns.has(_activeTab()), n: window.__n })""")
+        assert pg.evaluate(BEFORE) == before
+        assert got["overlay"] == "none" and not got["txn"], got
+        assert any("Auto-fit cancelled" in m for m in got["n"]), got["n"]
+        release()
+        pg.wait_for_timeout(500)
+        assert pg.evaluate(BEFORE) == before                                     # a late reply changes nothing
+        assert pg.errors == [], pg.errors
+    finally:
+        pg.unroute_all(behavior="ignoreErrors")
+        pg.close()
+
+
+def test_auto_fit_whose_final_check_alone_mismatches_publishes_nothing_and_ends_its_transaction(browser, server):  # noqa: F811
+    pg = _autofit_page(browser, server)
+    try:
+        before = pg.evaluate(BEFORE)
+        body = json.dumps({"state": "mismatch", "check": "statistics", "reason": "the recomputed statistics differ",
+                           "software": pg.evaluate("() => _pageIdentity().software")})
+        n = [0]
+
+        def handler(route):
+            n[0] += 1
+            if n[0] == 2:                                   # the anchor fit's check goes first (sent while the final fit runs)
+                route.fulfill(status=200, content_type="application/json", body=body)
+            else:
+                route.continue_()
+        pg.route("**/api/verify-fit", handler)
+        pg.evaluate("async () => { await runAutoFitC1sGraphite(); }")
+        assert n[0] == 2, n
+        assert pg.evaluate(BEFORE) == before
+        assert pg.evaluate("() => _stagedTxns.has(_activeTab())") is False
+        assert any("the server's check of its fits failed" in m for m in pg.evaluate("() => window.__n"))
+    finally:
+        pg.unroute_all(behavior="ignoreErrors")
+        pg.close()
+
+
+def test_an_auto_fit_rolled_back_on_an_inactive_tab_re_verifies_the_seal_it_reinstalls(browser, server):  # noqa: F811
+    pg = _autofit_page(browser, server)
+    try:
+        # the tab's own sealed fit, not yet checked (a reloaded fit's case)
+        pg.evaluate("async () => { await runFit(); }")
+        pg.evaluate(SETTLE)
+        pg.evaluate("""() => { const s = state.fitResult.seal; _sealVerdicts.delete(s); _sealUnreachable.delete(s);
+            window.__tab = _activeTab(); window.__seal = s; }""")
+        held, release = _hold(pg, "**/api/verify-fit")
+        pg.evaluate("() => { window.__af = runAutoFitC1sGraphite(); }")
+        assert _until(pg, lambda: len(held) == 2, 120000), len(held)
+        pg.evaluate("() => { tabManager.createTab('OTHER', state.rawBE.slice(), state.rawIntensity.slice()); }")
+        release()
+        pg.evaluate("async () => { await window.__af; }")
+        assert pg.evaluate("() => window.__tab.fitResult.seal === window.__seal")       # rolled back into the record
+        pg.wait_for_function("() => sealedState(window.__tab.fitResult, window.__tab).state === 'current'", timeout=30000)
+        assert pg.evaluate("() => _activeTab() !== window.__tab")                       # with no activation
+    finally:
+        pg.unroute_all(behavior="ignoreErrors")
+        pg.close()
