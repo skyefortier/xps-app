@@ -1,0 +1,15 @@
+CORRECTNESS REVIEW, ROUND 4, of step 5 of unit 1c ("sealed fit record") in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software.
+
+REPO: this checkout, branch seal-1c-s5 (on seal-numerics-rule at 3f0c8c2; the rule unit has since moved on under its own review). Step 5 is `git diff 3f0c8c2..HEAD`. Read docs/autofit/codex/seal_1c_step5_r1_prompt.txt … r3_prompt.txt for what step 5 is. Round 3 (verdicts seal_1c_step5_r3_verdict_run{A,B}.md) resolved every round-2 finding and found one MAJOR: activating a tab whose result is only its frozen seal threw (the lazy R-factor wrote into it); and test gaps (the tab switch into an unfitted tab, a reversed assignment instead of undo, bounds but not sigma, the stale XLSX statistic row, the preview's curve, the PNG's visible text, agreeing legacy duplicates).
+
+WHAT THIS ROUND CHANGES: `_isInstalledSeal` (a frozen `{seal}`): the lazy R-factor on activation, `_invalidateBgCache`, `_invalidateFittedY` and `_restampSupport` do nothing to it (the same guard step 6 relies on). Tests (tests/test_browser_seal_step5.py, 34): returning to a seal-only tab; a real `undo()`; sigma from the record; no statistic row in a stale XLSX; the preview's curve replaced on its record's verdict; the figure's drawn annotation (fillText); legacy duplicates disagreeing with the record never read.
+
+ANSWER EACH (cite file:line):
+1. Is every round-3 finding resolved? List each with its status.
+2. With the switch ON, can any path still throw or write on a seal-only (frozen) result, or read a legacy duplicate instead of the record?
+3. With the switch OFF, is everything exactly today's?
+4. Do the tests each fail on the defect they name?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

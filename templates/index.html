@@ -3322,7 +3322,7 @@ class TabManager {
     _applyStatDisplay(state.fitResult);
     // F1: never computed over an edited model and cached under the fit's key
     // (without a stored curve _computeRFactor evaluates the CURRENT peaks)
-    if (state.fitResult && state.fitResult.rFactor == null && _statsLiveState() !== 'stale') {
+    if (state.fitResult && !_isInstalledSeal(state.fitResult) && state.fitResult.rFactor == null && _statsLiveState() !== 'stale') {
       state.fitResult.rFactor = _computeRFactor(state.fitResult);
     }
     _updateRFactorUI(state.fitResult ? state.fitResult.rFactor : null);
@@ -5033,14 +5033,18 @@ function shirleyLinearBackground(be, intensity, maxIter, nAvg) {
   return flipped ? result.reverse() : result;
 }
 
+// Seal step 6 (plan §8.1): an INSTALLED sealed fit is `{seal}`, frozen — the mutators below are no-ops on it (an
+// edit's preview reads the live peaks and background; sealedState says the fit is STALE).
+function _isInstalledSeal(fr) { return !!fr && !!fr.seal && Object.isFrozen(fr); }
+
 // Clear stored background so updatePlot recomputes it
 function _invalidateBgCache() {
-  if (state.fitResult) state.fitResult.bgIntensity = null;
+  if (state.fitResult && !_isInstalledSeal(state.fitResult)) state.fitResult.bgIntensity = null;
 }
 
 // Clear stored fit envelope so the fallback (modelFull + bg) is used after a manual peak edit
 function _invalidateFittedY() {
-  if (state.fitResult) state.fitResult.fittedY = null;
+  if (state.fitResult && !_isInstalledSeal(state.fitResult)) state.fitResult.fittedY = null;
 }
 
 function _clampShirleyIter() {
@@ -8040,7 +8044,7 @@ function _currentSupport(p) {
 function _restampSupport() {
   const key = _startsLiveKey();
   for (const p of state.peaks) if (p.support) p.support.fitKey = key;
-  if (state.fitResult) state.fitResult.startsModelKey = key;   // F1: the statistics are the same result's
+  if (state.fitResult && !_isInstalledSeal(state.fitResult)) state.fitResult.startsModelKey = key;   // F1: the statistics are the same result's
 }
 // Patch the sidebar cards in place for the current verdicts (a re-render would
 // replace an input the student is typing in): header centre, the three summary

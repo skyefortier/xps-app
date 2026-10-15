@@ -545,6 +545,7 @@ def test_a_stale_seal_only_fit_exports_its_warning_without_a_statistic(browser, 
                 try { exportFitTable('xlsx'); } finally { XLSX.writeFile = w; } return info; }""")
             flat = [" ".join(str(c) for c in r) for r in info]
             assert any(r.startswith("WARNING") for r in flat) and any(r.startswith("Fit state STALE (statistics)") for r in flat), flat
+            assert not any(r.startswith("Chi-squared") for r in flat), flat
         assert pg.errors == [], pg.errors
     finally:
         pg.close()
@@ -575,6 +576,9 @@ def test_an_open_preview_follows_its_records_verdict(browser, server):  # noqa: 
             r.continue_()
         pg.unroute("**/api/verify-fit")
         pg.wait_for_function("() => /record does not hold/.test(state.chart.data.datasets.find(d => d._historyPreview).label)", timeout=30000)
+        # and its CURVE is no longer the record's envelope (a model-only preview on today's grid)
+        assert pg.evaluate("""() => { const ds = state.chart.data.datasets.find(d => d._historyPreview), O = _activeTab().snapshots[0].fitResult.seal.O;
+            return ds.data.some((p, i) => !Object.is(p.y, O.fitted_y[i])) || ds.data.length !== O.fitted_y.length; }""")
     finally:
         pg.close()
 
@@ -586,5 +590,82 @@ def test_an_open_history_panel_follows_the_active_tab(browser, server):  # noqa:
         assert pg.evaluate("() => document.querySelectorAll('#history-list .hist-row').length") >= 1
         pg.evaluate("() => tabManager.createTab('B', state.rawBE.slice(), state.rawIntensity.slice())")
         assert pg.evaluate("() => document.querySelectorAll('#history-list .hist-row').length") == 0
+    finally:
+        pg.close()
+
+
+
+def test_returning_to_a_tab_whose_result_is_only_its_seal(browser, server):  # noqa: F811
+    pg = _page(browser, server)
+    try:
+        _seal_only(pg)
+        pg.evaluate(VERIFY)
+        got = pg.evaluate("""() => { const a = _activeTab();
+            tabManager.createTab('B', state.rawBE.slice(), state.rawIntensity.slice());
+            tabManager.activateTab(a.id);
+            return { frozen: Object.isFrozen(state.fitResult), keys: Object.keys(state.fitResult), state: sealedState(state.fitResult, a).state,
+                     header: document.getElementById('fit-quality').textContent }; }""")
+        assert got["frozen"] and got["keys"] == ["seal"] and got["state"] == "current" and "\u03c7" in got["header"], got
+        assert pg.errors == [], pg.errors
+    finally:
+        pg.close()
+
+
+def test_a_real_undo_of_an_edit_returns_the_record(browser, server):  # noqa: F811
+    pg = _page(browser, server)
+    try:
+        pg.evaluate(VERIFY)
+        pg.evaluate("() => { pushUndo(); state.peaks[0].center += 0.05; updatePlot(); }")
+        assert pg.evaluate(STATE) == "stale"
+        pg.evaluate("() => undo()")
+        assert pg.evaluate(STATE) == "current"
+        got = pg.evaluate(CHART, False)
+        assert got["envelope"] and got["components"], got
+    finally:
+        pg.close()
+
+
+def test_sigma_is_the_records(browser, server):  # noqa: F811
+    pg = _page(browser, server)
+    try:
+        pg.evaluate(TAMPER, "s.O.individual_peaks[0].params.center.stderr = 0.123456")   # PENDING: the record as recorded
+        txt = pg.evaluate("() => { renderResults(); return document.querySelector('#results-area .results-table tbody tr').textContent; }")
+        assert "\u00b1 0.123" in txt, txt
+    finally:
+        pg.close()
+
+
+def test_legacy_duplicates_that_disagree_are_never_read(browser, server):  # noqa: F811
+    pg = _page(browser, server)
+    try:
+        pg.evaluate(VERIFY)
+        pg.evaluate("""() => { const fr = state.fitResult;
+            state.fitResult = { ...fr, chiReduced: 999.5, rmse: 999.5, rFactor: { rPct: 99, level: 'red' },
+                                fittedY: fr.fittedY.map(v => v + 50), bgIntensity: fr.bgIntensity.map(v => v + 50),
+                                backendResult: { ...fr.backendResult, individual_peaks: fr.backendResult.individual_peaks.map(ip => ({ ...ip, params: { ...ip.params, center: { ...ip.params.center, stderr: 9.99 } } })) } }; }""")
+        got = pg.evaluate(CHART, False)
+        assert got["envelope"] and got["components"] and got["residuals"], got
+        txt = pg.evaluate("() => { renderResults(); return [document.getElementById('fit-quality').textContent, document.getElementById('results-area').textContent]; }")
+        assert "999.5" not in txt[0] and "999.5" not in txt[1] and "9.99" not in txt[1], txt
+    finally:
+        pg.close()
+
+
+def test_the_figure_annotates_the_record_and_its_state(browser, server):  # noqa: F811
+    pg = _page(browser, server)
+    try:
+        spy = """() => { window.__texts = []; const f = CanvasRenderingContext2D.prototype.fillText;
+            CanvasRenderingContext2D.prototype.fillText = function (t, ...a) { window.__texts.push(String(t)); return f.call(this, t, ...a); };
+            window._downloadBlob = () => {}; window._pngWithText = async (b) => b; }"""
+        pg.evaluate(spy)
+        pg.evaluate("() => _doPublicationExport()")
+        texts = pg.evaluate("() => window.__texts")
+        chi = pg.evaluate("() => sealedState(state.fitResult, _activeTab()).view.statistics.chi2r.toFixed(3)")
+        assert any(chi in t and "not yet confirmed" in t for t in texts), texts
+        pg.evaluate(TAMPER, "s.O.statistics.chi_square *= 1.000001")
+        pg.evaluate(VERIFY)
+        pg.evaluate("() => { window.__texts = []; _doPublicationExport(); }")
+        texts = pg.evaluate("() => window.__texts")
+        assert any("record does not hold (statistics)" in t for t in texts), texts
     finally:
         pg.close()
