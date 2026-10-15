@@ -1,0 +1,15 @@
+CORRECTNESS REVIEW, ROUND 5, of step 5 of unit 1c ("sealed fit record") in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software.
+
+REPO: this checkout, branch seal-1c-s5 (on seal-numerics-rule at 3f0c8c2). Step 5 is `git diff 3f0c8c2..HEAD`. Read docs/autofit/codex/seal_1c_step5_r1_prompt.txt … r4_prompt.txt for what step 5 is. Round 4 (verdicts seal_1c_step5_r4_verdict_run{A,B}.md) found no BLOCKER or MAJOR; MINOR: the status bar's fit range read the legacy `roiRange` (blank for a seal-only result); a stale `.fit.json` wrote the legacy `chiReduced`; the `_restampSupport` JS harness lacked `_isInstalledSeal`; some coverage limits.
+
+WHAT THIS ROUND CHANGES: `_fitRoiRange` — the status bar's fit range from the record's energies for a sealed fit (any readable state); `.fit.json` writes no statistic for a stale sealed fit; the harness includes `_isInstalledSeal`. Test: the status bar range after returning to a seal-only tab, and a stale fit file with a disagreeing legacy duplicate.
+
+ANSWER EACH (cite file:line):
+1. Is every round-4 finding resolved, or a stated limit? List each with its status.
+2. With the switch ON, does any consumer still read a legacy duplicate of a sealed fit, or throw / write on a seal-only result?
+3. With the switch OFF, is everything today's?
+4. Do the new tests fail on the defects they name?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

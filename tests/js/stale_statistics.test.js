@@ -114,7 +114,7 @@ test('the key is the step (b) key: F1 adds no second binding mechanism and no ne
   assert.match(extractFn('runFitLocal'), /startsModelKey: _startsLiveKey\(\)/, 'the local engine stamps its result');
   assert.match(extractFn('_autoFitPublish'), /startsModelKey: _startsLiveKey\(\)/, 'Auto-Fit stamps its (final) result');
   // Auto-Fit locks every centre and refines the charge shift AFTER applying: the re-stamp covers the statistics
-  const restamp = new Function('state', '_startsLiveKey', extractFn('_restampSupport') + '\nreturn _restampSupport;');
+  const restamp = new Function('state', '_startsLiveKey', extractFn('_restampSupport') + '\n' + extractFn('_isInstalledSeal') + '\nreturn _restampSupport;');
   const st = { peaks: [{ id: 1, support: { fitKey: 'OLD' } }], fitResult: { startsModelKey: 'OLD' } };
   restamp(st, () => 'NEW')();
   assert.strictEqual(st.fitResult.startsModelKey, 'NEW');

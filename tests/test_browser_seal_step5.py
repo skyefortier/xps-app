@@ -669,3 +669,23 @@ def test_the_figure_annotates_the_record_and_its_state(browser, server):  # noqa
         assert any("record does not hold (statistics)" in t for t in texts), texts
     finally:
         pg.close()
+
+
+def test_the_status_bar_range_and_a_stale_fit_file_read_the_record(browser, server):  # noqa: F811
+    pg = _page(browser, server)
+    try:
+        _seal_only(pg)
+        pg.evaluate(VERIFY)
+        got = pg.evaluate("""() => { const a = _activeTab(); tabManager.createTab('B', state.rawBE.slice(), state.rawIntensity.slice());
+            tabManager.activateTab(a.id); const v = sealedState(state.fitResult, a).view;
+            return [document.getElementById('sb-roi').textContent, _arrMin(v.energies).toFixed(1), _arrMax(v.energies).toFixed(1)]; }""")
+        assert got[1] in got[0] and got[2] in got[0], got
+        # a stale record with a disagreeing legacy duplicate: the fit file writes no statistic
+        pg.evaluate(CAPTURE)
+        pg.evaluate("() => { state.fitResult = { ...state.fitResult.seal ? { seal: state.fitResult.seal } : {}, chiReduced: 999.5 }; state.peaks[0].center += 0.05; }")
+        name = pg.evaluate("() => (document.getElementById('save-fname').value.trim() || 'spectrum') + '.fit.json'")
+        import json
+        stats = json.loads(_export(pg, "() => _doSaveFit()", name))["fitStatistics"]
+        assert stats["chiReduced"] is None and stats["sealState"].startswith("STALE"), stats
+    finally:
+        pg.close()

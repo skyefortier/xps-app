@@ -3326,7 +3326,7 @@ class TabManager {
       state.fitResult.rFactor = _computeRFactor(state.fitResult);
     }
     _updateRFactorUI(state.fitResult ? state.fitResult.rFactor : null);
-    _updateROIDisplay(state.fitResult ? state.fitResult.roiRange : null);
+    _updateROIDisplay(_fitRoiRange(state.fitResult));
     // seal step 5: an open history panel shows the ACTIVE tab's snapshots and their records' states
     if (_SEAL_AUTHORITATIVE) { const hp = document.getElementById('history-panel');
       if (hp && hp.classList.contains('open') && typeof _renderHistoryList === 'function') _renderHistoryList(); }
@@ -13123,7 +13123,7 @@ function _doSaveFit() {
     // names, so the importer, which reads fitStatistics, is unchanged); its state rides beside them
     fitStatistics: state.fitResult ? ((sd, sv) => ({
       record: (r => _isFitRecord(r) ? r : null)(_exportRecordOf(state.fitResult)),   // the parameters' provenance (recording only)
-      chiReduced: _shownStats(state.fitResult).chiReduced ?? null,
+      chiReduced: (sd && _statsLiveState() === 'stale') ? null : (_shownStats(state.fitResult).chiReduced ?? null),   // a stale record's statistic is not written as current
       engine: sd ? sd.engine : (state.fitResult.engine || null),
       objective: sd ? (sd.engine === 'local' ? sd.objective : null) : (state.fitResult.objective || null),   // a server result carries none (_isLocalProvenance reads a Poisson objective as local)
       weighting: sd ? sd.weighting : (state.fitResult.weighting || null),
@@ -14684,6 +14684,16 @@ function _updateRFactorUI(rf) {
   el.setAttribute('data-xps-tip', _RFACTOR_TOOLTIP);
 }
 
+// The fit's range for the status bar: a sealed fit's from its RECORD's energies (whatever its state — it describes
+// the record; a seal-only result holds no copy), else the result's field.
+function _fitRoiRange(fr) {
+  if (!fr) return null;
+  if (_SEAL_AUTHORITATIVE && fr.seal) {
+    const st = _sealStateOf(fr);
+    return st.view ? { min: _arrMin(st.view.energies).toFixed(1), max: _arrMax(st.view.energies).toFixed(1) } : null;
+  }
+  return fr.roiRange || null;
+}
 function _updateROIDisplay(roiRange) {
   const el = document.getElementById('sb-roi');
   if (!el) return;

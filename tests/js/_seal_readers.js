@@ -4,7 +4,7 @@
 'use strict';
 const SEAL_READER_FNS = ['_sealedDisplay', '_sealComponent', '_sealUnsupported', '_ownerOfFit', '_sealStatsState',
   '_shownStats', '_sealSig', '_sealStateText', '_sealStaleNote', '_componentArea', '_shownPeak', '_exportSealState',
-  '_exportRecordOf', '_chosenOf', '_altKeyOf', '_sealDesignation', '_sealStateOf'];
+  '_exportRecordOf', '_chosenOf', '_altKeyOf', '_sealDesignation', '_sealStateOf', '_fitRoiRange'];
 // `var`: a harness may concatenate this source twice
 const SEAL_READER_CONSTS = 'var _SEAL_AUTHORITATIVE = false; var _sealIds = new WeakMap(); var _sealIdSeq = 0;';
 module.exports = (extractFn) => [SEAL_READER_CONSTS, ...SEAL_READER_FNS.map(extractFn)].join('\n');
