@@ -689,3 +689,51 @@ def test_the_status_bar_range_and_a_stale_fit_file_read_the_record(browser, serv
         assert stats["chiReduced"] is None and stats["sealState"].startswith("STALE"), stats
     finally:
         pg.close()
+
+
+def test_a_stale_sealed_fit_draws_the_same_preview_with_or_without_legacy_copies(browser, server):  # noqa: F811
+    pg = _page(browser, server)
+    try:
+        got = pg.evaluate("""() => { const fr = state.fitResult;
+            const draw = (x) => { state.fitResult = x; updatePlot(); const ds = state.chart.data.datasets;
+              return JSON.stringify(ds.filter(d => d.label !== 'Data').map(d => [d.label, d.data.map(p => [p.x, p.y])])); };
+            state.peaks[0].center += 0.05;                                   // STALE (edited)
+            const poisoned = { ...fr, be: fr.be.map(x => x + 1), bgIntensity: fr.bgIntensity.map(v => v + 99),
+                               bgSubtracted: fr.bgSubtracted.map(v => v + 99), fittedY: fr.fittedY.map(v => v + 99) };
+            const a = draw(Object.freeze({ seal: fr.seal })), b = draw(poisoned);
+            return [sealedState(state.fitResult, _activeTab()).state, a === b]; }""")
+        assert got == ["stale", True], got
+    finally:
+        pg.close()
+
+
+def test_a_poisoned_legacy_r_factor_is_never_shown(browser, server):  # noqa: F811
+    pg = _page(browser, server)
+    try:
+        pg.evaluate(VERIFY)
+        pg.evaluate("() => { state.fitResult = { ...state.fitResult, rFactor: { rPct: 99.9, level: 'red' } }; updatePlot(); renderResults(); _updateRFactorUI(state.fitResult.rFactor); }")
+        txt = pg.evaluate("() => [document.getElementById('sb-runs').textContent, document.getElementById('results-area').textContent]")
+        assert "99.9" not in txt[0] and "99.9" not in txt[1], txt
+    finally:
+        pg.close()
+
+
+def test_the_uncertainty_rules_read_the_records_sigma(browser, server):  # noqa: F811
+    pg = _page(browser, server, "gauss_voigt_linear_avg3_window")
+    try:
+        # a sigma the server could not estimate, recorded in O (the legacy copy keeps the real one): rule 2 fires only
+        # if the RECORD is read — for the parameter whose fitted value barely moved from its start
+        got = pg.evaluate("""() => { const s = structuredClone(state.fitResult.seal), v = _sealView(state.fitResult.seal);
+            let target = null;
+            for (const ip of s.O.individual_peaks) for (const k of ['center', 'fwhm']) {
+              const start = s.R.pageModel.find(q => String(q.id) === String(ip.id))[k], val = ip.params[k] && ip.params[k].value;
+              if (!target && ip.params[k] && ip.params[k].vary && Math.abs(val - start) / Math.abs(start) < 0.001) { target = [ip, k]; } }
+            if (!target) return null;
+            target[0].params[target[1]].stderr = null;
+            state.fitResult = { ...state.fitResult, seal: _makeSeal(s) };
+            return _validateUncertainties().warnings.join(' '); }""")
+        if got is None:
+            pytest.skip("no parameter in this fit stayed within 0.1 % of its start")
+        assert "could not be estimated" in got, got
+    finally:
+        pg.close()

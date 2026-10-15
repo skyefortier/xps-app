@@ -11848,9 +11848,10 @@ function _buildEntryRenderData(entry) {
                return { peak: p, peakOnly, y: peakOnly.map((x, i) => x + v.background[i]) }; }) };
   }
 
-  // be + bg + rawY
+  // be + bg + rawY — a STALE sealed source reconstructs from its record's settings (Path B), never from legacy
+  // copies kept beside its seal (Codex step 5 round 5)
   let be, bg, rawY;
-  if (Array.isArray(fr.be) && fr.be.length >= 2
+  if (!fr.seal && Array.isArray(fr.be) && fr.be.length >= 2
       && Array.isArray(fr.bgIntensity)
       && fr.bgIntensity.length === fr.be.length) {
     // Path A/A2: fit-time be + bg both present (frozen).
@@ -12364,7 +12365,8 @@ function updatePlot() {
   // components, envelopes and residuals in O's associations, never re-evaluated from the live peaks.
   const sealed = _sealedDisplay(state.fitResult);
   const sv = sealed && sealed.view;
-  const haveFit = !!sv || !!(state.fitResult && Array.isArray(state.fitResult.be) &&
+  // a STALE sealed fit draws the live preview — never legacy copies kept beside its seal (Codex step 5 round 5)
+  const haveFit = !!sv || !!(state.fitResult && !state.fitResult.seal && Array.isArray(state.fitResult.be) &&
                      state.fitResult.be.length > 0 &&
                      Array.isArray(state.fitResult.bgIntensity) &&
                      state.fitResult.bgIntensity.length === state.fitResult.be.length);

@@ -1,0 +1,15 @@
+CORRECTNESS REVIEW, ROUND 6, of step 5 of unit 1c ("sealed fit record") in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software.
+
+REPO: this checkout, branch seal-1c-s5, rebased onto seal-numerics-rule at ab489b8. Step 5 is `git diff ab489b8..HEAD`. Read docs/autofit/codex/seal_1c_step5_r1_prompt.txt … r5_prompt.txt for what step 5 is. Round 5 (run A GO, run B NO-GO; verdicts seal_1c_step5_r5_verdict_run{A,B}.md) found one MAJOR: a STALE sealed fit's chart and stack previews still drew legacy copies (`fr.be`, `fr.bgIntensity`, `fr.bgSubtracted`) when present beside the seal; and MINOR coverage limits (sigma-dependent rules, the poisoned R value, PNG drawing coordinates).
+
+WHAT THIS ROUND CHANGES: `updatePlot`'s frozen-fit branch and the stack's Path A / A2 are taken only for an UNSEALED result: a STALE sealed fit draws the live preview (chart) and reconstructs from its record's settings (stack Path B). Tests: a stale sealed fit draws the same preview with or without poisoned legacy copies (mutation-checked: restoring the legacy read fails it); a poisoned legacy R-factor never shown; the uncertainty rules read the record's sigma (a sigma only the seal holds as unestimated). PNG drawing coordinates remain a stated coverage limit (the annotation text is checked).
+
+ANSWER EACH (cite file:line):
+1. Is every round-5 finding resolved, or a stated limit? List each with its status.
+2. With a sealed fit in ANY state, does any consumer still read a legacy duplicate beside the seal?
+3. Unsealed (legacy) fits: exactly today's behaviour?
+4. Do the new tests fail on the defects they name?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.
