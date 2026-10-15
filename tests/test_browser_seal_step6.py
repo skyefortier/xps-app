@@ -580,6 +580,7 @@ def test_a_batch_fit_round_trips(browser, server):  # noqa: F811
 @pytest.mark.parametrize("effect", [
     "{ method: 'smart', window: [], k: 1 }", "{ method: 'smart', window: [0, 1, 2], k: 1 }",
     "{ method: 'manual', anchors: [[1]] }", "{ method: 'smart', k: 1 }", "{ method: 'none', k: 1 }",
+    "{ method: 'manual', anchors: [] }", "{ method: 'manual', anchors: [[280, 300]] }",          # fewer than two anchors
 ])
 def test_the_background_effect_is_read_in_its_exact_form(browser, server, effect):  # noqa: F811
     pg = _fitted(browser, server)
@@ -655,10 +656,14 @@ def test_an_inherited_method_name_is_read_as_an_unknown_method_and_loading_compl
 def test_a_record_that_throws_when_read_is_not_well_formed(browser, server):  # noqa: F811
     pg = _page(browser, server)
     try:
-        got = pg.evaluate("""() => { const r = { engine: 'server' };
-            Object.defineProperty(r, 'seed', { enumerable: true, get() { throw new Error('boom'); } });
-            return [_fitRecordWellFormed(r), _loadedTabProvenance({ record: r })]; }""")
-        assert got == [False, None], got
+        # a COMPLETE record (every sibling valid), whose seed throws when read: the getter is reached (counted)
+        got = pg.evaluate("""() => { let reads = 0;
+            const base = () => ({ engine: 'server', fitMethod: 'least_squares', seedSource: 'request', backgroundVerdict: null,
+                                  certificate: null, software: null });
+            const ok = { ...base(), seed: 7 }, r = base();
+            Object.defineProperty(r, 'seed', { enumerable: true, get() { reads++; throw new Error('boom'); } });
+            return [_fitRecordWellFormed(ok), _fitRecordWellFormed(r), _loadedTabProvenance({ record: r }), reads > 0]; }""")
+        assert got == [True, False, None, True], got
         assert pg.errors == [], pg.errors
     finally:
         pg.close()

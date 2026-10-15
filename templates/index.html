@@ -7238,7 +7238,8 @@ function _sealEffectExact(e) {
     const want = Object.hasOwn(_SEAL_EFFECT_FIELDS, e.method) ? _SEAL_EFFECT_FIELDS[e.method] : ['window', 'k'];
     const keys = Object.keys(e).filter(k => k !== 'method').sort();
     return JSON.stringify(keys) === JSON.stringify(want.slice().sort()) &&
-      (!Object.hasOwn(e, 'window') || e.window.length === 2) && (!Object.hasOwn(e, 'anchors') || e.anchors.every(a => a.length === 2));
+      (!Object.hasOwn(e, 'window') || e.window.length === 2) &&
+      (!Object.hasOwn(e, 'anchors') || (e.anchors.length >= 2 && e.anchors.every(a => a.length === 2)));   // a manual line needs two anchors
   } catch (_) { return false; }
 }
 const _SEAL_BG_VERDICT_T = { method: ['null', 'str'], effect: ['null', _SEAL_BG_EFFECT_T], check: 'str', converged: ['null', 'bool'],
