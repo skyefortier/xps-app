@@ -719,38 +719,47 @@ def test_a_staged_pair_answered_under_different_numerics_never_commits(browser, 
 
 
 def test_a_return_to_earlier_numerics_does_not_revive_an_earlier_confirmation(browser, server):  # noqa: F811
+    """Seals X (active) and Y are confirmed under A in epoch 0. B is discovered; Y's re-check never answers, so Y's
+    epoch-0 answer is still cached. "Check again" on X is answered under A: the page names A again. Y's cached answer
+    has A's numerics — only its EPOCH keeps it from reading CURRENT."""
     pg = _fitted(browser, server)
     try:
-        pg.evaluate(VERIFY)                                # confirmed under this server's numerics (A)
+        pg.evaluate("""() => { const src = _activeTab(); tabManager._syncActiveToRecord();
+            const t = tabManager.createTab('Y', src.rawBE.slice(), src.rawIntensity.slice()); tabManager.activateTab(src.id);
+            t.peaks = structuredClone(src.peaks); t.ui = { ...src.ui }; t.ccShift = src.ccShift;
+            t.manualAnchors = structuredClone(src.manualAnchors || []); t.fitResult = { seal: _makeSeal(structuredClone(src.fitResult.seal)) }; }""")
+        pg.evaluate("async () => { for (const t of tabManager.tabs) await _ensureVerified(t); }")   # both confirmed under A, epoch 0
+        y_state = """() => { const y = tabManager.tabs.find(t => t.name === 'Y'); return sealedState(y.fitResult, y).state; }"""
+        assert pg.evaluate(y_state) == "current"
         a = pg.evaluate(KEY)
+        held = []
+        # X's check again answered under B; every other request held (Y's re-check never answers)
         n = {"k": 0}
-        def h(route):
+        def h2(route):
             n["k"] += 1
             if n["k"] == 1:
-                _answer_under("2099-01-01")(route)        # B answers: a deployment is discovered
+                _answer_under("2099-01-01")(route)
             else:
-                route.continue_()                         # its re-check reaches an A worker
-        pg.route("**/api/verify-fit", h)
-        pg.evaluate("async () => { await _ensureVerified(_activeTab(), true); }")
-        pg.wait_for_function("() => !_sealAttempts.has(_activeTab())", timeout=30000)
-        st = pg.evaluate(STATE)
-        assert st[0] != "current" or pg.evaluate(KEY) != a, st          # never A's earlier answer revived
-        assert st == ["unconfirmed", "numerics"], st                       # two numerics answering: a split
-        # "check again" starts afresh — and while its answer is outstanding the EARLIER confirmation is not shown
-        held = []
+                held.append(route)
+        pg.route("**/api/verify-fit", h2)
+        pg.evaluate("() => { window.__p1 = _ensureVerified(_activeTab(), true); }")
+        pg.wait_for_timeout(1000)
+        assert "2099-01-01" in pg.evaluate(KEY)
+        assert pg.evaluate(y_state) != "current"            # Y's epoch-0 answer: not B's
+        # "check again" on X, answered under A — the page names A again (epoch 2), Y still holds its epoch-0 answer
         pg.unroute("**/api/verify-fit")
-        pg.route("**/api/verify-fit", lambda route: held.append(route))
-        pg.evaluate("() => { window.__p = _ensureVerified(_activeTab(), true); }")
-        pg.wait_for_timeout(500)
-        assert pg.evaluate(STATE)[0] != "current", pg.evaluate(STATE)
-        pg.unroute("**/api/verify-fit")                      # later checks go straight to the server (and the held one goes on)
-        for r in held:
-            try:
-                r.continue_()
-            except Exception:
-                pass                                          # already let through by the unroute
-        pg.evaluate("async () => { await window.__p; }")
-        pg.wait_for_function("() => sealedState(state.fitResult, _activeTab()).state === 'current' && !_sealAttempts.has(_activeTab())", timeout=30000)
+        n2 = {"k": 0}
+        def h3(route):
+            n2["k"] += 1
+            if n2["k"] == 1:
+                route.continue_()
+            else:
+                held.append(route)
+        pg.route("**/api/verify-fit", h3)
+        pg.evaluate("() => { window.__p2 = _ensureVerified(_activeTab(), true); }")
+        pg.wait_for_timeout(1000)
+        assert pg.evaluate(KEY) == a, "the page names A again"
+        assert pg.evaluate(y_state) != "current", "Y's answer from epoch 0 is not read again"
     finally:
         pg.unroute_all(behavior="ignoreErrors")
         pg.close()
@@ -780,6 +789,8 @@ def test_alternating_workers_are_bounded_and_read_unconfirmed(browser, server): 
 
 
 def test_two_seals_with_alternating_workers_are_bounded(browser, server):  # noqa: F811
+    """Two seals; B is discovered and both are re-checked. B's answer for one returns FIRST while the other is still in
+    flight (not yet settled), then the other is answered under A: a split, never another automatic change."""
     pg = _fitted(browser, server)
     try:
         pg.evaluate("""() => { const src = _activeTab(); tabManager._syncActiveToRecord();
@@ -787,17 +798,22 @@ def test_two_seals_with_alternating_workers_are_bounded(browser, server):  # noq
             t.peaks = structuredClone(src.peaks); t.ui = { ...src.ui }; t.ccShift = src.ccShift;
             t.manualAnchors = structuredClone(src.manualAnchors || []); t.fitResult = { seal: src.fitResult.seal }; }""")
         pg.evaluate(VERIFY)
-        n = {"k": 0}
+        n, held = {"k": 0}, []
         def h(route):
             n["k"] += 1
-            if n["k"] % 2:
-                _answer_under("2099-01-01")(route)
+            if n["k"] == 1:
+                _answer_under("2099-01-01")(route)          # check again → B: a deployment; both seals re-checked
             else:
-                route.continue_()
+                held.append(route)
         pg.route("**/api/verify-fit", h)
-        pg.evaluate("async () => { await _ensureVerified(_activeTab(), true); }")
-        pg.wait_for_timeout(4000)
-        assert n["k"] <= 6, n                               # bounded: one automatic change, then a split
+        pg.evaluate("() => { window.__p = _ensureVerified(_activeTab(), true); }")
+        pg.wait_for_function("() => true"); pg.wait_for_timeout(800)
+        assert len(held) == 2, len(held)
+        _answer_under("2099-01-01")(held[0])                # B answers one re-check first (the other still in flight)
+        pg.wait_for_timeout(500)
+        assert pg.evaluate("() => _numericsAllowance") == 0, "not settled while a check is in flight"
+        held[1].continue_()                                 # then A answers the other: a split
+        pg.wait_for_timeout(800)
         assert pg.evaluate("() => _numericsSplit") is True
         assert pg.evaluate(STATE) == ["unconfirmed", "numerics"]
         k = n["k"]

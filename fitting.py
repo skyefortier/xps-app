@@ -3350,7 +3350,8 @@ def _bg_effect_form_failure(e):
         return "the recorded background effect is not of a response's form"
     m, keys = e["method"], set(e) - {"method"}
     want = {"none": set(), "manual": {"anchors"}, "manual-line": {"k"}}.get(m, {"window", "k"})
-    if keys != want or ("window" in e and len(e["window"]) != 2) or ("anchors" in e and any(len(a) != 2 for a in e["anchors"])):
+    if keys != want or ("window" in e and len(e["window"]) != 2) or \
+            ("anchors" in e and (len(e["anchors"]) < 2 or any(len(a) != 2 for a in e["anchors"]))):   # manual: >= 2 anchors
         return "the recorded background effect is not of a response's form"
     return None
 _BG_VERDICT_T = {"method": ("null", "str"), "effect": _BG_EFFECT_T, "check": "str", "converged": "bool",

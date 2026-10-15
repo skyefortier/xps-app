@@ -783,6 +783,8 @@ def test_the_form_is_judged_before_the_saved_datas_finiteness(client, sealed):
     {"method": "smart", "window": [], "k": 1},
     {"method": "smart", "window": [0, 1, 2], "k": 1},
     {"method": "manual", "anchors": [[1]]},
+    {"method": "manual", "anchors": []},
+    {"method": "manual", "anchors": [[280.0, 10.0]]},          # the producer writes `manual` only with >= 2 anchors
     {"method": "smart", "k": 1},
     {"method": "none", "k": 1},
 ])

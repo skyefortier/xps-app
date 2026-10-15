@@ -1,0 +1,14 @@
+CORRECTNESS REVIEW, ROUND 6, of a rule change in the "sealed fit record" verifier of a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software.
+
+REPO: this checkout, branch seal-numerics-rule; the unit is `git diff seal-1c-page..HEAD`. Read docs/autofit/codex/seal_numerics_rule_r1_prompt.txt (the OWNER RULE, 2026-10-15) and r4_prompt.txt / r5_prompt.txt (the page's three invariants). Round 5 (run A GO, run B NO-GO; verdicts seal_numerics_rule_r5_verdict_run{A,B}.md) resolved every MAJOR; MINOR: a manual background effect with fewer than two anchors passed the form check; the A → B → A test did not reach the interval where only the epoch keeps an earlier answer from reading current; the concurrent-worker test did not force the adverse completion order.
+
+WHAT THIS ROUND CHANGES: `_bg_effect_form_failure` requires at least two anchors for `manual` (the producer writes `manual-line` otherwise). The A → B → A test uses two seals: Y's re-check under B never answers, so its epoch-0 answer (A's numerics) is still cached when "check again" on X brings the page back to A; Y must not read current (verified: removing the epoch guard in `_cachedVerdict` makes it fail). The concurrent-worker test releases B's answer for one seal first while the other's check is still in flight, then A's for the other: a split (verified: removing the in-flight condition on the allowance makes it fail). Tests: tests/test_seal_1a_verify.py, tests/test_browser_seal_step4.py.
+
+ANSWER EACH (cite file:line):
+1. Is every round-5 finding (both runs) resolved? List each with its status.
+2. Do the two tests now fail when the guard they name is removed, and pass as written?
+3. Any regression, or any remaining BLOCKER / MAJOR in the unit as a whole?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.
