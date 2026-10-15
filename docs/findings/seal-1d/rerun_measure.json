@@ -1,0 +1,3237 @@
+[
+ {
+  "id": "d8c7ea4e0a75",
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "C1s Scan",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 32.39
+ },
+ {
+  "id": "5053e6441c69",
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "C1s Scan_0",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 12.14
+ },
+ {
+  "id": "788d300d3b9b",
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "C1s Scan_1",
+  "shapes": [
+   "GL",
+   "Gaussian",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 0.93
+ },
+ {
+  "id": "d1f06cbf2a5d",
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "C1s Scan_2",
+  "shapes": [
+   "GL",
+   "Gaussian",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 15.34
+ },
+ {
+  "id": "b9c09cea8650",
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "C1s Scan_3",
+  "shapes": [
+   "GL",
+   "Gaussian",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 11.23
+ },
+ {
+  "id": "1dd61ce06ca1",
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "C1s Scan_4",
+  "shapes": [
+   "GL",
+   "Gaussian",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 28.87
+ },
+ {
+  "id": "189fc55d9966",
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "C1s Scan_5",
+  "shapes": [
+   "GL",
+   "Gaussian",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 21.3
+ },
+ {
+  "id": "9a68a757ad88",
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "C1s Scan_6",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 15.32
+ },
+ {
+  "id": "fc946ed7514e",
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "C1s Scan_7",
+  "shapes": [
+   "GL",
+   "Gaussian",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 32.11
+ },
+ {
+  "id": "b0cc049590e7",
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "C1s Scan_8",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 12.26
+ },
+ {
+  "id": "1f77b3954f15",
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "C1s Scan_0",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 6.12
+ },
+ {
+  "id": "3775ef08dc05",
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "C1s Scan_1",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 22.74
+ },
+ {
+  "id": "5c0f6745b53d",
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "C1s Scan_2",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 27.56
+ },
+ {
+  "id": "ea7f53a8d99e",
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "C1s Scan_3",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 27.94
+ },
+ {
+  "id": "1ffee1d8c00e",
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "C1s Scan_4",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 53.13
+ },
+ {
+  "id": "b342fdc5dcfc",
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "C1s Scan_5",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 18.62
+ },
+ {
+  "id": "a3a5b308a4e8",
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "C1s Scan_6",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 16.4
+ },
+ {
+  "id": "7529222d8be4",
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "C1s Scan_7",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 59.09
+ },
+ {
+  "id": "45945005edad",
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "C1s Scan_8",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 25.51
+ },
+ {
+  "id": "07f8080d7e3c",
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "U4f Scan",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.1
+ },
+ {
+  "id": "4861d8f9c8de",
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "U4f Scan_0",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 0.92
+ },
+ {
+  "id": "8cafeaaccc74",
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "U4f Scan_1",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.15
+ },
+ {
+  "id": "5326f6646fca",
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "U4f Scan_2",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": false,
+  "starts_problems": [
+   "starts.not_better_chi2r.0: 3.1192593208951966 vs 3.119258943795037"
+  ],
+  "numerics_same": false,
+  "seconds": 0.92
+ },
+ {
+  "id": "38224eec55d2",
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "U4f Scan_3",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.09
+ },
+ {
+  "id": "f44d265ab6b0",
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "U4f Scan_4",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 2.72
+ },
+ {
+  "id": "a2f0b7a2a8d7",
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "U4f Scan_5",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 0.84
+ },
+ {
+  "id": "b4a0b346e925",
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "U4f Scan_6",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.03
+ },
+ {
+  "id": "be05f03b5548",
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "U4f Scan_7",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.05
+ },
+ {
+  "id": "7e81ac5fa426",
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "U4f Scan_8",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.01
+ },
+ {
+  "id": "4fec418afee3",
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "U4f Scan_0",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.01
+ },
+ {
+  "id": "1e1475c69453",
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "U4f Scan_1",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.28
+ },
+ {
+  "id": "992408bcf437",
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "U4f Scan_2",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.06
+ },
+ {
+  "id": "d4c6f49f619d",
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "U4f Scan_3",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.04
+ },
+ {
+  "id": "89fc4c245aac",
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "U4f Scan_4",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.44
+ },
+ {
+  "id": "bffeaac47081",
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "U4f Scan_5",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 0.84
+ },
+ {
+  "id": "37b8191a78a4",
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "U4f Scan_6",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.24
+ },
+ {
+  "id": "9c4b8fe93b96",
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "U4f Scan_7",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.1
+ },
+ {
+  "id": "b0f733174239",
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "U4f Scan_8",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.28
+ },
+ {
+  "id": "82373772acc0",
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "B1s Scan",
+  "shapes": [
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 3.52
+ },
+ {
+  "id": "3fe6a143c4ce",
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "B1s Scan_0",
+  "shapes": [
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 4.16
+ },
+ {
+  "id": "320a554cd8b0",
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "B1s Scan_1",
+  "shapes": [
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 2.28
+ },
+ {
+  "id": "300874ebc424",
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "B1s Scan_2",
+  "shapes": [
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 2.38
+ },
+ {
+  "id": "334e85f77f1f",
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "B1s Scan_3",
+  "shapes": [
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 3.62
+ },
+ {
+  "id": "55e057740cec",
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "B1s Scan_4",
+  "shapes": [
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 0.13
+ },
+ {
+  "id": "5a96df37a016",
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "B1s Scan_5",
+  "shapes": [
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 0.15
+ },
+ {
+  "id": "b7f3138583a9",
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "B1s Scan_6",
+  "shapes": [
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 0.16
+ },
+ {
+  "id": "643de6748cff",
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "B1s Scan_7",
+  "shapes": [
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 4.64
+ },
+ {
+  "id": "2c1da47202a1",
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "B1s Scan_8",
+  "shapes": [
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 3.1
+ },
+ {
+  "id": "956070082b72",
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "B1s Scan_0",
+  "shapes": [
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 3.19
+ },
+ {
+  "id": "83b83bbe204b",
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "B1s Scan_1",
+  "shapes": [
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 3.15
+ },
+ {
+  "id": "2fb4680d23f4",
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "B1s Scan_2",
+  "shapes": [
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 3.13
+ },
+ {
+  "id": "cd0d420faa2c",
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "B1s Scan_3",
+  "shapes": [
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 5.94
+ },
+ {
+  "id": "ebb50815ea7f",
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "B1s Scan_4",
+  "shapes": [
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 0.13
+ },
+ {
+  "id": "04ba0d51f12c",
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "B1s Scan_5",
+  "shapes": [
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 0.14
+ },
+ {
+  "id": "cd299b3520c6",
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "B1s Scan_6",
+  "shapes": [
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.65
+ },
+ {
+  "id": "495cee61f6f8",
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "B1s Scan_7",
+  "shapes": [
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 4.67
+ },
+ {
+  "id": "9cbd2016e1a0",
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "B1s Scan_8",
+  "shapes": [
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.59
+ },
+ {
+  "id": "bc23889f2724",
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "U4f Scan",
+  "shapes": [
+   "LACX",
+   "Voigt",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 21.39
+ },
+ {
+  "id": "8e934acda9cc",
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "U4f Scan_0",
+  "shapes": [
+   "LACX",
+   "Voigt",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.25
+ },
+ {
+  "id": "3d75505e02bf",
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "U4f Scan_1",
+  "shapes": [
+   "LACX",
+   "Voigt",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 14.06
+ },
+ {
+  "id": "42825934f53c",
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "U4f Scan_2",
+  "shapes": [
+   "LACX",
+   "Voigt",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 16.58
+ },
+ {
+  "id": "5374a59f1c40",
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "U4f Scan_3",
+  "shapes": [
+   "LACX",
+   "Voigt",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 15.93
+ },
+ {
+  "id": "723f28c6b6bd",
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "U4f Scan_4",
+  "shapes": [
+   "LACX",
+   "Voigt",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 2.89
+ },
+ {
+  "id": "9d4ffce9d966",
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "U4f Scan_5",
+  "shapes": [
+   "LACX",
+   "Voigt",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 46.72
+ },
+ {
+  "id": "7be535d0a21b",
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "U4f Scan_6",
+  "shapes": [
+   "LACX",
+   "Voigt",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 17.16
+ },
+ {
+  "id": "66ee0012824c",
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "U4f Scan_7",
+  "shapes": [
+   "LACX",
+   "Voigt",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 18.13
+ },
+ {
+  "id": "770c7901ce13",
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "U4f Scan_8",
+  "shapes": [
+   "LACX",
+   "Voigt",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 17.18
+ },
+ {
+  "id": "095271604956",
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "U4f Scan_0",
+  "shapes": [
+   "LACX",
+   "Voigt",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 35.52
+ },
+ {
+  "id": "51d01eeba6b4",
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "U4f Scan_1",
+  "shapes": [
+   "LACX",
+   "Voigt",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 11.62
+ },
+ {
+  "id": "234457d6df43",
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "U4f Scan_2",
+  "shapes": [
+   "LACX",
+   "Voigt",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 23.11
+ },
+ {
+  "id": "84d1c592380a",
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "U4f Scan_3",
+  "shapes": [
+   "LACX",
+   "Voigt",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 23.21
+ },
+ {
+  "id": "f0e542b5fc69",
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "U4f Scan_4",
+  "shapes": [
+   "LACX",
+   "Voigt",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 23.0
+ },
+ {
+  "id": "dcdcf4d107d2",
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "U4f Scan_5",
+  "shapes": [
+   "LACX",
+   "Voigt",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 31.78
+ },
+ {
+  "id": "eac6370b57e9",
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "U4f Scan_6",
+  "shapes": [
+   "LACX",
+   "Voigt",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 35.41
+ },
+ {
+  "id": "319503c6fd34",
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "U4f Scan_7",
+  "shapes": [
+   "LACX",
+   "Voigt",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 34.66
+ },
+ {
+  "id": "5213210f17e5",
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "U4f Scan_8",
+  "shapes": [
+   "LACX",
+   "Voigt",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.31
+ },
+ {
+  "id": "0bdbd1d9ce0c",
+  "project": "8-JT Graphite.proj.zip",
+  "tab": "C1s Scan",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 3.46
+ },
+ {
+  "id": "026fd9036943",
+  "project": "8-JT Graphite.proj.zip",
+  "tab": "C1s Scan_0",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 3.69
+ },
+ {
+  "id": "61a044547054",
+  "project": "8-JT Graphite.proj.zip",
+  "tab": "C1s Scan_1",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 3.06
+ },
+ {
+  "id": "c9733df2f48e",
+  "project": "8-JT Graphite.proj.zip",
+  "tab": "C1s Scan_2",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 21.54
+ },
+ {
+  "id": "28269fa1f116",
+  "project": "8-JT Graphite.proj.zip",
+  "tab": "C1s Scan_3",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 30.6
+ },
+ {
+  "id": "f0e987a40dc1",
+  "project": "8-JT Graphite.proj.zip",
+  "tab": "C1s Scan_4",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 8.61
+ },
+ {
+  "id": "dc2c25b1bc43",
+  "project": "8-JT Graphite.proj.zip",
+  "tab": "C1s Scan_5",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 7.35
+ },
+ {
+  "id": "a7cd57f9158c",
+  "project": "8-JT Graphite.proj.zip",
+  "tab": "C1s Scan_6",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 5.71
+ },
+ {
+  "id": "f8080d02f7d5",
+  "project": "8-JT Graphite.proj.zip",
+  "tab": "C1s Scan_7",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 5.24
+ },
+ {
+  "id": "1b31659605d1",
+  "project": "8-JT Graphite.proj.zip",
+  "tab": "C1s Scan_8",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 3.83
+ },
+ {
+  "id": "029a62e4eddc",
+  "project": "8-JT Graphite.proj.zip",
+  "tab": "C1s Scan_0",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 8.95
+ },
+ {
+  "id": "909e4b639ee3",
+  "project": "8-JT Graphite.proj.zip",
+  "tab": "C1s Scan_1",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 3.78
+ },
+ {
+  "id": "89b6461b5d0e",
+  "project": "8-JT Graphite.proj.zip",
+  "tab": "C1s Scan_2",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 7.82
+ },
+ {
+  "id": "7d12b41b949e",
+  "project": "8-JT Graphite.proj.zip",
+  "tab": "C1s Scan_3",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 5.74
+ },
+ {
+  "id": "30d3c3e47989",
+  "project": "8-JT Graphite.proj.zip",
+  "tab": "C1s Scan_4",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 3.19
+ },
+ {
+  "id": "fbc00ee350bb",
+  "project": "8-JT Graphite.proj.zip",
+  "tab": "C1s Scan_5",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 4.13
+ },
+ {
+  "id": "d1afaef62edd",
+  "project": "8-JT Graphite.proj.zip",
+  "tab": "C1s Scan_6",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 2.12
+ },
+ {
+  "id": "638e2a2520de",
+  "project": "8-JT Graphite.proj.zip",
+  "tab": "C1s Scan_7",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 3.06
+ },
+ {
+  "id": "98672dad2cab",
+  "project": "8-JT Graphite.proj.zip",
+  "tab": "C1s Scan_8",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.43
+ },
+ {
+  "id": "80c05de34d3e",
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "B1s Scan",
+  "shapes": [
+   "GL",
+   "Gaussian"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 8.51
+ },
+ {
+  "id": "848788d30bf2",
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "B1s Scan_0",
+  "shapes": [
+   "GL",
+   "Gaussian"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 4.07
+ },
+ {
+  "id": "7d14a3afcd01",
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "B1s Scan_1",
+  "shapes": [
+   "GL",
+   "Gaussian"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 4.08
+ },
+ {
+  "id": "368f3769249b",
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "B1s Scan_2",
+  "shapes": [
+   "GL",
+   "Gaussian"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 3.94
+ },
+ {
+  "id": "1348179cab3d",
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "B1s Scan_3",
+  "shapes": [
+   "GL",
+   "Gaussian"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 7.71
+ },
+ {
+  "id": "c122bca69676",
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "B1s Scan_4",
+  "shapes": [
+   "GL",
+   "Gaussian"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 9.21
+ },
+ {
+  "id": "5dc8fa072ae4",
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "B1s Scan_5",
+  "shapes": [
+   "GL",
+   "Gaussian"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 5.04
+ },
+ {
+  "id": "4d7f2278e03b",
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "B1s Scan_6",
+  "shapes": [
+   "GL",
+   "Gaussian"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 7.93
+ },
+ {
+  "id": "24fa802bfe43",
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "B1s Scan_7",
+  "shapes": [
+   "GL",
+   "Gaussian"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 4.34
+ },
+ {
+  "id": "bc9b1ec00a91",
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "B1s Scan_8",
+  "shapes": [
+   "GL",
+   "Gaussian"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 4.04
+ },
+ {
+  "id": "18cd25ff6fb2",
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "B1s Scan_0",
+  "shapes": [
+   "GL",
+   "Gaussian"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 4.51
+ },
+ {
+  "id": "ed315f6a2f80",
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "B1s Scan_1",
+  "shapes": [
+   "GL",
+   "Gaussian"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 5.13
+ },
+ {
+  "id": "b1de133325a2",
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "B1s Scan_2",
+  "shapes": [
+   "GL",
+   "Gaussian"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 4.2
+ },
+ {
+  "id": "96e8e43030e4",
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "B1s Scan_3",
+  "shapes": [
+   "GL",
+   "Gaussian"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 0.3
+ },
+ {
+  "id": "6c6dbce2d52e",
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "B1s Scan_4",
+  "shapes": [
+   "GL",
+   "Gaussian"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 4.04
+ },
+ {
+  "id": "63d325b549d5",
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "B1s Scan_5",
+  "shapes": [
+   "GL",
+   "Gaussian"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 0.3
+ },
+ {
+  "id": "992b93485167",
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "B1s Scan_6",
+  "shapes": [
+   "GL",
+   "Gaussian"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 0.28
+ },
+ {
+  "id": "9bb87790d4c9",
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "B1s Scan_7",
+  "shapes": [
+   "GL",
+   "Gaussian"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 4.19
+ },
+ {
+  "id": "77468ba14c50",
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "B1s Scan_8",
+  "shapes": [
+   "GL",
+   "Gaussian"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 8.03
+ },
+ {
+  "id": "e58c2068b890",
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "U4f Scan",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.0
+ },
+ {
+  "id": "6a79ce2aae6c",
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "U4f Scan_0",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.08
+ },
+ {
+  "id": "717a3f8f5ecb",
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "U4f Scan_1",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 0.93
+ },
+ {
+  "id": "ccacd984513b",
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "U4f Scan_2",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.01
+ },
+ {
+  "id": "69e8729f7c8c",
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "U4f Scan_3",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 0.85
+ },
+ {
+  "id": "91db9fc120ca",
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "U4f Scan_4",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 5.02
+ },
+ {
+  "id": "36f79573753c",
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "U4f Scan_5",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.07
+ },
+ {
+  "id": "b0b55528edac",
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "U4f Scan_6",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.35
+ },
+ {
+  "id": "9506de3f9813",
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "U4f Scan_7",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.63
+ },
+ {
+  "id": "3a9e2add6a05",
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "U4f Scan_8",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.64
+ },
+ {
+  "id": "8e1e701cdaff",
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "U4f Scan_0",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.12
+ },
+ {
+  "id": "8624bf741a01",
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "U4f Scan_1",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.14
+ },
+ {
+  "id": "219abb20c56a",
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "U4f Scan_2",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.08
+ },
+ {
+  "id": "0ee03370cb20",
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "U4f Scan_3",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 0.96
+ },
+ {
+  "id": "1605a5c47e8d",
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "U4f Scan_4",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.23
+ },
+ {
+  "id": "7a84d3bc57e1",
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "U4f Scan_5",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 2.64
+ },
+ {
+  "id": "214917af7153",
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "U4f Scan_6",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.03
+ },
+ {
+  "id": "fa8d33bf1c3f",
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "U4f Scan_7",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 0.86
+ },
+ {
+  "id": "12bdf398669e",
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "U4f Scan_8",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.13
+ },
+ {
+  "id": "8d1a05aa36e6",
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "C1s Scan",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.07
+ },
+ {
+  "id": "6a5b9b43e4cf",
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "C1s Scan_0",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.18
+ },
+ {
+  "id": "243a4ec3b519",
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "C1s Scan_1",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.08
+ },
+ {
+  "id": "41e18bd64bff",
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "C1s Scan_2",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.44
+ },
+ {
+  "id": "55a96178af93",
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "C1s Scan_3",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.28
+ },
+ {
+  "id": "9f4a8628ea54",
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "C1s Scan_4",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.37
+ },
+ {
+  "id": "b6eb0bd96f58",
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "C1s Scan_5",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.29
+ },
+ {
+  "id": "9227a7e04006",
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "C1s Scan_0",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 2.02
+ },
+ {
+  "id": "3a0a184cbfd8",
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "C1s Scan_1",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.62
+ },
+ {
+  "id": "0c077e651e48",
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "C1s Scan_2",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 0.92
+ },
+ {
+  "id": "0ce846c1e1ad",
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "C1s Scan_3",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.17
+ },
+ {
+  "id": "7f7482a44f79",
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "C1s Scan_4",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 2.44
+ },
+ {
+  "id": "96926df9b7c5",
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "C1s Scan_5",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.75
+ },
+ {
+  "id": "216d19fc38fc",
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "U4f Scan",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.2
+ },
+ {
+  "id": "b099615c87bd",
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "U4f Scan_0",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.21
+ },
+ {
+  "id": "d15c8a535723",
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "U4f Scan_1",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.06
+ },
+ {
+  "id": "05cc5d8d6d8f",
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "U4f Scan_2",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.68
+ },
+ {
+  "id": "3b6a49a83249",
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "U4f Scan_3",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 13.38
+ },
+ {
+  "id": "dfe042132ab1",
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "U4f Scan_4",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 2.41
+ },
+ {
+  "id": "cba0c889a7f8",
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "U4f Scan_5",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.89
+ },
+ {
+  "id": "68395f61c890",
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "U4f Scan_0",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.57
+ },
+ {
+  "id": "a946af1564cb",
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "U4f Scan_1",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.33
+ },
+ {
+  "id": "8a64090b2824",
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "U4f Scan_2",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 3.93
+ },
+ {
+  "id": "fcdc5e002229",
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "U4f Scan_3",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.67
+ },
+ {
+  "id": "03540b1537f7",
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "U4f Scan_4",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.37
+ },
+ {
+  "id": "94f1faee58a1",
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "U4f Scan_5",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.19
+ },
+ {
+  "id": "e1b88c007d63",
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "Cl2p Scan",
+  "shapes": [
+   "GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 0.12
+ },
+ {
+  "id": "bd806aa24a14",
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "Cl2p Scan_0",
+  "shapes": [
+   "GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 0.12
+ },
+ {
+  "id": "2dc841cbd484",
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "Cl2p Scan_1",
+  "shapes": [
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 0.12
+ },
+ {
+  "id": "5ee1c552aae8",
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "Cl2p Scan_0",
+  "shapes": [
+   "GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 0.17
+ },
+ {
+  "id": "a0707d4294c3",
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "Cl2p Scan_1",
+  "shapes": [
+   "GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 0.14
+ },
+ {
+  "id": "5b6b2433bfd8",
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "C1s Scan",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 11.52
+ },
+ {
+  "id": "1c08e8a7d84d",
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "C1s Scan_0",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 2.22
+ },
+ {
+  "id": "36491a7da17d",
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "C1s Scan_1",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 3.55
+ },
+ {
+  "id": "e65bad2031b3",
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "C1s Scan_2",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 0.75
+ },
+ {
+  "id": "e0a13b729251",
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "C1s Scan_3",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 8.6
+ },
+ {
+  "id": "f926cb0cc4df",
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "C1s Scan_4",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 3.0
+ },
+ {
+  "id": "2eddf87b2965",
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "C1s Scan_5",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.69
+ },
+ {
+  "id": "f36ba7673470",
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "C1s Scan_6",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 3.84
+ },
+ {
+  "id": "902b2babe824",
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "C1s Scan_7",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.22
+ },
+ {
+  "id": "ebcffd05de0d",
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "C1s Scan_8",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 3.49
+ },
+ {
+  "id": "7a5334936bca",
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "C1s Scan_0",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 5.06
+ },
+ {
+  "id": "8b1130e14baf",
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "C1s Scan_1",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 11.94
+ },
+ {
+  "id": "ec7a4fae6a62",
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "C1s Scan_2",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.02
+ },
+ {
+  "id": "4b1baff2b8a2",
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "C1s Scan_3",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 6.05
+ },
+ {
+  "id": "187bb8129656",
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "C1s Scan_4",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.62
+ },
+ {
+  "id": "7065554ca73d",
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "C1s Scan_5",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 0.88
+ },
+ {
+  "id": "c3db4081a2b5",
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "C1s Scan_6",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.48
+ },
+ {
+  "id": "322e17459829",
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "C1s Scan_7",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.47
+ },
+ {
+  "id": "960de5b9623b",
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "C1s Scan_8",
+  "shapes": [
+   "GL",
+   "asym-GL"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.37
+ },
+ {
+  "id": "1364dc552e5b",
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "U4f Scan",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.14
+ },
+ {
+  "id": "5a21c41e3e68",
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "U4f Scan_0",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.5
+ },
+ {
+  "id": "f91e7b75720c",
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "U4f Scan_1",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.66
+ },
+ {
+  "id": "d83877927eaf",
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "U4f Scan_2",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.65
+ },
+ {
+  "id": "be234b16bb2b",
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "U4f Scan_3",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.58
+ },
+ {
+  "id": "97791f8e42ff",
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "U4f Scan_4",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.67
+ },
+ {
+  "id": "38d53fd45074",
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "U4f Scan_5",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.2
+ },
+ {
+  "id": "9a3557a3ea87",
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "U4f Scan_6",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.15
+ },
+ {
+  "id": "8614193dbe7d",
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "U4f Scan_7",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.18
+ },
+ {
+  "id": "4bf9943cc15f",
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "U4f Scan_8",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.32
+ },
+ {
+  "id": "142af9b7c91d",
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "U4f Scan_0",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.4
+ },
+ {
+  "id": "0dd0e249cef1",
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "U4f Scan_1",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.37
+ },
+ {
+  "id": "89ea8078ea6a",
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "U4f Scan_2",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.39
+ },
+ {
+  "id": "b85b4f5ed4cb",
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "U4f Scan_3",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.78
+ },
+ {
+  "id": "5e55cd96ce7f",
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "U4f Scan_4",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.7
+ },
+ {
+  "id": "7353f2c6a3f4",
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "U4f Scan_5",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.0
+ },
+ {
+  "id": "9a473ed753af",
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "U4f Scan_6",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.67
+ },
+ {
+  "id": "89c1fd265691",
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "U4f Scan_7",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.45
+ },
+ {
+  "id": "b89e148ff71f",
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "U4f Scan_8",
+  "shapes": [
+   "LACX",
+   "Voigt"
+  ],
+  "outcome": "reproduced",
+  "problems": [],
+  "n_problems": 0,
+  "starts_same": true,
+  "starts_problems": [],
+  "numerics_same": false,
+  "seconds": 1.12
+ }
+]

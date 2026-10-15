@@ -1,0 +1,206 @@
+  1 reproduced         starts same     32.4s  1-GTA UCl4-graphite one set of U doublet / C1s Scan
+  2 reproduced         starts same     12.1s  1-GTA UCl4-graphite one set of U doublet / C1s Scan_0
+  3 reproduced         starts same      0.9s  1-GTA UCl4-graphite one set of U doublet / C1s Scan_1
+  4 reproduced         starts same     15.3s  1-GTA UCl4-graphite one set of U doublet / C1s Scan_2
+  5 reproduced         starts same     11.2s  1-GTA UCl4-graphite one set of U doublet / C1s Scan_3
+  6 reproduced         starts same     28.9s  1-GTA UCl4-graphite one set of U doublet / C1s Scan_4
+  7 reproduced         starts same     21.3s  1-GTA UCl4-graphite one set of U doublet / C1s Scan_5
+  8 reproduced         starts same     15.3s  1-GTA UCl4-graphite one set of U doublet / C1s Scan_6
+  9 reproduced         starts same     32.1s  1-GTA UCl4-graphite one set of U doublet / C1s Scan_7
+ 10 reproduced         starts same     12.3s  1-GTA UCl4-graphite one set of U doublet / C1s Scan_8
+ 11 reproduced         starts same      6.1s  1-GTA UCl4-graphite one set of U doublet / C1s Scan_0
+ 12 reproduced         starts same     22.7s  1-GTA UCl4-graphite one set of U doublet / C1s Scan_1
+ 13 reproduced         starts same     27.6s  1-GTA UCl4-graphite one set of U doublet / C1s Scan_2
+ 14 reproduced         starts same     27.9s  1-GTA UCl4-graphite one set of U doublet / C1s Scan_3
+ 15 reproduced         starts same     53.1s  1-GTA UCl4-graphite one set of U doublet / C1s Scan_4
+ 16 reproduced         starts same     18.6s  1-GTA UCl4-graphite one set of U doublet / C1s Scan_5
+ 17 reproduced         starts same     16.4s  1-GTA UCl4-graphite one set of U doublet / C1s Scan_6
+ 18 reproduced         starts same     59.1s  1-GTA UCl4-graphite one set of U doublet / C1s Scan_7
+ 19 reproduced         starts same     25.5s  1-GTA UCl4-graphite one set of U doublet / C1s Scan_8
+ 20 reproduced         starts same      1.1s  1-GTA UCl4-graphite one set of U doublet / U4f Scan
+ 21 reproduced         starts same      0.9s  1-GTA UCl4-graphite one set of U doublet / U4f Scan_0
+ 22 reproduced         starts same      1.1s  1-GTA UCl4-graphite one set of U doublet / U4f Scan_1
+ 23 reproduced         starts DIFFER    0.9s  1-GTA UCl4-graphite one set of U doublet / U4f Scan_2
+ 24 reproduced         starts same      1.1s  1-GTA UCl4-graphite one set of U doublet / U4f Scan_3
+ 25 reproduced         starts same      2.7s  1-GTA UCl4-graphite one set of U doublet / U4f Scan_4
+ 26 reproduced         starts same      0.8s  1-GTA UCl4-graphite one set of U doublet / U4f Scan_5
+ 27 reproduced         starts same      1.0s  1-GTA UCl4-graphite one set of U doublet / U4f Scan_6
+ 28 reproduced         starts same      1.1s  1-GTA UCl4-graphite one set of U doublet / U4f Scan_7
+ 29 reproduced         starts same      1.0s  1-GTA UCl4-graphite one set of U doublet / U4f Scan_8
+ 30 reproduced         starts same      1.0s  1-GTA UCl4-graphite one set of U doublet / U4f Scan_0
+ 31 reproduced         starts same      1.3s  1-GTA UCl4-graphite one set of U doublet / U4f Scan_1
+ 32 reproduced         starts same      1.1s  1-GTA UCl4-graphite one set of U doublet / U4f Scan_2
+ 33 reproduced         starts same      1.0s  1-GTA UCl4-graphite one set of U doublet / U4f Scan_3
+ 34 reproduced         starts same      1.4s  1-GTA UCl4-graphite one set of U doublet / U4f Scan_4
+ 35 reproduced         starts same      0.8s  1-GTA UCl4-graphite one set of U doublet / U4f Scan_5
+ 36 reproduced         starts same      1.2s  1-GTA UCl4-graphite one set of U doublet / U4f Scan_6
+ 37 reproduced         starts same      1.1s  1-GTA UCl4-graphite one set of U doublet / U4f Scan_7
+ 38 reproduced         starts same      1.3s  1-GTA UCl4-graphite one set of U doublet / U4f Scan_8
+ 39 reproduced         starts same      3.5s  4-GTA UCl4-BN.proj.zip / B1s Scan
+ 40 reproduced         starts same      4.2s  4-GTA UCl4-BN.proj.zip / B1s Scan_0
+ 41 reproduced         starts same      2.3s  4-GTA UCl4-BN.proj.zip / B1s Scan_1
+ 42 reproduced         starts same      2.4s  4-GTA UCl4-BN.proj.zip / B1s Scan_2
+ 43 reproduced         starts same      3.6s  4-GTA UCl4-BN.proj.zip / B1s Scan_3
+ 44 reproduced         starts same      0.1s  4-GTA UCl4-BN.proj.zip / B1s Scan_4
+ 45 reproduced         starts same      0.1s  4-GTA UCl4-BN.proj.zip / B1s Scan_5
+ 46 reproduced         starts same      0.2s  4-GTA UCl4-BN.proj.zip / B1s Scan_6
+ 47 reproduced         starts same      4.6s  4-GTA UCl4-BN.proj.zip / B1s Scan_7
+ 48 reproduced         starts same      3.1s  4-GTA UCl4-BN.proj.zip / B1s Scan_8
+ 49 reproduced         starts same      3.2s  4-GTA UCl4-BN.proj.zip / B1s Scan_0
+ 50 reproduced         starts same      3.1s  4-GTA UCl4-BN.proj.zip / B1s Scan_1
+ 51 reproduced         starts same      3.1s  4-GTA UCl4-BN.proj.zip / B1s Scan_2
+ 52 reproduced         starts same      5.9s  4-GTA UCl4-BN.proj.zip / B1s Scan_3
+ 53 reproduced         starts same      0.1s  4-GTA UCl4-BN.proj.zip / B1s Scan_4
+ 54 reproduced         starts same      0.1s  4-GTA UCl4-BN.proj.zip / B1s Scan_5
+ 55 reproduced         starts same      1.6s  4-GTA UCl4-BN.proj.zip / B1s Scan_6
+ 56 reproduced         starts same      4.7s  4-GTA UCl4-BN.proj.zip / B1s Scan_7
+ 57 reproduced         starts same      1.6s  4-GTA UCl4-BN.proj.zip / B1s Scan_8
+ 58 reproduced         starts same     21.4s  4-GTA UCl4-BN.proj.zip / U4f Scan
+ 59 reproduced         starts same      1.2s  4-GTA UCl4-BN.proj.zip / U4f Scan_0
+ 60 reproduced         starts same     14.1s  4-GTA UCl4-BN.proj.zip / U4f Scan_1
+ 61 reproduced         starts same     16.6s  4-GTA UCl4-BN.proj.zip / U4f Scan_2
+ 62 reproduced         starts same     15.9s  4-GTA UCl4-BN.proj.zip / U4f Scan_3
+ 63 reproduced         starts same      2.9s  4-GTA UCl4-BN.proj.zip / U4f Scan_4
+ 64 reproduced         starts same     46.7s  4-GTA UCl4-BN.proj.zip / U4f Scan_5
+ 65 reproduced         starts same     17.2s  4-GTA UCl4-BN.proj.zip / U4f Scan_6
+ 66 reproduced         starts same     18.1s  4-GTA UCl4-BN.proj.zip / U4f Scan_7
+ 67 reproduced         starts same     17.2s  4-GTA UCl4-BN.proj.zip / U4f Scan_8
+ 68 reproduced         starts same     35.5s  4-GTA UCl4-BN.proj.zip / U4f Scan_0
+ 69 reproduced         starts same     11.6s  4-GTA UCl4-BN.proj.zip / U4f Scan_1
+ 70 reproduced         starts same     23.1s  4-GTA UCl4-BN.proj.zip / U4f Scan_2
+ 71 reproduced         starts same     23.2s  4-GTA UCl4-BN.proj.zip / U4f Scan_3
+ 72 reproduced         starts same     23.0s  4-GTA UCl4-BN.proj.zip / U4f Scan_4
+ 73 reproduced         starts same     31.8s  4-GTA UCl4-BN.proj.zip / U4f Scan_5
+ 74 reproduced         starts same     35.4s  4-GTA UCl4-BN.proj.zip / U4f Scan_6
+ 75 reproduced         starts same     34.7s  4-GTA UCl4-BN.proj.zip / U4f Scan_7
+ 76 reproduced         starts same      1.3s  4-GTA UCl4-BN.proj.zip / U4f Scan_8
+ 77 reproduced         starts same      3.5s  8-JT Graphite.proj.zip / C1s Scan
+ 78 reproduced         starts same      3.7s  8-JT Graphite.proj.zip / C1s Scan_0
+ 79 reproduced         starts same      3.1s  8-JT Graphite.proj.zip / C1s Scan_1
+ 80 reproduced         starts same     21.5s  8-JT Graphite.proj.zip / C1s Scan_2
+ 81 reproduced         starts same     30.6s  8-JT Graphite.proj.zip / C1s Scan_3
+ 82 reproduced         starts same      8.6s  8-JT Graphite.proj.zip / C1s Scan_4
+ 83 reproduced         starts same      7.3s  8-JT Graphite.proj.zip / C1s Scan_5
+ 84 reproduced         starts same      5.7s  8-JT Graphite.proj.zip / C1s Scan_6
+ 85 reproduced         starts same      5.2s  8-JT Graphite.proj.zip / C1s Scan_7
+ 86 reproduced         starts same      3.8s  8-JT Graphite.proj.zip / C1s Scan_8
+ 87 reproduced         starts same      8.9s  8-JT Graphite.proj.zip / C1s Scan_0
+ 88 reproduced         starts same      3.8s  8-JT Graphite.proj.zip / C1s Scan_1
+ 89 reproduced         starts same      7.8s  8-JT Graphite.proj.zip / C1s Scan_2
+ 90 reproduced         starts same      5.7s  8-JT Graphite.proj.zip / C1s Scan_3
+ 91 reproduced         starts same      3.2s  8-JT Graphite.proj.zip / C1s Scan_4
+ 92 reproduced         starts same      4.1s  8-JT Graphite.proj.zip / C1s Scan_5
+ 93 reproduced         starts same      2.1s  8-JT Graphite.proj.zip / C1s Scan_6
+ 94 reproduced         starts same      3.1s  8-JT Graphite.proj.zip / C1s Scan_7
+ 95 reproduced         starts same      1.4s  8-JT Graphite.proj.zip / C1s Scan_8
+ 96 reproduced         starts same      8.5s  B4C-UCl4.proj.zip / B1s Scan
+ 97 reproduced         starts same      4.1s  B4C-UCl4.proj.zip / B1s Scan_0
+ 98 reproduced         starts same      4.1s  B4C-UCl4.proj.zip / B1s Scan_1
+ 99 reproduced         starts same      3.9s  B4C-UCl4.proj.zip / B1s Scan_2
+100 reproduced         starts same      7.7s  B4C-UCl4.proj.zip / B1s Scan_3
+101 reproduced         starts same      9.2s  B4C-UCl4.proj.zip / B1s Scan_4
+102 reproduced         starts same      5.0s  B4C-UCl4.proj.zip / B1s Scan_5
+103 reproduced         starts same      7.9s  B4C-UCl4.proj.zip / B1s Scan_6
+104 reproduced         starts same      4.3s  B4C-UCl4.proj.zip / B1s Scan_7
+105 reproduced         starts same      4.0s  B4C-UCl4.proj.zip / B1s Scan_8
+106 reproduced         starts same      4.5s  B4C-UCl4.proj.zip / B1s Scan_0
+107 reproduced         starts same      5.1s  B4C-UCl4.proj.zip / B1s Scan_1
+108 reproduced         starts same      4.2s  B4C-UCl4.proj.zip / B1s Scan_2
+109 reproduced         starts same      0.3s  B4C-UCl4.proj.zip / B1s Scan_3
+110 reproduced         starts same      4.0s  B4C-UCl4.proj.zip / B1s Scan_4
+111 reproduced         starts same      0.3s  B4C-UCl4.proj.zip / B1s Scan_5
+112 reproduced         starts same      0.3s  B4C-UCl4.proj.zip / B1s Scan_6
+113 reproduced         starts same      4.2s  B4C-UCl4.proj.zip / B1s Scan_7
+114 reproduced         starts same      8.0s  B4C-UCl4.proj.zip / B1s Scan_8
+115 reproduced         starts same      1.0s  B4C-UCl4.proj.zip / U4f Scan
+116 reproduced         starts same      1.1s  B4C-UCl4.proj.zip / U4f Scan_0
+117 reproduced         starts same      0.9s  B4C-UCl4.proj.zip / U4f Scan_1
+118 reproduced         starts same      1.0s  B4C-UCl4.proj.zip / U4f Scan_2
+119 reproduced         starts same      0.8s  B4C-UCl4.proj.zip / U4f Scan_3
+120 reproduced         starts same      5.0s  B4C-UCl4.proj.zip / U4f Scan_4
+121 reproduced         starts same      1.1s  B4C-UCl4.proj.zip / U4f Scan_5
+122 reproduced         starts same      1.4s  B4C-UCl4.proj.zip / U4f Scan_6
+123 reproduced         starts same      1.6s  B4C-UCl4.proj.zip / U4f Scan_7
+124 reproduced         starts same      1.6s  B4C-UCl4.proj.zip / U4f Scan_8
+125 reproduced         starts same      1.1s  B4C-UCl4.proj.zip / U4f Scan_0
+126 reproduced         starts same      1.1s  B4C-UCl4.proj.zip / U4f Scan_1
+127 reproduced         starts same      1.1s  B4C-UCl4.proj.zip / U4f Scan_2
+128 reproduced         starts same      1.0s  B4C-UCl4.proj.zip / U4f Scan_3
+129 reproduced         starts same      1.2s  B4C-UCl4.proj.zip / U4f Scan_4
+130 reproduced         starts same      2.6s  B4C-UCl4.proj.zip / U4f Scan_5
+131 reproduced         starts same      1.0s  B4C-UCl4.proj.zip / U4f Scan_6
+132 reproduced         starts same      0.9s  B4C-UCl4.proj.zip / U4f Scan_7
+133 reproduced         starts same      1.1s  B4C-UCl4.proj.zip / U4f Scan_8
+134 reproduced         starts same      1.1s  Cl2p_projfit_test.proj.zip / C1s Scan
+135 reproduced         starts same      1.2s  Cl2p_projfit_test.proj.zip / C1s Scan_0
+136 reproduced         starts same      1.1s  Cl2p_projfit_test.proj.zip / C1s Scan_1
+137 reproduced         starts same      1.4s  Cl2p_projfit_test.proj.zip / C1s Scan_2
+138 reproduced         starts same      1.3s  Cl2p_projfit_test.proj.zip / C1s Scan_3
+139 reproduced         starts same      1.4s  Cl2p_projfit_test.proj.zip / C1s Scan_4
+140 reproduced         starts same      1.3s  Cl2p_projfit_test.proj.zip / C1s Scan_5
+141 reproduced         starts same      2.0s  Cl2p_projfit_test.proj.zip / C1s Scan_0
+142 reproduced         starts same      1.6s  Cl2p_projfit_test.proj.zip / C1s Scan_1
+143 reproduced         starts same      0.9s  Cl2p_projfit_test.proj.zip / C1s Scan_2
+144 reproduced         starts same      1.2s  Cl2p_projfit_test.proj.zip / C1s Scan_3
+145 reproduced         starts same      2.4s  Cl2p_projfit_test.proj.zip / C1s Scan_4
+146 reproduced         starts same      1.8s  Cl2p_projfit_test.proj.zip / C1s Scan_5
+147 reproduced         starts same      1.2s  Cl2p_projfit_test.proj.zip / U4f Scan
+148 reproduced         starts same      1.2s  Cl2p_projfit_test.proj.zip / U4f Scan_0
+149 reproduced         starts same      1.1s  Cl2p_projfit_test.proj.zip / U4f Scan_1
+150 reproduced         starts same      1.7s  Cl2p_projfit_test.proj.zip / U4f Scan_2
+151 reproduced         starts same     13.4s  Cl2p_projfit_test.proj.zip / U4f Scan_3
+152 reproduced         starts same      2.4s  Cl2p_projfit_test.proj.zip / U4f Scan_4
+153 reproduced         starts same      1.9s  Cl2p_projfit_test.proj.zip / U4f Scan_5
+154 reproduced         starts same      1.6s  Cl2p_projfit_test.proj.zip / U4f Scan_0
+155 reproduced         starts same      1.3s  Cl2p_projfit_test.proj.zip / U4f Scan_1
+156 reproduced         starts same      3.9s  Cl2p_projfit_test.proj.zip / U4f Scan_2
+157 reproduced         starts same      1.7s  Cl2p_projfit_test.proj.zip / U4f Scan_3
+158 reproduced         starts same      1.4s  Cl2p_projfit_test.proj.zip / U4f Scan_4
+159 reproduced         starts same      1.2s  Cl2p_projfit_test.proj.zip / U4f Scan_5
+160 reproduced         starts same      0.1s  Cl2p_projfit_test.proj.zip / Cl2p Scan
+161 reproduced         starts same      0.1s  Cl2p_projfit_test.proj.zip / Cl2p Scan_0
+162 reproduced         starts same      0.1s  Cl2p_projfit_test.proj.zip / Cl2p Scan_1
+163 reproduced         starts same      0.2s  Cl2p_projfit_test.proj.zip / Cl2p Scan_0
+164 reproduced         starts same      0.1s  Cl2p_projfit_test.proj.zip / Cl2p Scan_1
+165 reproduced         starts same     11.5s  UCl4_on_graphite.proj.zip / C1s Scan
+166 reproduced         starts same      2.2s  UCl4_on_graphite.proj.zip / C1s Scan_0
+167 reproduced         starts same      3.5s  UCl4_on_graphite.proj.zip / C1s Scan_1
+168 reproduced         starts same      0.8s  UCl4_on_graphite.proj.zip / C1s Scan_2
+169 reproduced         starts same      8.6s  UCl4_on_graphite.proj.zip / C1s Scan_3
+170 reproduced         starts same      3.0s  UCl4_on_graphite.proj.zip / C1s Scan_4
+171 reproduced         starts same      1.7s  UCl4_on_graphite.proj.zip / C1s Scan_5
+172 reproduced         starts same      3.8s  UCl4_on_graphite.proj.zip / C1s Scan_6
+173 reproduced         starts same      1.2s  UCl4_on_graphite.proj.zip / C1s Scan_7
+174 reproduced         starts same      3.5s  UCl4_on_graphite.proj.zip / C1s Scan_8
+175 reproduced         starts same      5.1s  UCl4_on_graphite.proj.zip / C1s Scan_0
+176 reproduced         starts same     11.9s  UCl4_on_graphite.proj.zip / C1s Scan_1
+177 reproduced         starts same      1.0s  UCl4_on_graphite.proj.zip / C1s Scan_2
+178 reproduced         starts same      6.0s  UCl4_on_graphite.proj.zip / C1s Scan_3
+179 reproduced         starts same      1.6s  UCl4_on_graphite.proj.zip / C1s Scan_4
+180 reproduced         starts same      0.9s  UCl4_on_graphite.proj.zip / C1s Scan_5
+181 reproduced         starts same      1.5s  UCl4_on_graphite.proj.zip / C1s Scan_6
+182 reproduced         starts same      1.5s  UCl4_on_graphite.proj.zip / C1s Scan_7
+183 reproduced         starts same      1.4s  UCl4_on_graphite.proj.zip / C1s Scan_8
+184 reproduced         starts same      1.1s  UCl4_on_graphite.proj.zip / U4f Scan
+185 reproduced         starts same      1.5s  UCl4_on_graphite.proj.zip / U4f Scan_0
+186 reproduced         starts same      1.7s  UCl4_on_graphite.proj.zip / U4f Scan_1
+187 reproduced         starts same      1.6s  UCl4_on_graphite.proj.zip / U4f Scan_2
+188 reproduced         starts same      1.6s  UCl4_on_graphite.proj.zip / U4f Scan_3
+189 reproduced         starts same      1.7s  UCl4_on_graphite.proj.zip / U4f Scan_4
+190 reproduced         starts same      1.2s  UCl4_on_graphite.proj.zip / U4f Scan_5
+191 reproduced         starts same      1.1s  UCl4_on_graphite.proj.zip / U4f Scan_6
+192 reproduced         starts same      1.2s  UCl4_on_graphite.proj.zip / U4f Scan_7
+193 reproduced         starts same      1.3s  UCl4_on_graphite.proj.zip / U4f Scan_8
+194 reproduced         starts same      1.4s  UCl4_on_graphite.proj.zip / U4f Scan_0
+195 reproduced         starts same      1.4s  UCl4_on_graphite.proj.zip / U4f Scan_1
+196 reproduced         starts same      1.4s  UCl4_on_graphite.proj.zip / U4f Scan_2
+197 reproduced         starts same      1.8s  UCl4_on_graphite.proj.zip / U4f Scan_3
+198 reproduced         starts same      1.7s  UCl4_on_graphite.proj.zip / U4f Scan_4
+199 reproduced         starts same      1.0s  UCl4_on_graphite.proj.zip / U4f Scan_5
+200 reproduced         starts same      1.7s  UCl4_on_graphite.proj.zip / U4f Scan_6
+201 reproduced         starts same      1.4s  UCl4_on_graphite.proj.zip / U4f Scan_7
+202 reproduced         starts same      1.1s  UCl4_on_graphite.proj.zip / U4f Scan_8
+
+202 committed records re-run: reproduced 202
+  starts differ (fit reproduced): 1
+  other numerics: 202
