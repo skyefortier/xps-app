@@ -11171,8 +11171,8 @@ function renderResults() {
     </div>` : _stats === 'unverified' ? `
     <div class="stats-unverified-note" style="font-size:11px;line-height:1.5;color:var(--text2);margin-bottom:8px">${_escHtml(_STATS_UNVERIFIED_NOTE)}</div>` : '';
   // step 8 (plan §5): an UNSEALED fit is shown as today, and says it was saved before sealed records (never current, Q1)
-  const _legacyNote = !_isLegacyFit(state.fitResult) || _stale ? '' : `
-    <div class="stats-legacy-note" style="font-size:11px;line-height:1.5;color:var(--text2);margin-bottom:8px">This fit was ${_escHtml(_LEGACY_FIT_NOTE)}: its values are shown as this page restores them.</div>`;
+  const _legacyNote = !_isLegacyFit(state.fitResult) ? '' : `
+    <div class="stats-legacy-note" style="font-size:11px;line-height:1.5;color:var(--text2);margin-bottom:8px">This fit was ${_escHtml(_LEGACY_FIT_NOTE)}: ${_stale ? 'what can be shown of it is shown as this page restores it' : 'its values are shown as this page restores them'}.</div>`;
   // A local (unweighted) result is a STARTING POINT: its areas can differ
   // from the server's Poisson-weighted fit by more than 100 % (measured on
   // the lab's C1s scans, unit A0). It is shown as such, never as a result.

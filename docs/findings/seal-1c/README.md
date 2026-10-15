@@ -23,3 +23,36 @@ running pages — this branch and main (ef750f6) — re-saves it, and compares t
 
 The 81 / 40 split is the restore census already recorded in CLAUDE.md (81 STALE unconfirmed, 40 peaks only).
 Pinned without main by `tests/test_browser_seal_step7.py::test_every_committed_saved_fit_loads_legacy_and_re_saves_without_a_seal`.
+
+## Release measurements (step 8, plan §10)
+
+What a student sees change when the page reads a fit's RECORD instead of re-deriving it.
+`scripts/seal_1c_release_measure.js` (commit 2db1d60) reads ONE server reply per committed target — seal 1b's
+run-v2 records (202 committed targets; `records.jsonl` sha256 `f06931f4…`, `targets.json` `2fb09e3d…`,
+`tabs.json` `1b1ae9f9…`, as in `docs/findings/seal-1b/v2/MANIFEST.md`) — two ways: as **main** reads it (main's
+own functions, extracted from `templates/index.html` at ef750f6, applied to the tab's own model) and as the
+**record** says (what the sealed page shows). The same reply on both sides: no refit, no optimiser jitter.
+Output: `release_measure.json`.
+
+| what is shown | main | the record | difference on the 202 committed fits |
+|---|---|---|---|
+| χ² | χ²ᵣ × max(1, n − 3·peaks) | the server's χ² | wrong on the 113 fits whose free parameters ≠ 3 × peaks (links, locks, held or extra shape parameters): median 0.59 %, max 2.9 %; 60 fits > 1 %, none > 10 % |
+| RMSE | over the reply's residuals | the server's | ≤ 9.3e-16 relative (rounding) |
+| R-factor | `_computeRFactor` on the page's background (1b: bit-identical to the server's) | the server's | ≤ 9.8e-15 percentage points |
+| component curves (865) | `evalPeakArray` on the fit's grid | the recorded curves | ≤ 8.0e-16 of the component's height (LA), ≤ 4e-16 for every other shape |
+| areas | `_peakArea` (Q5: the server's trapezoid) | the recorded areas | ≤ 4.1e-16 relative; area % ≤ 2.1e-14 pp |
+
+So on the committed fits the only number a student sees move is χ² itself (the reduced χ²ᵣ, which the
+header, Results and the colour bands show, is the server's on both). Curves and areas were already the
+server's to rounding since A03 / `caM` / DS+G parity and Q5; reading the record removes the dependence,
+it does not move a value.
+
+The other §10 changes and where each is measured:
+
+| §10 change | measured |
+|---|---|
+| PENDING until checked; UNCONFIRMED offline / other numerics | 1b §1: 1,312 cross-process verifications, 0 mismatch; 64 unconfirmed, every one an LA record (the separate LA unit) |
+| the page's background is the server's (the binding) | 1b §2: bit-identical on 328 / 328 |
+| saves before this release are never current (Q1) | the legacy census above: 121 / 121 load LEGACY or peaks-only, as main restores them |
+| a reloaded fit keeps σ and its scattered-starts detail | `tests/test_browser_export_prefix.py`: a reloaded fit's CSV / XLSX carry the σ main left blank and the not-better χ²ᵣ list main dropped — the only two differences from main's export |
+| larger saves | below |
