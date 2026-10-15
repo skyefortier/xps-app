@@ -140,3 +140,50 @@ def test_the_control_is_beside_every_sealed_server_fit_shown_as_recorded_and_now
         assert pg.evaluate(PANEL) is None
     finally:
         pg.close()
+
+
+# ── Codex 1d round 1 ─────────────────────────────────────────────────────────────────────────────────────────────────
+def test_a_rerun_that_meets_other_numerics_never_moves_the_pages_numerics_or_any_state(browser, server):  # noqa: F811
+    pg = _page(browser, server)
+    try:
+        before = pg.evaluate("() => [_numericsEpoch, JSON.stringify(_serverNumerics), sealedState(state.fitResult, _activeTab()).state]")
+        verifies = []
+        pg.on("request", lambda r: verifies.append(r.url) if r.url.endswith("/api/verify-fit") else None)
+
+        def progress(route):                                             # the re-run's worker runs other numerics
+            r = route.fetch()
+            j = r.json()
+            if j.get("status") == "done" and isinstance(j.get("result"), dict):
+                j["result"]["software"] = {**j["result"]["software"], "numerics": "2099-01-01"}
+            route.fulfill(response=r, json=j)
+        pg.route("**/api/fit/progress/**", progress)
+        got = _rerun(pg)
+        assert "Re-run under other numerics (numerics" in got["text"] and "(re-run 2099-01-01)" in got["text"], got
+        assert "reproduced within rounding" in got["text"], got
+        pg.wait_for_timeout(500)
+        after = pg.evaluate("() => [_numericsEpoch, JSON.stringify(_serverNumerics), sealedState(state.fitResult, _activeTab()).state]")
+        assert after == before and verifies == [], (before, after, verifies)
+        assert pg.evaluate(FIT)["same"]
+    finally:
+        pg.unroute_all(behavior="ignoreErrors")
+        pg.close()
+
+
+def test_a_comparison_answered_after_the_fit_was_replaced_is_not_kept(browser, server):  # noqa: F811
+    pg = _page(browser, server)
+    try:
+        held = []
+        pg.route("**/api/compare-fits", lambda route: held.append(route))
+        pg.evaluate("() => { window.__r = rerunSealedFit(); }")
+        for _ in range(1200):
+            if held:
+                break
+            pg.wait_for_timeout(100)
+        assert held, "the comparison was sent"
+        pg.evaluate("() => { state.fitResult = Object.freeze({ seal: _makeSeal(structuredClone(state.fitResult.seal)) }); }")
+        held[0].continue_()
+        pg.evaluate("async () => { await window.__r; }")
+        assert pg.evaluate("() => _rerunOutcomes.has(window.__seal) || _rerunOutcomes.has(state.fitResult.seal)") is False
+    finally:
+        pg.unroute_all(behavior="ignoreErrors")
+        pg.close()

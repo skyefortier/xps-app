@@ -1445,6 +1445,19 @@ def _register_routes(app: Flask) -> None:
     # explicitly, so it reads 'caller' by construction; the seed itself is compared).
     _COMPARE_APART = ("starts", "software", "seed_source")
 
+    def _floats_only(x):
+        # every number one a float represents (a JSON integer like 10**400 is refused, never compared)
+        if isinstance(x, dict):
+            return all(_floats_only(v) for v in x.values())
+        if isinstance(x, list):
+            return all(_floats_only(v) for v in x)
+        if isinstance(x, int) and not isinstance(x, bool):
+            try:
+                float(x)
+            except OverflowError:
+                return False
+        return True
+
     @app.post("/api/compare-fits")
     @_require_json
     def compare_fits():
@@ -1458,6 +1471,12 @@ def _register_routes(app: Flask) -> None:
         for name, O in (("a", a), ("b", b)):
             n = len(O["energy"]) if isinstance(O.get("energy"), list) else 0
             form = fitting.response_form_failure(O, n) if n else "it has no energies"
+            if form is None:
+                try:
+                    if not _floats_only(O):
+                        form = "it holds a number no float represents"
+                except RecursionError:
+                    form = "it is nested too deeply"
             if form:
                 return _err(f"{name} is not a fit response: {form}")
         try:
@@ -1469,8 +1488,11 @@ def _register_routes(app: Flask) -> None:
         except Exception:
             app.logger.exception("comparison failed")
             return _err("Internal comparison error — see server log.", 500)
-        sw = a.get("software")
-        numerics = fitting.numerics_difference(sw) if isinstance(sw, dict) else ["the record names no software"]
+        # the record's numerics against the RE-RUN's own (the worker that made it), never the worker answering here
+        # (Codex 1d round 1: a rolling deployment can split them)
+        sa, sb = a.get("software") or {}, b.get("software") or {}
+        numerics = [f"{k} {sa.get(k, '(not recorded)')} (re-run {sb.get(k, '(not recorded)')})"
+                    for k in fitting.NUMERICS_IDENTITY_KEYS if sa.get(k) != sb.get(k)]
         return jsonify({"same": not fit, "problems": fit[:20], "n_problems": len(fit),
                         "starts": {"same": not starts, "problems": starts[:20]},
                         "numerics": {"same": not numerics, "differing": numerics}, "software": fitting.SOFTWARE})

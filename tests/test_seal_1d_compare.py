@@ -107,3 +107,29 @@ def test_a_side_that_is_not_a_fit_response_is_refused_never_compared(client, mut
         assert side + " is not a fit response" in got["error"], got
     r = client.post("/api/compare-fits", json={"a": a})
     assert r.status_code == 400
+
+
+# ── Codex 1d round 1 ─────────────────────────────────────────────────────────────────────────────────────────────────
+@pytest.mark.parametrize("mutate", [
+    lambda o: o["energy"].__setitem__(0, 10 ** 400),
+    lambda o: o["individual_peaks"][0]["params"]["center"].__setitem__("max", 10 ** 400),
+])
+def test_a_number_no_float_represents_is_refused_never_compared(client, mutate):  # noqa: F811
+    a = _record(client)
+    for side in ("a", "b"):
+        b = copy.deepcopy(a)
+        mutate(b)
+        got = _compare(client, *((b, a) if side == "a" else (a, b)), status=400)
+        assert got["error"] == side + " is not a fit response: it holds a number no float represents", got
+
+
+def test_the_numerics_are_the_records_against_the_reruns_own(client):  # noqa: F811
+    """Never against the worker answering the comparison: under a rolling deployment the re-run's worker may differ."""
+    a = _record(client)
+    b = copy.deepcopy(a)
+    b["software"] = {**b["software"], "numpy": "9.9.9"}               # the re-run made elsewhere; the record matches here
+    got = _compare(client, a, b)
+    assert got["same"] and got["numerics"]["same"] is False, got
+    assert got["numerics"]["differing"] == [f"numpy {a['software']['numpy']} (re-run 9.9.9)"], got
+    got = _compare(client, b, b)                                       # both made under numerics this worker lacks
+    assert got["numerics"] == {"same": True, "differing": []}, got

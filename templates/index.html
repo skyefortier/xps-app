@@ -8654,7 +8654,8 @@ async function _serverFitJob(fitReq, guard) {
       }
       if (gone()) return superseded();
       misses = 0;
-      if (rec.status === 'done') { if (rec.result && typeof rec.result === 'object') _noteServerSoftware(rec.result.software, startEpoch); return rec.result; }
+      // (a re-run notes nothing: it never changes a seal's state, seal 1d — its numerics are reported on its own line)
+      if (rec.status === 'done') { if (guard.noteSoftware !== false && rec.result && typeof rec.result === 'object') _noteServerSoftware(rec.result.software, startEpoch); return rec.result; }
       if (rec.status === 'error') throw _fitHttpError(rec.http_status || 500, rec.error);
       if (rec.status === 'cancelled') throw _fitHttpError(409, 'The fit was stopped on the server before it finished. Run it again.');
       if (Number.isFinite(rec.heartbeat_age_sec) && rec.heartbeat_age_sec > FIT_HEARTBEAT_LOST_SEC) {
@@ -9717,6 +9718,7 @@ async function rerunSealedFit() {
     const sessionId = await uploadToBackend(R.energies, R.counts, ctrl.signal);
     const O2 = await _serverFitJob({ ...structuredClone(R.request), session_id: sessionId, seed: O.random_seed }, {
       signal: ctrl.signal,
+      noteSoftware: false,   // state-neutral: a re-run's reply never moves the page's numerics (Codex 1d round 1)
       // a closed tab, or another fit installed in its place: nothing to say about this one any more
       abandoned: () => (!_ownerLive(owner) || !_fitResultOf(owner) || _fitResultOf(owner).seal !== seal) ? 'replaced' : null,
     });
@@ -9734,6 +9736,8 @@ async function rerunSealedFit() {
   } catch (e) {
     outcome = e && e.name === 'AbortError' ? null : { status: 'failed', reason: (e && e.message) || 'the server could not be reached' };
   }
+  // the fit replaced (or its tab closed) while the last reply was in flight: nothing is kept (Codex 1d round 1)
+  if (!_ownerLive(owner) || !_fitResultOf(owner) || _fitResultOf(owner).seal !== seal) outcome = null;
   if (outcome) _rerunOutcomes.set(seal, outcome); else _rerunOutcomes.delete(seal);
   _repaintRerun(seal);
 }

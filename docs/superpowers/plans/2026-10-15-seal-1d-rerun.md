@@ -33,14 +33,18 @@ shown); its anchor fit is evidence (E), named as not re-run.
    of "the same fit" is what the design rule forbids).
 2. **`POST /api/compare-fits`** `{a, b}` → `{same, problems[], starts: {same, problems[]}, numerics:
    {same, differing[]}}`: the FIT compared with `starts` removed from both; the starts compared alone; the
-   numerics identity of `a.software` vs `b.software` (`fitting.numerics_difference`). Pure, bounded (the body
+   numerics identity of `a.software` vs `b.software` (the re-run's own record). Pure, bounded (the body
    size cap of `/api/verify-fit`), shape-checked by `fitting.response_form_failure` (a malformed side is a 400,
    never compared).
 3. **The replay** is an ordinary fit through the start/poll path (Cloudflare's ~100 s ceiling): the record's
-   samples uploaded (`R.energies`, `R.counts`, full precision), `R.request` with `seed: O.random_seed`, one
-   operation token (a newer fit, an edit or a tab switch discards it — Run Fit's ownership rules), Cancel.
-   The result is NEVER installed, NEVER changes the model, the seal or its state; it is kept beside the seal
-   (a runtime WeakMap seal → outcome), shown until the seal changes, not saved.
+   samples uploaded (`R.energies`, `R.counts`, full precision), `R.request` with `seed: O.random_seed`, Cancel.
+   It is dropped when the tab closes or another fit is installed in its place — checked while it runs and again
+   before its outcome is kept; an edit or a tab switch does NOT drop it: the outcome is a fact about the RECORD,
+   kept beside that seal (a runtime WeakMap seal → outcome) and shown only beside that seal displayed as recorded
+   (amended after Codex 1d round 1). The result is NEVER installed and NEVER changes the model, the seal or its
+   state: the re-run's reply does not even tell the page the server's numerics (no `_noteServerSoftware`) — a
+   deployment is learned from the next ordinary check — and its own numerics are reported on their own line,
+   the record's identity against the RE-RUN's (never against the worker answering the comparison).
 4. **Wording** (Results, under the acceptance line): "Re-run: reproduced within rounding." / "Re-run: a
    different solution (… moved …) — this fit is not unique." / "Re-run under other numerics (…): …" /
    "Re-run failed: …"; then "Scattered starts on re-run: the same." or "…: differ (…)".
