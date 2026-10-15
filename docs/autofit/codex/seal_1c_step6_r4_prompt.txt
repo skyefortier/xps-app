@@ -1,0 +1,16 @@
+CORRECTNESS REVIEW, ROUND 4, of step 6 of unit 1c ("sealed fit record") in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software.
+
+REPO: this checkout, branch seal-1c-s6, rebased onto seal-1c-s5 (c05de79). Step 6 is `git diff seal-1c-s5..HEAD`. Read docs/autofit/codex/seal_1c_step6_r1_prompt.txt … r3_prompt.txt for what step 6 is. Round 3 (both runs NO-GO; verdicts seal_1c_step6_r3_verdict_run{A,B}.md) found one MAJOR — `_sealEffectExact` indexed an ordinary object by the effect's method, so 'toString' / 'constructor' / '__proto__' picked up an inherited value and threw inside `_fitRecordWellFormed`, aborting the loaders — and MINORs: `R.context0.live`'s other controls were untyped (`fitMethod = {toString: 0}` threw in `_sealCtxRead`), and two field tests (page software role, chosen alternative shiftName) deleted required siblings.
+
+WHAT THIS ROUND CHANGES: an own-property lookup (`Object.hasOwn(_SEAL_EFFECT_FIELDS, method)`, as fitting._bg_effect_form_failure's dict reads it: an inherited name is an ordinary unknown method, the generic window+k form) and `_sealEffectExact` / `_fitRecordWellFormed` total (an exception is "not well formed"); every `_SEAL_CTX_FIELDS` control in `R.context0.live` must be a scalar; the two field tests change only their field (and a companion test shows the same records with that field well typed are readable); new tests: inherited method names in a seal and in a legacy record (mutation-checked: the old lookup fails all four), a record whose getter throws, and a "Use this solution" fit round-tripping current with its producer, start and recorded choice.
+
+ANSWER EACH (cite file:line):
+1. Is every round-3 finding resolved, or a stated limit? List each with its status.
+2. Can any loaded value (project, ZIP, spectrum file, .fit.json, dropped legacy fit) still throw out of a loader or a reader of the loaded tab?
+3. Does any honest producer's seal (runFit, useSolution, autoFit, local, batch, a global method) fail the schema?
+4. Do the new tests fail on the defects they name?
+5. With the switch off, does saving and loading behave as before (stated exceptions: the total renderer / validators)?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

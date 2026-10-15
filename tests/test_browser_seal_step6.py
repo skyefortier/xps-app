@@ -404,8 +404,13 @@ def test_honest_not_run_evidence_is_readable(browser, server, src):  # noqa: F81
     ("d.tabs[0].fitResult.seal.O.software.role = 42", "software"),
     ("d.tabs[0].fitResult.seal.O.background_verdict.residual = 'x'", "background verdict"),
     ("d.tabs[0].fitResult.seal.O.individual_peaks[0].support.f = 'x'", "components"),       # only the named field
-    ("d.tabs[0].fitResult.seal.R.page = { software: { role: 7 }, page: null }", "page identity"),
-    ("d.tabs[0].fitResult.seal.D = { chosenAlternative: { shiftName: '<b>' } }", "D is malformed"),
+    # only the named field changes: a complete page software record with a non-text role, a complete chosen
+    # alternative whose name is not text (Codex step 6 round 3)
+    ("d.tabs[0].fitResult.seal.R.page = { software: { ...d.tabs[0].fitResult.seal.O.software, role: 7 }, page: null }", "page identity"),
+    ("d.tabs[0].fitResult.seal.D = { chosenAlternative: { fromChi: 2, toChi: 1.5, shiftName: 7, shiftEv: 0.1 } }", "D is malformed"),
+    # every context control the key reads is a scalar
+    ("d.tabs[0].fitResult.seal.R.context0.live.fitMethod = { toString: 0 }", "context"),
+    ("d.tabs[0].fitResult.seal.R.context0.live.bgStart = ['280']", "context"),
 ])
 def test_a_field_a_reader_formats_or_renders_is_typed_before_any_check(browser, server, src, why):  # noqa: F811
     pg = _fitted(browser, server, "gauss_voigt_linear_avg3_window")      # a fit with scattered-starts evidence
@@ -586,5 +591,116 @@ def test_the_background_effect_is_read_in_its_exact_form(browser, server, effect
     try:
         st = pg.evaluate("() => { const s = sealedState(state.fitResult, _activeTab()); return [s.state, s.reason]; }")
         assert st[0] == "peaks-only" and "background verdict" in st[1], st
+    finally:
+        pg.close()
+
+
+# the field-only cases above are valid when the named field is: the same record with that field well typed reads
+@pytest.mark.parametrize("src", [
+    "d.tabs[0].fitResult.seal.R.page = { software: { ...d.tabs[0].fitResult.seal.O.software, role: 'page' }, page: null }",
+    "d.tabs[0].fitResult.seal.D = { chosenAlternative: { fromChi: 2, toChi: 1.5, shiftName: 'C-O', shiftEv: 0.1 } }",
+])
+def test_the_field_cases_differ_from_a_readable_record_only_in_their_field(browser, server, src):  # noqa: F811
+    pg = _fitted(browser, server, "gauss_voigt_linear_avg3_window")
+    try:
+        name, text = _save_project(pg)
+    finally:
+        pg.close()
+    pg = _load_tampered(browser, server, text, src)
+    try:
+        st = pg.evaluate("() => { const s = sealedState(state.fitResult, _activeTab()); return [s.state, s.reason]; }")
+        assert st[0] != "peaks-only", st
+    finally:
+        pg.close()
+
+
+# an effect method naming an inherited property ('toString', 'constructor', '__proto__') is an ordinary unknown
+# method — read by an OWN-property lookup, as fitting._bg_effect_form_failure's dict reads it (Codex step 6 round 3)
+@pytest.mark.parametrize("method", ["toString", "constructor", "__proto__", "hasOwnProperty"])
+def test_an_inherited_method_name_is_read_as_an_unknown_method_and_loading_completes(browser, server, method):  # noqa: F811
+    pg = _fitted(browser, server)
+    try:
+        name, text = _save_project(pg)
+    finally:
+        pg.close()
+    eff = {"method": method, "window": [0, 1], "k": 1}           # the generic form: a window and k
+    data = json.loads(text)
+    # a legacy record beside the project: well formed, kept as provenance
+    data["tabs"].append({**data["tabs"][0], "id": str(data["tabs"][0]["id"]) + "-legacy", "name": "LEGACY",
+                         "fitResult": {"chiReduced": 2.0, "record": {
+                             "engine": "server", "fitMethod": "least_squares", "seed": 7, "seedSource": "request",
+                             "backgroundVerdict": {"method": "shirley", "effect": eff, "check": "defining_statement",
+                                                   "converged": True, "residual": None, "reason": ""},
+                             "certificate": None, "software": None}}})
+    data["tabs"][0]["fitResult"]["seal"]["O"]["background_verdict"]["effect"] = eff
+    pg = _page(browser, server)
+    try:
+        pg.evaluate("(text) => _loadProjectJSON(JSON.parse(text), 'p.proj.json')", json.dumps(data))
+        got = pg.evaluate("""() => { const t = tabManager.tabs.find(x => x.name === 'LEGACY');
+            return { tabs: tabManager.tabs.length, legacyWellFormed: _fitRecordWellFormed(t.fitResult ? t.fitResult.record : (t.provenance || {}).record),
+                     exact: _sealEffectExact(state.fitResult.seal.O.background_verdict.effect) }; }""")
+        assert got["tabs"] == 2 and got["legacyWellFormed"] and got["exact"], got
+        # a method naming an inherited property with the fields of no method is refused, never thrown
+        for bad in ({"method": method}, {"method": method, "anchors": [[1, 2], [3, 4]]}):
+            assert pg.evaluate("(e) => _sealEffectExact(e)", bad) is False, bad
+            assert pg.evaluate("""(e) => _fitRecordWellFormed({ engine: 'server', fitMethod: null, seed: null, seedSource: null,
+                backgroundVerdict: { method: null, effect: e, check: 'x', converged: null, residual: null, reason: '' },
+                certificate: null, software: null })""", bad) is False, bad
+        pg.evaluate("() => { renderResults(); updatePlot(); }")
+        assert pg.errors == [], pg.errors
+    finally:
+        pg.close()
+
+
+def test_a_record_that_throws_when_read_is_not_well_formed(browser, server):  # noqa: F811
+    pg = _page(browser, server)
+    try:
+        got = pg.evaluate("""() => { const r = { engine: 'server' };
+            Object.defineProperty(r, 'seed', { enumerable: true, get() { throw new Error('boom'); } });
+            return [_fitRecordWellFormed(r), _loadedTabProvenance({ record: r })]; }""")
+        assert got == [False, None], got
+        assert pg.errors == [], pg.errors
+    finally:
+        pg.close()
+
+
+# "Use this solution" round trip: the producer, its recorded start and the choice survive a save and reload current
+TAMPER = """(src) => { const s = structuredClone(state.fitResult.seal); (new Function('s', src))(s);
+  state.fitResult = { ...state.fitResult, seal: _makeSeal(s) }; }"""
+
+
+def test_a_use_this_solution_fit_round_trips_current_with_its_choice(browser, server):  # noqa: F811
+    pg = _fitted(browser, server, "gauss_voigt_linear_avg3_window")
+    try:
+        # an alternative in the recorded starts (the server's check reads their form, not their values)
+        pg.evaluate(TAMPER, """const st = s.O.starts, ips = s.O.individual_peaks;
+            st.alternatives = [{ chi2r: st.fit.chi2r * 0.9, n_starts: 1,
+              components: st.fit.components.map(c => { const ip = ips.find(q => q.id === c.id);
+                return { ...c, area: ip.params.area.value,
+                         params: Object.fromEntries(Object.entries(ip.params).filter(([k]) => k !== 'area')
+                                   .map(([k, v]) => [k, k === 'center' ? v.value + 0.05 : v.value])) }; }),
+              largest_centre_shift_from_start: st.fit.largest_centre_shift_from_start, largest_fraction_difference_pp: 2.0 }];
+            st.n_in_alternatives = 1;""")
+        pg.evaluate("async () => { await _ensureVerified(_activeTab(), true); }")
+        assert pg.evaluate(STATE, None) == ["current", None]
+        pg.evaluate("async () => { await useAlternative(0); }")
+        pg.evaluate(SETTLE)
+        before = pg.evaluate("""() => { const s = state.fitResult.seal;
+            return { producer: s.producer, chosen: s.D && s.D.chosenAlternative, start: s.R.pageModel }; }""")
+        assert before["producer"] == "useSolution" and before["chosen"], before
+        assert pg.evaluate(STATE, None) == ["current", None]
+        name, text = _save_project(pg)
+    finally:
+        pg.close()
+    pg = _load_project(browser, server, name, text)
+    try:
+        pg.evaluate(WAIT)
+        assert pg.evaluate(STATE, None) == ["current", None]
+        after = pg.evaluate("""() => { const s = state.fitResult.seal;
+            return { producer: s.producer, chosen: s.D && s.D.chosenAlternative, start: s.R.pageModel,
+                     view: _sealView(s).chosenAlternative }; }""")
+        assert after["producer"] == "useSolution" and after["chosen"] == before["chosen"] == after["view"], after
+        assert after["start"] == before["start"]
+        assert pg.errors == [], pg.errors
     finally:
         pg.close()

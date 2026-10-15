@@ -7229,13 +7229,17 @@ const _SEAL_SOFTWARE_T = { git_commit: ['null', 'str'], git_dirty: ['null', 'boo
 const _SEAL_BG_EFFECT_T = { method: 'str', '?window': ['list', 'int'], '?k': 'int', '?anchors': ['list', ['list', 'num']] };
 // fitting._bg_effect_form_failure's twin: per method its fields and nothing else — a two-integer window and k, k for
 // the manual line, two-number anchors for a manual background, nothing for none (null: no effect recorded)
+// (an OWN-property lookup, as Python's dict reads it: 'toString' or '__proto__' is an ordinary unknown method), total
+const _SEAL_EFFECT_FIELDS = { none: [], manual: ['anchors'], 'manual-line': ['k'] };
 function _sealEffectExact(e) {
-  if (e === null) return true;
-  if (!_sealTyped(e, _SEAL_BG_EFFECT_T)) return false;
-  const want = { none: [], manual: ['anchors'], 'manual-line': ['k'] }[e.method] || ['window', 'k'];
-  const keys = Object.keys(e).filter(k => k !== 'method').sort();
-  return JSON.stringify(keys) === JSON.stringify(want.slice().sort()) &&
-    (!('window' in e) || e.window.length === 2) && (!('anchors' in e) || e.anchors.every(a => a.length === 2));
+  try {
+    if (e === null) return true;
+    if (!_sealTyped(e, _SEAL_BG_EFFECT_T)) return false;
+    const want = Object.hasOwn(_SEAL_EFFECT_FIELDS, e.method) ? _SEAL_EFFECT_FIELDS[e.method] : ['window', 'k'];
+    const keys = Object.keys(e).filter(k => k !== 'method').sort();
+    return JSON.stringify(keys) === JSON.stringify(want.slice().sort()) &&
+      (!Object.hasOwn(e, 'window') || e.window.length === 2) && (!Object.hasOwn(e, 'anchors') || e.anchors.every(a => a.length === 2));
+  } catch (_) { return false; }
 }
 const _SEAL_BG_VERDICT_T = { method: ['null', 'str'], effect: ['null', _SEAL_BG_EFFECT_T], check: 'str', converged: ['null', 'bool'],
   residual: ['null', 'num'], reason: 'str' };
@@ -7263,6 +7267,8 @@ function _sealSchemaFailureUncached(seal) {
     const live = R.context0 && R.context0.live;
     if (!isObj(R.context0) || !isObj(live) || !(R.context0.producer == null || isObj(R.context0.producer))) return 'R\'s context is malformed';
     if (typeof live.ccShift !== 'number' || !_sealTyped(live.anchors, ['list', { x: 'num', y: 'num' }])) return 'R\'s context is malformed';
+    // every control the context key reads (_sealCtxRead: text, or a number through its parser) is a scalar
+    if (!_SEAL_CTX_FIELDS.every(k => scalar(live[k]))) return 'R\'s context is malformed';
     if (!Array.isArray(R.idx) || !R.idx.every(i => Number.isInteger(i) && i >= 0)) return 'R\'s sample indices are malformed';
     if (!nums(R.energies, R.idx.length) || !nums(R.counts, R.idx.length)) return 'R\'s samples are malformed';
     if (!_sealTyped(R.page, _SEAL_PAGE_T)) return 'R\'s page identity is malformed';
@@ -12072,10 +12078,13 @@ function _loadedTabProvenance(x) {
   return x && typeof x === 'object' && _fitRecordWellFormed(x.record) ? { record: x.record, reason: typeof x.reason === 'string' ? x.reason : '' } : null;
 }
 // A fit record (`fitResult.record`, `_fitRecordFrom` / `_localFitRecord`) of the form its renderer reads.
+// Total: a value it cannot read is not well formed (never an exception in a loader).
 function _fitRecordWellFormed(r) {
-  return _isFitRecord(r) && _sealTyped(r, { engine: 'str', fitMethod: ['null', 'str'], seed: ['null', 'int'], seedSource: ['null', 'str'],
-    backgroundVerdict: ['null', _SEAL_BG_VERDICT_T], certificate: ['null', ['or', _SEAL_CERTIFICATE_T, _SEAL_LOCAL_CERT_T]],
-    software: ['null', _SEAL_SOFTWARE_T] }) && (!r.backgroundVerdict || _sealEffectExact(r.backgroundVerdict.effect));
+  try {
+    return _isFitRecord(r) && _sealTyped(r, { engine: 'str', fitMethod: ['null', 'str'], seed: ['null', 'int'], seedSource: ['null', 'str'],
+      backgroundVerdict: ['null', _SEAL_BG_VERDICT_T], certificate: ['null', ['or', _SEAL_CERTIFICATE_T, _SEAL_LOCAL_CERT_T]],
+      software: ['null', _SEAL_SOFTWARE_T] }) && (!r.backgroundVerdict || _sealEffectExact(r.backgroundVerdict.effect));
+  } catch (_) { return false; }
 }
 function _dropRestoredFit(rec, reason) {
   if (_SEAL_AUTHORITATIVE && rec.fitResult && _fitRecordWellFormed(rec.fitResult.record))
