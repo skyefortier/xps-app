@@ -133,3 +133,24 @@ def test_the_numerics_are_the_records_against_the_reruns_own(client):  # noqa: F
     assert got["numerics"]["differing"] == [f"numpy {a['software']['numpy']} (re-run 9.9.9)"], got
     got = _compare(client, b, b)                                       # both made under numerics this worker lacks
     assert got["numerics"] == {"same": True, "differing": []}, got
+
+
+# ── Codex 1d round 2: hostile inputs that pass the form are refused (4xx), never answered 500 ────────────────────────
+def test_bounds_whose_span_overflows_are_refused(client):  # noqa: F811
+    a = _record(client)
+    p = a["individual_peaks"][0]["params"]["fwhm"]
+    p["min"], p["max"] = -(10 ** 308), 10 ** 308                       # each a float represents; their span does not
+    got = _compare(client, a, copy.deepcopy(a), status=400)
+    assert "overflow" in got["error"], got
+
+
+def test_a_link_chain_deeper_than_the_comparison_follows_is_refused(client):  # noqa: F811
+    a = _record(client)
+    ip = a["individual_peaks"][0]
+    tmpl = ip["params"]["center"]
+    chain = {}
+    for i in range(1100):                                               # p<id>_l0 -> p<id>_l1 -> ... (bounds null)
+        chain[f"l{i}"] = {**tmpl, "min": None, "max": None, "vary": False, "expr": f"p{ip['id']}_l{i + 1}"}
+    ip["params"].update(chain)
+    r = client.post("/api/compare-fits", json={"a": a, "b": copy.deepcopy(a)})
+    assert r.status_code == 400, (r.status_code, r.get_json())

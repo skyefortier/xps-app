@@ -61,5 +61,5 @@ Server: `fit_differences` agrees with the former test helper on its whole test f
 unchanged, importing from the module); the endpoint's verdicts on a reproduced fit, a different minimum (the
 two-basin construction), starts-only differences, other numerics, malformed sides. Browser: the button on every
 sealed server result (not on local, legacy or stale ones); a re-run that reproduces; a forced different
-solution (a stubbed replay reply); a discarded re-run (edit / tab switch / newer fit) shows nothing; the seal,
+solution (a stubbed replay reply); a re-run dropped by a replaced fit or a closed tab keeps nothing (an edit only hides its outcome, a tab switch keeps it); the seal,
 the model and the state never change; Cancel.

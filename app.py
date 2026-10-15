@@ -1485,6 +1485,12 @@ def _register_routes(app: Flask) -> None:
             starts = [p for p in same_fit.fit_differences({k: v for k, v in a.items() if k not in ("software", "seed_source")},
                                                          {k: v for k, v in b.items() if k not in ("software", "seed_source")})
                       if p.startswith("starts") or p.startswith("response: keys")]
+        except OverflowError:
+            # values each a float represents whose arithmetic overflows (a bound span of 2e308): not comparable
+            return _err("the responses cannot be compared: their numbers overflow the comparison's arithmetic")
+        except RecursionError:
+            # a chain of parameter links deeper than the comparison follows: not a response a fit produces
+            return _err("the responses cannot be compared: a chain of parameter links is too deep")
         except Exception:
             app.logger.exception("comparison failed")
             return _err("Internal comparison error — see server log.", 500)

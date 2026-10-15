@@ -1,0 +1,15 @@
+CORRECTNESS REVIEW, ROUND 3, of unit 1d ("Re-run this fit") of the sealed fit record in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software.
+
+REPO: this checkout, branch seal-1d, on seal-1c-s8. 1d is `git diff seal-1c-s8..HEAD`. Read docs/autofit/codex/seal_1d_r1_prompt.txt and r2_prompt.txt for what 1d is. Round 2 (both runs NO-GO on MINORs only; verdicts seal_1d_r2_verdict_run{A,B}.md; both round-1 MAJORs confirmed resolved): two hostile inputs that pass the form still answered HTTP 500 inside the comparator — bounds each representable whose span overflows (-1e308 / 1e308: the tolerance arithmetic overflows) and a chain of ~1,100 parameter links (`linked_bounds` recurses past Python's limit); and the plan's Tests paragraph still described edit / tab-switch discard.
+
+WHAT THIS ROUND CHANGES: /api/compare-fits refuses both with a 400 naming the reason — an OverflowError or a RecursionError raised while comparing (the comparator's rules untouched; any other exception stays a logged 500, so a defect in the comparator is never disguised as a refusal); the plan's Tests paragraph matches the amended behaviour. Tests: the overflowing bound span and the 1,100-link chain, each refused 400 (mutation-checked: removing either catch fails its test). The full suite on this branch (the whole 1c + 1d stack): 1859 passed, 8 skipped, 0 failed.
+
+ANSWER EACH (cite file:line):
+1. Is every round-2 finding resolved, or a stated limit? List each with its status.
+2. Is every malformed or hostile input to /api/compare-fits now refused (4xx) rather than compared or answered 500? Name any remaining path.
+3. Does anything in this round change what the comparator decides for an ordinary pair of fit responses?
+4. Do the new tests fail on the defects they name?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.
