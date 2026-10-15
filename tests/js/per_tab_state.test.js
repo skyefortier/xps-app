@@ -51,7 +51,7 @@ const ALLOWLIST = {
   _sealBindingMemo: 'B', _sealVerdicts: 'B', _sealUnreachable: 'B',   // seal 1c step 4: WeakMaps keyed by the immutable seal (derived answers; no tab content)
   _sealAttempts: 'A', _sealAttemptSeq: 'A',   // seal 1c step 4: verification attempts in flight, WeakMap keyed by the tab record (like _fitOpByOwner)
   _stagedTxns: 'A', _stagedTxnSeq: 'A',   // seal 1c step 4: Auto-Fit's staged verification transactions, WeakMap keyed by the tab record (like _sealAttempts)
-  _serverNumerics: 'B', _NUMERICS_IDENTITY_KEYS: 'B', _numericsEpoch: 'B', _numericsSettled: 'B', _numericsSplit: 'B',   // owner 2026-10-15: the server's declared numerics, epoch and settlement (page-wide, not per tab)
+  _serverNumerics: 'B', _NUMERICS_IDENTITY_KEYS: 'B', _numericsEpoch: 'B', _numericsAllowance: 'B', _numericsSplit: 'B', _checksInFlight: 'B',   // owner 2026-10-15: the server's declared numerics, epoch, allowance and split (page-wide, not per tab)
   _sealDetached: 'B',   // seal 1c step 5: WeakSet of snapshot records with a detached check in flight (keyed by the immutable seal)
   _sealIds: 'B', _sealIdSeq: 'B',   // seal 1c step 5: a display identity per immutable seal (repaint signature; no tab content)
   _SEAL_AUTHORITATIVE: 'A',   // seal 1c step 5: the readers' switch (a `let` for the tests; removed in step 7)
