@@ -49,7 +49,10 @@ FIT = """async () => {
     window.__n = [];
     const o = notify; window.notify = (m, k) => { window.__n.push(String(m)); return o(m, k); };
     await runFit();
-    return { engine: state.fitResult && state.fitResult.engine, n: window.__n, have: !!state.fitResult };
+    // step 7: a fit is its seal; a fresh server fit starts its own check — wait for it to answer
+    for (let k = 0; k < 600 && _sealAttempts.has(_activeTab()); k++) await new Promise(r => setTimeout(r, 50));
+    const fr = state.fitResult;
+    return { engine: fr && (fr.seal ? fr.seal.engine : fr.engine), n: window.__n, have: !!fr };
 }"""
 
 # what the chart draws: the envelope ('Fit…'), the background and each component (drawn on it),
@@ -61,7 +64,7 @@ DRAWN = """() => {
     const comps = ds.filter(d => d._peakId !== undefined);
     const xs = d => d.data.map(p => p.x), ys = d => d.data.map(p => p.y);
     const b = ys(bg);
-    const br = state.fitResult && state.fitResult.backendResult;
+    const fr = state.fitResult, br = fr && (fr.seal ? (fr.seal.engine === 'server' ? fr.seal.O : null) : fr.backendResult);   // step 7
     // as DRAWN means visible (Codex round 3: Chart.js hides a dataset by its `hidden` flag or its
     // metadata; isDatasetVisible reads both) — a hidden component is not on the chart
     const vis = d => state.chart.isDatasetVisible(ds.indexOf(d));
@@ -218,19 +221,42 @@ OLD_ASYMM_GL = """() => { window.asymmGL = function (x, center, fwhm, glMix, alp
 }; }"""
 
 
-def test_the_pre_cf4938d_asym_gl_breaks_it_after_a_fit(browser, server):
+# Step 7: a sealed fit draws its RECORDED curves — no page lineshape evaluator runs after a fit — so a defective
+# evaluator can no longer break the after-fit identity (the three tests below used to prove it did; page-versus-
+# server lineshape parity is tests/js/lineshape_roundtrip.test.js'). Each now proves both halves: under the same
+# defect the fit is drawn exactly as the server sent it, and the defect is real — after an edit, the live preview
+# (which does evaluate) departs from the genuine evaluator by more than parity.
+REAL = """() => { window.__real = { asymmGL, evalPeakArray, dsgConvolved_array }; }"""
+# the drawn component of `id` (dataset - background) against the GENUINE evaluator on the same x, relative to its amplitude
+DEFECT_SHOWN = """(id) => { const ds = state.chart.data.datasets, bg = ds.find(d => d.label === 'Background'),
+    c = ds.find(d => String(d._peakId) === String(id)), p = getPeak(id);
+  const cur = { asymmGL: window.asymmGL, evalPeakArray: window.evalPeakArray, dsgConvolved_array: window.dsgConvolved_array };
+  Object.assign(window, window.__real);
+  let y; try { y = evalPeakArray(c.data.map(q => q.x), p); } finally { Object.assign(window, cur); }
+  return Math.max(...c.data.map((q, i) => Math.abs((q.y - bg.data[i].y) - y[i]))) / Math.abs(p.amplitude); }"""
+EDIT_FIRST = """() => { const p = state.peaks[0]; updatePeakParam(p.id, 'amplitude', p.amplitude * 1.01); updatePlot(); return p.id; }"""
+
+
+def _defect_cannot_reach_a_sealed_fit(pg, label):
+    _check_fitted(pg.evaluate(DRAWN), label)                      # the server's curves, drawn as sent
+    pid = pg.evaluate(EDIT_FIRST)
+    assert pg.evaluate(DRAWN)["stats"] == "stale"
+    gap = pg.evaluate(DEFECT_SHOWN, pid)
+    assert gap > PARITY, f"{label}: the defect does not show in the live preview ({gap:.3g} of amplitude)"
+
+
+def test_the_pre_cf4938d_asym_gl_cannot_reach_a_sealed_fit(browser, server):
     # asymmetry held at 0.35 (this spectrum's lines are symmetric: a free asymmetry fits to ~0,
     # where the old and the new formula agree)
     pg = _new_page(browser, server)
     try:
+        pg.evaluate(REAL)
         pg.evaluate(OLD_ASYMM_GL)
         pg.evaluate(TAB, "asym-GL")
         pg.evaluate(LOCK_TAB, [{"asymmetry": 0.35, "fixAsymmetry": True}])
         r = pg.evaluate(FIT)
         assert r["have"], r
-        d = pg.evaluate(DRAWN)
-        with pytest.raises(AssertionError, match="from the server's curve"):
-            _check_fitted(d, "old asym-GL")
+        _defect_cannot_reach_a_sealed_fit(pg, "old asym-GL")
     finally:
         pg.close()
 
@@ -249,7 +275,7 @@ def test_an_envelope_composed_without_a_component_breaks_it_after_an_edit(browse
         pg.close()
 
 
-def test_a_locked_mix_of_zero_drawn_as_the_default_breaks_it(browser, server):
+def test_a_locked_mix_of_zero_drawn_as_the_default_cannot_reach_a_sealed_fit(browser, server):
     # A03's builder defect, on the drawing side: a GL mix of exactly 0 read as `|| 50`
     pg = _new_page(browser, server)
     try:
@@ -257,10 +283,10 @@ def test_a_locked_mix_of_zero_drawn_as_the_default_breaks_it(browser, server):
         pg.evaluate(LOCK_TAB, [{"glMix": 0, "fixGlMix": True}])
         r = pg.evaluate(FIT)
         assert r["have"]
+        pg.evaluate(REAL)
         pg.evaluate("""() => { const real = evalPeakArray;
             window.evalPeakArray = (be, p) => real(be, p.shape === 'GL' ? { ...p, glMix: p.glMix || 50 } : p); updatePlot(); }""")
-        with pytest.raises(AssertionError, match="from the server's curve"):
-            _check_fitted(pg.evaluate(DRAWN), "mix 0 as 50")
+        _defect_cannot_reach_a_sealed_fit(pg, "mix 0 as 50")
     finally:
         pg.close()
 
@@ -278,15 +304,15 @@ def test_a_component_drawn_on_shifted_energies_breaks_it(browser, server):
         pg.close()
 
 
-def test_a_ds_g_drawn_two_percent_too_wide_breaks_it(browser, server):
+def test_a_ds_g_drawn_two_percent_too_wide_cannot_reach_a_sealed_fit(browser, server):
     # a DS+G-specific negative control: the page's FFT evaluator given a Gaussian width 2 % off
     pg = _new_page(browser, server)
     try:
         _fit(pg, "DSG_LA")
+        pg.evaluate(REAL)
         pg.evaluate("""() => { const real = dsgConvolved_array;
             window.dsgConvolved_array = (be, c, a, b, m) => real(be, c, a, b, m * 1.02); updatePlot(); }""")
-        with pytest.raises(AssertionError, match="from the server's curve"):
-            _check_fitted(pg.evaluate(DRAWN), "DS+G too wide")
+        _defect_cannot_reach_a_sealed_fit(pg, "DS+G too wide")
     finally:
         pg.close()
 

@@ -167,7 +167,6 @@ function recordEnv(edit = src => src) {
      'gaussian', 'lorentzian', 'pseudoVoigt', 'asymmGL', 'doniachSunjic', 'laCasaXPSCore', 'laCasaXPS', 'laTrueCasaXPS',
      '_laKernelHalf', 'laTrueCasaXPS_array', 'evalPeak', '_dsgAlpha', 'dsgDeltaKernel_array', '_fftRadix2', '_circularConvolve',
      'dsgConvolved_array', 'evalPeakArray', 'getPeak'].map(fn).join('\n') +
-    '\nvar _SEAL_AUTHORITATIVE = false;' +   // seal step 6: the legacy restore's sealed-fit refusal is behind the switch
     '\nconst _getManualAnchors = () => { throw new Error("the active tab is not read"); };' +
     '\nreturn { computeBackgroundCore, _certifiedBg, _bgOrFailure, _isBgNotConverged, _roiSelect, _computeBackgroundForSource, _recordBackground, _restoredFitBgFailure, _fmt3, BG_RESTORE_REL, evalAllPeaks, _startsRecordKey, _restoredStale, _restoredModelIsFit, _restoredFitGrid };';
   return new Function(edit(src))();

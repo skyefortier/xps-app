@@ -3,7 +3,7 @@ write the seal (a project's fit is `{seal}` and nothing else authoritative; a sp
 beside convenience fields written FROM the view), and ONE loader installs it as saved — the sealed / legacy dispatch
 first, a schema failure PEAKS-ONLY, never the legacy adapter — and verifies every loaded seal, inactive tabs too.
 A legacy fit that falls back to peaks only keeps its record (`tab.provenance`, V6.8). Behind the switch
-(`_SEAL_AUTHORITATIVE`), which these tests turn on.
+(removed in step 7: the shipped page does this).
 
 Skips cleanly when Playwright / Chromium / gunicorn are absent.
 """
@@ -16,7 +16,7 @@ pytest.importorskip("playwright.sync_api")
 from test_browser_bg_window_request import browser, server  # noqa: F401,E402
 from test_browser_seal_requests import SCENARIOS, _setup, AUTOFIT_PROJECT  # noqa: E402
 
-ON = "() => { _SEAL_AUTHORITATIVE = true; }"
+ON = "() => {}"   # (step 7: no switch to turn on)
 CAPTURE = """() => { window.__blobs = {};
   window._downloadBlob = (blob, name) => { window.__blobs[name] = blob; }; }"""
 TEXT = "async (name) => await window.__blobs[name].text()"
@@ -336,23 +336,23 @@ def test_the_view_states_its_provenance_and_results_and_exports_show_it(browser,
         pg.close()
 
 
-def test_switch_off_saves_and_loads_as_today(browser, server):  # noqa: F811
+def test_an_unsealed_legacy_fit_saves_and_loads_as_before(browser, server):  # noqa: F811
+    """A result without a seal is saved in the legacy fields and reloaded by the legacy adapter, as before."""
     pg = _fitted(browser, server)
     try:
-        pg.evaluate("() => { _SEAL_AUTHORITATIVE = false; }")
+        pg.evaluate("""() => { const v = _sealView(state.fitResult.seal);
+            state.fitResult = { be: v.energies.slice(), bgIntensity: v.background.slice(), bgSubtracted: v.counts.map((c, i) => c - v.background[i]),
+                                fittedY: v.fittedY.slice(), chiReduced: v.statistics.chi2r, rmse: v.statistics.rmse, chi: v.statistics.chi2,
+                                uploadFull: true, startsModelKey: _startsLiveKey() }; }""")
         name, text = _save_project(pg)
         fr = json.loads(text)["tabs"][0]["fitResult"]
-        assert "seal" not in fr and "chiReduced" in fr and "provenance" not in json.loads(text)["tabs"][0]
+        assert "seal" not in fr and "chiReduced" in fr, fr.keys()
     finally:
         pg.close()
-    pg = browser.new_page(viewport={"width": 1500, "height": 950})
-    pg.errors = []
-    pg.on("pageerror", lambda e: pg.errors.append(str(e)))
+    pg = _load_project(browser, server, name, text)
     try:
-        pg.goto(server + "/", wait_until="load")                       # the switch as shipped: off
-        pg.evaluate("(text) => _loadProjectJSON(JSON.parse(text), 'p.proj.json')", text)
-        got = pg.evaluate("() => ({ seal: !!(state.fitResult && state.fitResult.seal), chi: state.fitResult && state.fitResult.chiReduced, frozen: Object.isFrozen(state.fitResult) })")
-        assert got["seal"] is False and isinstance(got["chi"], (int, float)) and got["frozen"] is False, got
+        got = pg.evaluate("() => ({ seal: !!(state.fitResult && state.fitResult.seal), chi: state.fitResult && state.fitResult.chiReduced })")
+        assert got["seal"] is False and isinstance(got["chi"], (int, float)), got
         assert pg.errors == [], pg.errors
     finally:
         pg.close()

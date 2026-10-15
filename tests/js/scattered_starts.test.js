@@ -259,8 +259,10 @@ test('wiring: the trigger is decided with the other request inputs, BEFORE the f
   assert.match(runFit, /const fitReq = \{ session_id: sessionId, \.\.\.reqBody \};/);
   assert.doesNotMatch(runFit.slice(runFit.indexOf('await uploadToBackend(')), /_startsUnlinkedCount\(state\.peaks\)/);
   assert.match(runFit, /const startModel = opts\.startPeaks \|\| state\.peaks;[\s\S]{0,200}const pageModel = structuredClone\(startModel\);/);
-  assert.match(runFit, /startsModelKey: _startsLiveKey\(\),/);
-  assert.ok(runFit.indexOf('applyBackendResult(backendResult, pageModel);') < runFit.indexOf('startsModelKey: _startsLiveKey()'), 'the key describes the model AFTER the result was applied');
+  // seal step 7: the evidence is bound to its fit by the SEAL (R captured before the first await, O verbatim), installed
+  // after the result was applied; no key is stamped beside it
+  assert.match(runFit, /state\.fitResult = Object\.freeze\(\{ seal \}\);/);
+  assert.ok(runFit.indexOf('applyBackendResult(backendResult, pageModel);') < runFit.indexOf('state.fitResult = Object.freeze({ seal });'), 'the seal is installed AFTER the result was applied');
   const captured = runFit.indexOf('ctxAtRequest = _startsLiveKey();');
   assert.ok(captured > 0 && captured < runFit.indexOf('await uploadToBackend('), 'context captured before the first await');
   assert.ok(runFit.indexOf('if (!_sameFitKey(_startsLiveKey(), ctxAtRequest))') > 0 && runFit.indexOf('if (!_sameFitKey(_startsLiveKey(), ctxAtRequest))') < runFit.indexOf('applyBackendResult(backendResult, pageModel);'), 'and checked before anything is applied');

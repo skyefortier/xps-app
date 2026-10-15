@@ -68,7 +68,7 @@ function makeEnv({ fetchImpl, uploadImpl, specImpl, ownerActive }) {
     peaks: [{ id: 1, name: 'p', shape: 'Gaussian', center: 285, fwhm: 1.2, amplitude: 50, glMix: 50, asymmetry: 0 }] };
   const owner = { id: 7 };
   const calls = { notify: [], local: 0, applied: 0, undo: 0, spinner: 0 };
-  const src = 'const _STARTS_N = 3;\n' + lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\n' + lines.find(l => l.startsWith('const _SEAL_CTX_FIELDS')) + '\n' + lines.find(l => l.startsWith('const LEGACY_ENDPOINT_AVG')) + '\nlet _historyPreview = null;\n' + ['runFit', '_linkGraphFailure', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsUnlinkedCount', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey', '_startsIfCurrent', '_certificateMoveFrom', '_fitRecordFrom', '_localFitRecord', '_isFitRecord', '_buildFitRequest', '_liveFitContext', '_contextOf', '_uiFromDom', '_sealR', '_makeSeal', '_deepFreeze', '_pageIdentity'].map(extractFn).join('\n') + '\n' + require('./_seal_readers.js')(extractFn) + '\n' + POLL_SRC;
+  const src = require('./_seal_stubs.js').source() + '\n' + 'const _STARTS_N = 3;\n' + lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\n' + lines.find(l => l.startsWith('const _SEAL_CTX_FIELDS')) + '\n' + lines.find(l => l.startsWith('const LEGACY_ENDPOINT_AVG')) + '\nlet _historyPreview = null;\n' + ['runFit', '_linkGraphFailure', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsUnlinkedCount', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey', '_startsIfCurrent', '_certificateMoveFrom', '_fitRecordFrom', '_localFitRecord', '_isFitRecord', '_buildFitRequest', '_liveFitContext', '_contextOf', '_uiFromDom', '_sealR', '_makeSeal', '_deepFreeze', '_pageIdentity'].map(extractFn).join('\n') + '\n' + require('./_seal_readers.js')(extractFn) + '\n' + POLL_SRC;
   const factory = new Function('setTimeout', 'document', 'state', 'fetch', 'uploadToBackend', 'notify', 'pushUndo', '_showFitSpinner', '_hideFitSpinner',
     '_opOwner', '_ownerActive', 'getROIData', 'computeBackground', 'peakToBackendSpec', '_getManualAnchors', 'applyBackendResult',
     '_computeRFactor', '_CHISQ_TOOLTIP', '_updateRFactorUI', '_updateROIDisplay', 'renderPeakList', 'updatePlot', 'renderResults',
@@ -131,7 +131,7 @@ test('a transport failure whose local fallback does NOT converge shows no "local
   failing.calls.local = 0;
   // rebuild with a failing runFitLocal
   const dom = failing.dom;
-  const src = 'const _STARTS_N = 3;\n' + lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\n' + lines.find(l => l.startsWith('const _SEAL_CTX_FIELDS')) + '\n' + lines.find(l => l.startsWith('const LEGACY_ENDPOINT_AVG')) + '\nlet _historyPreview = null;\n' + ['runFit', '_linkGraphFailure', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsUnlinkedCount', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey', '_startsIfCurrent', '_certificateMoveFrom', '_fitRecordFrom', '_localFitRecord', '_isFitRecord', '_buildFitRequest', '_liveFitContext', '_contextOf', '_uiFromDom', '_sealR', '_makeSeal', '_deepFreeze', '_pageIdentity'].map(extractFn).join('\n') + '\n' + require('./_seal_readers.js')(extractFn) + '\n' + POLL_SRC;
+  const src = require('./_seal_stubs.js').source() + '\n' + 'const _STARTS_N = 3;\n' + lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\n' + lines.find(l => l.startsWith('const _SEAL_CTX_FIELDS')) + '\n' + lines.find(l => l.startsWith('const LEGACY_ENDPOINT_AVG')) + '\nlet _historyPreview = null;\n' + ['runFit', '_linkGraphFailure', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsUnlinkedCount', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey', '_startsIfCurrent', '_certificateMoveFrom', '_fitRecordFrom', '_localFitRecord', '_isFitRecord', '_buildFitRequest', '_liveFitContext', '_contextOf', '_uiFromDom', '_sealR', '_makeSeal', '_deepFreeze', '_pageIdentity'].map(extractFn).join('\n') + '\n' + require('./_seal_readers.js')(extractFn) + '\n' + POLL_SRC;
   const noop = () => {};
   const owner = { id: 1 };
   const state = failing.state;
@@ -154,7 +154,7 @@ test('a converged backend result is applied (sanity)', async () => {
   assert.equal(env.calls.applied, 1);
   assert.equal(env.calls.local, 0);
   assert.notEqual(env.state.fitResult.marker, 'previous');
-  assert.equal(env.dom['sb-msg'].textContent, 'Fit complete (lmfit)', 'the success path must run to completion, not die in an exception');
+  assert.equal(env.dom['sb-msg'].textContent, 'Fit complete (lmfit) \u2014 confirming\u2026', 'the success path must run to completion, not die in an exception');
 });
 
 test('the engine/objective labels of a fit result survive spectrum and project save/load', () => {
@@ -571,7 +571,7 @@ test('W1 helpers: weighted local results are chi-square but still designated; le
 
 // ── W1 Codex round 1: the TSV export's warning follows the GOVERNING objective (behavioural) ──
 test('TSV export warning is objective-aware: legacy result, legacy imported model, weighted result, server result', () => {
-  const src = ['_isUnweightedLocal', '_isLocalProvenance', '_isLocalFit', '_isLocalModel', '_localFitCaveat', '_governingProvenance', 'exportResults', '_isFitRecord', '_fitRecordRows', '_fitRecordRowsUnchecked', '_fitRecordTextLines', '_b64Utf8', '_recordParts', '_fitRecordXlsxRows', '_isUnsupported', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure'].map(extractFn).join('\n') + '\n' + require('./_seal_readers.js')(extractFn)
+  const src = ['_isUnweightedLocal', '_isLocalProvenance', '_isLocalFit', '_isLocalModel', '_localFitCaveat', '_governingProvenance', 'exportResults', '_isFitRecord', '_fitRecordRows', '_fitRecordRowsUnchecked', '_fitRecordTextLines', '_exportCommentLine', '_exportStateRows', '_exportTailText', '_b64Utf8', '_recordParts', '_fitRecordXlsxRows', '_isUnsupported', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure'].map(extractFn).join('\n') + '\n' + require('./_seal_readers.js')(extractFn)
     + '\nconst _statsLiveState = () => "current";'   // F1's stale note is pinned in stale_statistics.test.js
     + '\nconst _autoFitBlocks = () => false;';     // Q8's Auto-Fit transaction guard: tests/test_browser_autofit_refit.py
   const consts = html.match(/^const _LOCAL_FIT_CAVEAT\w* = .*$/mg).join('\n');
@@ -638,9 +638,12 @@ test('adoption: success records the choice, the starts evidence and the key of t
   const env = makeEnv({ specImpl: spec, fetchImpl: okResponse({ success: true, statistics: { reduced_chi_square: 1.16 }, residuals: [], fitted_y: [], individual_peaks: [], starts }) });
   await env.runFit({ startPeaks: ALT_START, chosenAlternative: CHOSEN });
   assert.strictEqual(env.calls.applied, 1);
-  assert.deepStrictEqual(env.state.fitResult.chosenAlternative, CHOSEN);
-  assert.deepStrictEqual(env.state.fitResult.starts, starts);
-  assert.strictEqual(typeof env.state.fitResult.startsModelKey, 'string');
+  // seal step 7: the result IS its seal — the choice in D, the starts evidence in O (verbatim), the model in R
+  const seal = env.state.fitResult.seal;
+  assert.ok(Object.isFrozen(env.state.fitResult) && Object.keys(env.state.fitResult).join() === 'seal');
+  assert.deepStrictEqual(seal.D.chosenAlternative, CHOSEN);
+  assert.deepStrictEqual(seal.O.starts, starts);
+  assert.strictEqual(seal.producer, 'useSolution');
 });
 
 test('an ordinary Run Fit on one unlinked component does not ask for the starts check', async () => {
@@ -648,7 +651,7 @@ test('an ordinary Run Fit on one unlinked component does not ask for the starts 
   const env = makeEnv({ fetchImpl: async (url, init) => { body = JSON.parse(init.body); return { ok: true, status: 200, json: async () => ({ success: true, statistics: {}, residuals: [], fitted_y: [], individual_peaks: [] }) }; } });
   await env.runFit();
   assert.strictEqual(body.n_starts, 0);
-  assert.strictEqual(env.state.fitResult.chosenAlternative, null);
+  assert.strictEqual(env.state.fitResult.seal.D.chosenAlternative, null);
 });
 
 

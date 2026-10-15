@@ -199,7 +199,7 @@ test('Quantify: excluded from the body, listed beneath with the reason; total an
 
 test('CSV / XLSX export: Status column, suppressed cells, At% empty, WARNING line', () => {
   const rows = [];
-  const env = pageEnv(['exportFitTable', '_shapeExportCols', '_isFitRecord', '_fitRecordRows', '_fitRecordRowsUnchecked', '_fitRecordTextLines', '_b64Utf8', '_recordParts', '_fitRecordXlsxRows'], {
+  const env = pageEnv(['exportFitTable', '_shapeExportCols', '_isFitRecord', '_fitRecordRows', '_fitRecordRowsUnchecked', '_fitRecordTextLines', '_exportCommentLine', '_exportStateRows', '_exportTailText', '_b64Utf8', '_recordParts', '_fitRecordXlsxRows'], {
     XLSX: { utils: { book_new: () => ({}), aoa_to_sheet: a => a, book_append_sheet: (wb, ws) => rows.push(ws) }, writeFile: () => {} },
     _downloadBlob: () => {}, _isUnweightedLocal: () => false,
   });
@@ -245,7 +245,7 @@ test('persistence: support travels with the peak object through every save (the 
 
 test('CSV / XLSX: an unsupported DS+G component exports no width of any kind (beta, m)', () => {
   const rows = [];
-  const env = pageEnv(['exportFitTable', '_shapeExportCols', '_isFitRecord', '_fitRecordRows', '_fitRecordRowsUnchecked', '_fitRecordTextLines', '_b64Utf8', '_recordParts', '_fitRecordXlsxRows'], {
+  const env = pageEnv(['exportFitTable', '_shapeExportCols', '_isFitRecord', '_fitRecordRows', '_fitRecordRowsUnchecked', '_fitRecordTextLines', '_exportCommentLine', '_exportStateRows', '_exportTailText', '_b64Utf8', '_recordParts', '_fitRecordXlsxRows'], {
     XLSX: { utils: { book_new: () => ({}), aoa_to_sheet: a => a, book_append_sheet: (wb, ws) => rows.push(ws) }, writeFile: () => {} },
     _downloadBlob: () => {}, _isUnweightedLocal: () => false,
   });
@@ -285,7 +285,7 @@ test('exports: a stale or keyless verdict is "not established", never "supported
   assert.strictEqual(c._currentSupport({ support: { supported: true } }), null);
   assert.deepStrictEqual(c._currentSupport({ support: { supported: true, fitKey: 'KEY' } }), { supported: true, fitKey: 'KEY' });
   const rows = [];
-  const env = pageEnv(['exportFitTable', '_shapeExportCols', '_isFitRecord', '_fitRecordRows', '_fitRecordRowsUnchecked', '_fitRecordTextLines', '_b64Utf8', '_recordParts', '_fitRecordXlsxRows'], {
+  const env = pageEnv(['exportFitTable', '_shapeExportCols', '_isFitRecord', '_fitRecordRows', '_fitRecordRowsUnchecked', '_fitRecordTextLines', '_exportCommentLine', '_exportStateRows', '_exportTailText', '_b64Utf8', '_recordParts', '_fitRecordXlsxRows'], {
     XLSX: { utils: { book_new: () => ({}), aoa_to_sheet: a => a, book_append_sheet: (wb, ws) => rows.push(ws) }, writeFile: () => {} },
     _downloadBlob: () => {}, _isUnweightedLocal: () => false,
   });
@@ -298,7 +298,7 @@ test('exports: a stale or keyless verdict is "not established", never "supported
   assert.strictEqual(table.find(r => r[0] === 'Graphite')[1], 'supported');
 });
 
-test('Auto-Fit finalisation (locks, charge shift) keeps its own verdicts: _restampSupport, called after the locks', () => {
+test('Auto-Fit finalisation (locks, charge shift) keeps its own verdicts: the final fit\'s seal, installed before anything renders', () => {
   // Q8: the anchor fit's finalisation locks the centres and shifts the frame; the FINAL fit is made with
   // them, and its publication re-stamps the verdicts before anything renders
   assert.ok(extractFn('applyAutoFitResult').indexOf('for (const p of state.peaks) p.fixCenter = true;') > 0, 'the locks');
@@ -307,11 +307,15 @@ test('Auto-Fit finalisation (locks, charge shift) keeps its own verdicts: _resta
   const at = s => { const i = run.indexOf(s); assert.ok(i > 0, 'runAutoFitC1sGraphite: ' + s); return i; };
   assert.ok(at('applyAutoFitResult(json,') < at('const req2 = _autoFitRequest(anchorId);') &&
             at('applyBackendResult(json2, req2.pageModel);') < at('_autoFitPublish(json2,'), 'locks, then the final fit, then its publication');
+  // seal step 7: the final fit's verdicts are its RECORD's (O's support), and the seal is installed before anything
+  // renders — no key to re-stamp (`_restampSupport` stays for legacy results)
   const src = extractFn('_autoFitPublish');
-  assert.ok(src.indexOf('_restampSupport()') > 0 && src.indexOf('_restampSupport()') < src.indexOf('renderPeakList()'), 're-stamped before anything renders');
+  assert.ok(src.indexOf('state.fitResult = Object.freeze({ seal });') > 0 &&
+            src.indexOf('state.fitResult = Object.freeze({ seal });') < src.indexOf('renderPeakList()'), 'installed before anything renders');
+  assert.ok(src.indexOf('_restampSupport()') < 0, 'a sealed result is not re-stamped');
   const c = core();
   const peaks = [{ id: 1, support: { supported: false, fitKey: 'BEFORE THE LOCKS' } }, { id: 2, support: null }];
-  const api = new Function('_startsLiveKey', 'state', extractFn('_restampSupport') + '\nreturn _restampSupport;')(() => 'AFTER', { peaks });
+  const api = new Function('_startsLiveKey', 'state', extractFn('_restampSupport') + '\n' + extractFn('_isInstalledSeal') + '\nreturn _restampSupport;')(() => 'AFTER', { peaks });
   api();
   assert.strictEqual(peaks[0].support.fitKey, 'AFTER');
   assert.strictEqual(peaks[1].support, null);

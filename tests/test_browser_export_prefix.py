@@ -22,8 +22,25 @@ import pytest
 
 pytest.importorskip("playwright.sync_api")
 from test_browser_find_peaks_full_window import REPO_ROOT, _new_page, browser, server  # noqa: E402,F401
-from test_browser_fit_recording import RECORD, _download, _fit  # noqa: E402
-from test_browser_background_not_converged import PEAK_TAB  # noqa: E402
+from test_browser_fit_recording import _download  # noqa: E402
+from test_browser_background_not_converged import LEGACY, PEAK_TAB  # noqa: E402
+
+# step 7: a fit is its seal — its record is the seal's view's (an unsealed fit, and the earlier page, keep their own)
+RECORD = """() => { const fr = state.fitResult;
+    return fr && (fr.seal ? _sealView(fr.seal).record : fr.record); }"""
+# a fresh server fit (and a loaded one) starts its own check: wait for it to answer (the earlier page has none)
+WAIT = """async () => { if (typeof _sealAttempts === 'undefined') return;
+    for (let k = 0; k < 600 && tabManager.tabs.some(t => _sealAttempts.has(t)); k++) await new Promise(r => setTimeout(r, 50)); }"""
+
+
+def _fit(pg, setup=None):
+    pg.evaluate(PEAK_TAB)
+    pg.evaluate("() => { document.getElementById('fit-method').value = 'least_squares'; }")
+    if setup:
+        pg.evaluate(setup)
+    assert pg.evaluate("async () => { await runFit(); return !!state.fitResult; }")
+    pg.evaluate(WAIT)
+    return pg.evaluate(RECORD)
 
 BEFORE = "52e5b4a"   # main as deployed before the fit record
 # today's _peakArea (tests/js/one_area.test.js pins it to scipy), installed in the earlier page
@@ -56,13 +73,17 @@ def before_html():
 def _exports(pg, project):
     if project is None:
         # a local fit (it saves no fitted envelope, so a project reloads it peaks-only, on both
-        # pages): run the local engine itself — deterministic page code, unchanged by the record
+        # pages): Run Fit's own fallback with the server unreachable — deterministic page code; since
+        # step 7 this page's is a SEALED local fit, the earlier page's its legacy result
         pg.evaluate(PEAK_TAB)
-        assert pg.evaluate("""() => { const { be, inten } = getROIData(); const b = computeBackground(be, inten);
-            return runFitLocal(be, inten.map((v, i) => v - b[i]), b).success; }""")
+        pg.route("**/api/upload", lambda route: route.abort())
+        pg.evaluate("async () => { await runFit(); }")
+        pg.unroute("**/api/upload")
+        assert pg.evaluate("() => !!state.fitResult")
     else:
         pg.evaluate("data => _loadProjectJSON(data, 'p.proj.json')", project)
         pg.wait_for_timeout(500)
+        pg.evaluate(WAIT)
     out = {"csv": _download(pg, "() => exportFitTable('csv')")}
     pg.evaluate(TSV_HOOK)
     pg.evaluate("() => exportResults()")
@@ -76,14 +97,54 @@ def _exports(pg, project):
 
 
 def _project(browser, server, local):
+    """(this page's save, the earlier page's save) of ONE fit. Step 7: this page saves a seal, which the earlier page
+    cannot read; it reads the same fit as the legacy result main's runFit built (LEGACY), saved by this page's
+    legacy serializer — the save every earlier version made."""
     if local:
-        return None
+        return None, None
     pg = _new_page(browser, server)
     try:
         _fit(pg)
-        return json.loads(_download(pg, "() => _doSaveProject()"))
+        sealed = json.loads(_download(pg, "() => _doSaveProject()"))
+        pg.evaluate(LEGACY)
+        legacy = json.loads(_download(pg, "() => _doSaveProject()"))
+        assert not any("seal" in (t.get("fitResult") or {}) for t in legacy["tabs"])
+        return sealed, legacy
     finally:
         pg.close()
+
+
+STARTS_DETAIL = re.compile(r" \(χ²ᵣ [^)]*\)(?=\.$)")
+
+
+def _as_main_wrote_a_reload(now):
+    """A RELOADED sealed fit's exports with its two release-noted differences (plan §10: the fit's O persists) put
+    back as main wrote them — main reloaded no σ (blank StdErr cells) and saved the scattered starts' counts only (no
+    "(χ²ᵣ …)" after "not better"). Each difference is checked to be exactly that before it is put back; nothing
+    else is touched, so every other line, row and column is still compared exactly."""
+    out = dict(now)
+    lines = now["csv"].split("\n")
+    hi = next(i for i, l in enumerate(lines) if l.startswith("Peak Name,") or l.startswith("Name,") or "StdErr" in l)
+    head = lines[hi].split(",")
+    sig = [j for j, h in enumerate(head) if "StdErr" in h]
+    assert len(sig) == 3, head
+    for i in range(hi + 1, len(lines)):
+        if not lines[i]:
+            break
+        cells = next(csv.reader([lines[i]]))
+        assert all(re.fullmatch(r"\d+\.\d+", cells[j]) for j in sig), cells     # a reloaded fit's σ, as numbers
+        lines[i] = ",".join('"' + ("" if j in sig else c).replace('"', '""') + '"' for j, c in enumerate(cells))
+    lines = [STARTS_DETAIL.sub("", l) if l.startswith("# Scattered starts: ") else l for l in lines]
+    out["csv"] = "\n".join(lines)
+    xl = {k: [list(r) for r in v] for k, v in now["xlsx"].items()}
+    for r in xl["Fit Results"][1:]:
+        for j in sig:
+            r[j] = ""
+    for r in xl["Info"]:
+        if r and r[0] == "Scattered starts":
+            r[1] = STARTS_DETAIL.sub("", r[1])
+    out["xlsx"] = xl
+    return out
 
 
 def _record_lines(tail):
@@ -117,7 +178,7 @@ def _xlsx_record(extra):
 
 @pytest.mark.parametrize("local", [False, True], ids=["server-fit", "local-fit"])
 def test_the_record_follows_every_existing_line_row_and_column(browser, server, before_html, local):
-    project = _project(browser, server, local)
+    project, earlier = _project(browser, server, local)
     pg = _new_page(browser, server)
     try:
         now = _exports(pg, project)
@@ -129,16 +190,20 @@ def test_the_record_follows_every_existing_line_row_and_column(browser, server, 
         pg.goto(server + "/", wait_until="load")
         assert pg.evaluate("() => typeof _fitRecordRows") == "undefined", "the page before the record"
         pg.evaluate(TODAY_AREA)
-        then = _exports(pg, project)
+        then = _exports(pg, earlier)
     finally:
         pg.close()
     rec = now["record"]
     assert rec and rec["engine"] == ("local" if local else "server")
+    if not local:
+        now = _as_main_wrote_a_reload(now)
     for fmt in ("csv", "tsv"):
         assert now[fmt].startswith(then[fmt]), f"{fmt}: an existing line moved or changed"
         lines = _record_lines(now[fmt][len(then[fmt]):])
         assert _decoded(lines) == rec, fmt
-        assert len(lines) == (5 if local else 6)
+        # a sealed fit's state and its record's provenance open the block (step 5 / 6), then the record's lines
+        assert lines[0].startswith("# Fit state: CURRENT") and lines[1].startswith("# Record provenance: "), lines[:2]
+        assert len(lines) == (7 if local else 8)
     # XLSX: every sheet the same, row for row; the record's rows follow the Info sheet's
     assert list(now["xlsx"]) == list(then["xlsx"]) == ["Info", "Fit Results"]
     assert now["xlsx"]["Fit Results"] == then["xlsx"]["Fit Results"]
@@ -149,13 +214,13 @@ def test_the_record_follows_every_existing_line_row_and_column(browser, server, 
     assert all(v is None for v in info_now[len(info_then)]), info_now[len(info_then)]
     extra = info_now[len(info_then) + 1:]
     assert _xlsx_record(extra) == rec
-    assert [r[0] for r in extra] == [k for k in ("Fit method", "Random seed", "Background check", "Minimum certificate",
+    assert [r[0] for r in extra] == [k for k in ("Fit state", "Record provenance", "Fit method", "Random seed", "Background check", "Minimum certificate",
                                                    "Software", "Fit record (JSON part 1 of 1)") if not (local and k == "Random seed")]
 
 
 def test_each_record_line_is_one_cell_to_every_reader_and_a_comment_to_a_comment_reader(browser, server, before_html):
     import pandas as pd
-    project = _project(browser, server, False)
+    project, earlier = _project(browser, server, False)
     pg = _new_page(browser, server)
     try:
         now = _exports(pg, project)
@@ -166,10 +231,11 @@ def test_each_record_line_is_one_cell_to_every_reader_and_a_comment_to_a_comment
         pg.route(server + "/", lambda route: route.fulfill(status=200, content_type="text/html; charset=utf-8", body=before_html))
         pg.goto(server + "/", wait_until="load")
         pg.evaluate(TODAY_AREA)
-        then = _exports(pg, project)
+        then = _exports(pg, earlier)
     finally:
         pg.close()
     rec = now["record"]
+    now = _as_main_wrote_a_reload(now)
     for fmt, sep in (("csv", ","), ("tsv", "\t")):
         text = now[fmt]
         # Python's csv module: each record line is one cell; the JSON decodes to the record
@@ -195,10 +261,11 @@ def test_a_record_of_any_size_stays_within_every_readers_limit(browser, server):
     import pandas as pd
     pg = _new_page(browser, server)
     try:
-        _fit(pg)
-        pg.evaluate("""() => { const bv = state.fitResult.record.backgroundVerdict;
-            bv.effect = { method: 'manual', anchors: Array.from({ length: 8000 }, (_, i) => [280 + i * 0.00125, 1000 + i / 7]) }; }""")
-        rec = pg.evaluate(RECORD)
+        # step 7: a record is its frozen seal's — the crafted import is made before the fit, so the
+        # server's own record carries the 8 000 anchors
+        rec = _fit(pg, """() => { _setManualAnchors(Array.from({ length: 8000 }, (_, i) => ({ x: 280 + i * 0.00125, y: 290 + i / 20 })));
+            document.getElementById('bg-type').value = 'manual'; _onBgTypeChange(); updatePlot(); }""")
+        assert rec["backgroundVerdict"]["effect"]["method"] == "manual" and len(rec["backgroundVerdict"]["effect"]["anchors"]) == 8000
         text = {"csv": _download(pg, "() => exportFitTable('csv')")}
         pg.evaluate(TSV_HOOK)
         pg.evaluate("() => exportResults()")

@@ -65,7 +65,7 @@ async function runAutoFit({ replies, refuseFinal = false, refuseAnchor = false, 
   };
   deps.setTimeout = (f, ms) => { if (!(ms >= 60000)) f(); return 1; };
   deps.DOMException = class extends Error { constructor(m, k) { super(m); this.name = k; } };
-  const src = KEY_SRC + '\n' + ['runAutoFitC1sGraphite', '_autoFitRequest', '_buildFitRequest', '_liveFitContext', '_contextOf', '_uiFromDom', '_sealR', '_makeSeal', '_deepFreeze', '_pageIdentity', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure', '_readFitReply',
+  const src = require('./_seal_stubs.js').source() + '\n' + KEY_SRC + '\n' + ['runAutoFitC1sGraphite', '_autoFitRequest', '_buildFitRequest', '_liveFitContext', '_contextOf', '_uiFromDom', '_sealR', '_makeSeal', '_deepFreeze', '_pageIdentity', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure', '_readFitReply',
     '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_sameFitKey'].map(extractFn).join('\n');
   await new Function(...Object.keys(deps), src + '\n' + POLL_SRC + '\nreturn runAutoFitC1sGraphite;')(...Object.values(deps))();
   // the page waits for exactly this one transaction: the overlay goes up once and comes down once, on every exit
@@ -87,7 +87,8 @@ test('the anchor fit decides the shift; the FINAL fit, in the corrected frame wi
   assert.strictEqual(out.uploads[1].locked, true, 'with every centre locked');
   assert.ok(out.labels.includes('Auto-Fit: anchor fitted, refitting in the corrected frame…'), JSON.stringify(out.labels));
   assert.strictEqual(out.restored, false);
-  assert.ok(out.notes.some(([m, k]) => k === 'green' && /^Auto-fit complete\. χ²ᵣ = 2\.000$/.test(m)), JSON.stringify(out.notes));
+  // seal step 7: the statistic announced is the published seal's (the seal layer is stubbed here: its value is 1)
+  assert.ok(out.notes.some(([m, k]) => k === 'green' && /^Auto-fit complete\. χ²ᵣ = \d+\.\d{3}$/.test(m)), JSON.stringify(out.notes));
 });
 
 test('a final fit that does not converge restores everything; nothing is published', async () => {

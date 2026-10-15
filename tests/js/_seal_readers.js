@@ -6,6 +6,6 @@ const SEAL_READER_FNS = ['_readsSeal', '_sealedDisplay', '_sealComponent', '_sea
   '_shownStats', '_sealSig', '_sealStateText', '_sealStaleNote', '_componentArea', '_shownPeak', '_exportSealState',
   '_exportRecordOf', '_chosenOf', '_altKeyOf', '_sealDesignation', '_sealReadableView', '_sealStateOf', '_fitRoiRange', '_sealProvenanceOf', '_sealProvenanceText'];
 // `var`: a harness may concatenate this source twice
-const SEAL_READER_CONSTS = 'var _SEAL_AUTHORITATIVE = false; var _sealIds = new WeakMap(); var _sealIdSeq = 0;';
+const SEAL_READER_CONSTS = 'var _sealIds = new WeakMap(); var _sealIdSeq = 0;';
 module.exports = (extractFn) => [SEAL_READER_CONSTS, ...SEAL_READER_FNS.map(extractFn)].join('\n');
 module.exports.SEAL_READER_FNS = SEAL_READER_FNS;

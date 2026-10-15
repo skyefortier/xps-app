@@ -20,8 +20,11 @@ from fit_equality import assert_same_fit  # noqa: E402
 SPY = """() => { window.__req = null; const o = window.fetch;
     window.fetch = (url, opts) => { if (String(url).includes('/api/fit/start')) window.__req = JSON.parse(opts.body); return o(url, opts); }; }"""
 FIT = """async () => { await runFit(); return !!state.fitResult; }"""
-RECORD = "() => state.fitResult && state.fitResult.record"
-BACKEND = """() => { const r = state.fitResult.backendResult; return { fit_method: r.fit_method, random_seed: r.random_seed,
+# the fit's record: a sealed fit's is its view's (step 7: producers install only the seal); an older save's its own field
+RECORD = "() => { const fr = state.fitResult; return fr ? (fr.seal ? _sealView(fr.seal).record : fr.record) : null; }"
+# the server's reply: a sealed fit's O IS the /api/fit body (what backendResult was)
+REPLY = "() => { const fr = state.fitResult; return fr.seal ? fr.seal.O : fr.backendResult; }"
+BACKEND = """() => { const fr = state.fitResult, r = fr.seal ? fr.seal.O : fr.backendResult; return { fit_method: r.fit_method, random_seed: r.random_seed,
     seed_source: r.seed_source, background_verdict: r.background_verdict, certificate: r.certificate, software: r.software }; }"""
 
 
@@ -31,6 +34,17 @@ def _fit(pg):
     pg.evaluate(SPY)
     assert pg.evaluate(FIT)
     return pg.evaluate(RECORD), pg.evaluate(BACKEND)
+
+
+# a fresh server fit (and a loaded sealed one) is PENDING until the server's check answers: wait for it
+SETTLED = """async () => { for (let k = 0; k < 600 && _sealAttempts.has(_activeTab()); k++) await new Promise(r => setTimeout(r, 50)); }"""
+
+
+def _saved_record(pg, fit_result):
+    """The record a saved fit carries: a sealed save's is its seal's view's (step 7: the seal is all it holds)."""
+    if "seal" in fit_result:
+        return pg.evaluate("(seal) => _sealView(_makeSeal(seal)).record", fit_result["seal"])
+    return fit_result["record"]
 
 
 def _download(pg, action):
@@ -61,16 +75,18 @@ def test_the_record_round_trips_through_a_project_and_a_spectrum_file(browser, s
         rec, _ = _fit(pg)
         proj = json.loads(_download(pg, "() => _doSaveProject()"))
         spec = json.loads(_download(pg, "() => _doSaveSpectrum()"))
+        saved_tab = next(t for t in proj["tabs"] if not t.get("isStack") and t.get("fitResult"))
+        assert _saved_record(pg, saved_tab["fitResult"]) == rec
+        assert "seal" not in spec or _saved_record(pg, spec) == rec
     finally:
         pg.close()
-    saved_tab = next(t for t in proj["tabs"] if not t.get("isStack") and t.get("fitResult"))
-    assert saved_tab["fitResult"]["record"] == rec
     assert spec["statistics"]["record"] == rec
     for loader, data, name in (("_loadProjectJSON", proj, "r.proj.json"), ("_loadSpectrumFile", spec, "r.spec.json")):
         pg = _new_page(browser, server)
         try:
             pg.evaluate(f"data => {loader}(data, '{name}')", data)
             pg.wait_for_timeout(500)
+            pg.evaluate(SETTLED)
             assert pg.evaluate(RECORD) == rec, loader
             assert pg.evaluate("() => _statsLiveState()") == "current", f"{loader}: the fit restores as it did before"
         finally:
@@ -79,12 +95,15 @@ def test_the_record_round_trips_through_a_project_and_a_spectrum_file(browser, s
 
 def test_a_seed_of_zero_survives_the_spectrum_loader(browser, server):
     # the spectrum loader copies most statistics fields only when truthy: the record is copied explicitly
+    # (step 7: that copy is the LEGACY loader's — a sealed file installs its seal and never reads statistics — so
+    # the file is made an older one, without its seal)
     pg = _new_page(browser, server)
     try:
         _fit(pg)
         spec = json.loads(_download(pg, "() => _doSaveSpectrum()"))
     finally:
         pg.close()
+    spec.pop("seal", None)
     spec["statistics"]["record"]["seed"] = 0
     pg = _new_page(browser, server)
     try:
@@ -141,12 +160,16 @@ def test_the_figure_png_carries_the_record(browser, server):
     pg = _new_page(browser, server)
     try:
         rec, _ = _fit(pg)
+        pg.evaluate(SETTLED)
         pg.evaluate("""() => { window.__png = null; window._downloadBlob = async (blob, name) => {
             const b = new Uint8Array(await blob.arrayBuffer()); let s = '';
             for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]); window.__png = btoa(s); }; }""")
         pg.evaluate("() => _doPublicationExport()")
         pg.wait_for_function("() => window.__png !== null", timeout=30000)
         png = base64.b64decode(pg.evaluate("() => window.__png"))
+        # a sealed fit's chunk also carries its state and provenance (seal step 5)
+        sealed = pg.evaluate("""() => state.fitResult.seal ? { sealState: _exportSealState(state.fitResult),
+                                                                 provenance: _sealProvenanceOf(state.fitResult) } : {}""")
     finally:
         pg.close()
     assert png[:8] == b"\x89PNG\r\n\x1a\n"
@@ -161,7 +184,7 @@ def test_the_figure_png_carries_the_record(browser, server):
     itxt = [d for t, d in chunks if t == b"iTXt" and d.startswith(b"XPS-Fit-Record\0")]
     assert len(itxt) == 1
     text = itxt[0][len(b"XPS-Fit-Record\0") + 4:]          # flag 0, method 0, empty language, empty translation
-    assert json.loads(text.decode("utf-8")) == rec
+    assert json.loads(text.decode("utf-8")) == {**rec, **sealed} and not set(sealed) & set(rec)
 
 
 def test_a_fit_json_carries_the_record_and_an_import_keeps_it_as_provenance(browser, server):
@@ -195,7 +218,18 @@ def test_an_older_save_without_a_record_loads_as_before(browser, server):
     pg = _new_page(browser, server)
     try:
         _fit(pg)
+        # step 7: a fit is saved as its seal; an older save held the result's own fields — made here from the same
+        # fit, as runFit wrote them before the seal (the server's reply, the page's samples and background)
+        pg.evaluate("""() => { const O = state.fitResult.seal.O, v = _sealView(state.fitResult.seal);
+            const { be, inten } = getROIData(), bg = computeBackground(be, inten);
+            state.fitResult = { chi: v.statistics.chi2, chiReduced: v.statistics.chi2r,
+                                rmse: Math.sqrt(O.residuals.reduce((s, r) => s + r * r, 0) / Math.max(1, be.length)),
+                                be, bgSubtracted: inten.map((y, i) => y - bg[i]), bgIntensity: Array.from(bg), backendResult: O,
+                                uploadFull: true, fittedY: O.fitted_y, roiRange: { min: _arrMin(be).toFixed(1), max: _arrMax(be).toFixed(1) },
+                                starts: O.starts || null, record: _fitRecordFrom(O), startsModelKey: _startsLiveKey(), chosenAlternative: null };
+            state.fitResult.rFactor = _computeRFactor(state.fitResult); tabManager._syncActiveToRecord(); }""")
         proj = json.loads(_download(pg, "() => _doSaveProject()"))
+        assert all("seal" not in t["fitResult"] for t in proj["tabs"] if t.get("fitResult"))
     finally:
         pg.close()
     for t in proj["tabs"]:
@@ -280,7 +314,7 @@ def test_a_re_run_with_the_saved_seed_reproduces_the_fit(browser, server):
     try:
         _fit(pg)
         req = pg.evaluate("() => window.__req")
-        first = pg.evaluate("() => state.fitResult.backendResult")
+        first = pg.evaluate(REPLY)
         proj = json.loads(_download(pg, "() => _doSaveProject()"))
     finally:
         pg.close()

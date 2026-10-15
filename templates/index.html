@@ -2397,6 +2397,10 @@ function _historyTab() {
 // panel to what the engine fitted at) passes { endpointAvg } so the snapshot
 // carries the pre-action value as a non-index property; undo/redo restore it
 // to the panel AND the tab record. Peak-only actions leave it absent.
+// seal step 7 (plan §8.2): what a snapshot keeps of a fit result — a sealed one BY REFERENCE (frozen; reinstalled
+// as it was, its verification cache reused), a legacy one as a shallow copy (as before).
+function _captureFit(fr) { return fr ? (fr.seal ? fr : { ...fr }) : null; }
+
 function _peaksSnapshot(extra) {
   const snap = JSON.parse(JSON.stringify(state.peaks));
   if (extra && extra.endpointAvg !== undefined) snap._endpointAvg = String(extra.endpointAvg);
@@ -2415,7 +2419,7 @@ function _historyContext() {
   // the result too (Codex round 2: an undo kept the final fit's frozen grid and background beside the
   // restored peaks), shallow-copied as the Auto-Fit snapshot copies it, and the id counter
   return { ccShift: state.ccShift, manualAnchors: JSON.parse(JSON.stringify(_getManualAnchors())),
-           fitResult: state.fitResult ? { ...state.fitResult } : null, nextId: state.nextId,
+           fitResult: _captureFit(state.fitResult), nextId: state.nextId,
            ccMethod: v('cc-method') || 'none', ccObs: v('cc-obs'), ccLit: v('cc-lit'),
            roiMin: v('roi-min'), roiMax: v('roi-max'), bgStart: v('bg-start'), bgEnd: v('bg-end') };
 }
@@ -2423,7 +2427,8 @@ function _restoreSnapshotContext(tab, snap) {
   const c = snap && snap._context;
   if (!c) return;
   state.ccShift = c.ccShift;
-  state.fitResult = c.fitResult ? { ...c.fitResult } : null;
+  state.fitResult = _captureFit(c.fitResult);
+  if (state.fitResult && state.fitResult.seal) _ensureVerified(tab);   // a reinstalled seal: a background check (§9)
   if (c.nextId !== undefined) state.nextId = c.nextId;
   _setManualAnchors(JSON.parse(JSON.stringify(c.manualAnchors || [])));
   const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
@@ -3318,6 +3323,8 @@ class TabManager {
     this._updateCCVerifiedUI(tab.chargeVerified ?? true);
     this._updateInfoBadge(tab);
     if (typeof _recomputeAutoFitMenuState === 'function') _recomputeAutoFitMenuState();
+    // seal step 7 (§9): activation is a background trigger — a seal with no answer and no attempt gets one
+    if (state.fitResult && state.fitResult.seal) _ensureVerified(tab);
     // Update chi-squared display for this tab's fit result
     _applyStatDisplay(state.fitResult);
     // F1: never computed over an edited model and cached under the fit's key
@@ -3328,7 +3335,7 @@ class TabManager {
     _updateRFactorUI(state.fitResult ? state.fitResult.rFactor : null);
     _updateROIDisplay(_fitRoiRange(state.fitResult));
     // seal step 5: an open history panel shows the ACTIVE tab's snapshots and their records' states
-    if (_SEAL_AUTHORITATIVE) { const hp = document.getElementById('history-panel');
+    { const hp = document.getElementById('history-panel');
       if (hp && hp.classList.contains('open') && typeof _renderHistoryList === 'function') _renderHistoryList(); }
     // Reset Y zoom so chart auto-scales to this tab's data range
     // (prevents survey zoom from squishing narrow-region spectra)
@@ -7350,7 +7357,7 @@ function _sealProvenance(seal) {
 // A sealed fit's record provenance whatever its state (it describes the RECORD: STALE included — §8.3); null when
 // the record cannot be read.
 function _sealProvenanceOf(fr) {
-  if (!_SEAL_AUTHORITATIVE || !fr || !fr.seal) return null;
+  if (!fr || !fr.seal) return null;
   const st = _sealStateOf(fr);
   return st.view ? st.view.provenance : null;
 }
@@ -7981,7 +7988,7 @@ function _autoFitSnapshot() {
     // natural carrier of the owning record OBJECT (async ownership rule).
     owner:        _opOwner(),
     peaks:        JSON.parse(JSON.stringify(state.peaks || [])),
-    fitResult:    state.fitResult ? { ...state.fitResult } : null,
+    fitResult:    _captureFit(state.fitResult),
     ccShift:      state.ccShift,
     // The provisional cc shift migrates manual anchors along with peak
     // centers (data-attached convention), so rollback must restore them too
@@ -8067,6 +8074,8 @@ function _autoFitRestore(snap, owner) {
   if (typeof renderPeakList === 'function') renderPeakList();
   if (typeof updatePlot === 'function') updatePlot();
   if (typeof _updateUndoButtons === 'function') _updateUndoButtons();
+  // seal step 7 (§9): a reinstalled seal gets a background check (none if it has its answer already)
+  { const fr = _fitResultOf(owner); if (fr && fr.seal) _ensureVerified(owner); }
 }
 
 // Apply a successful auto-fit result. Mutates state and DOM so the tab
@@ -8225,8 +8234,8 @@ function _applySupport(peaks, json, fitKey) {
 function _isUnsupported(p, key, owner) {
   // Seal step 5: a sealed fit's verdict is O's, applied while the record describes the model shown (CURRENT /
   // PENDING / UNCONFIRMED — recorded verdicts of the recorded fit); STALE or unreadable establishes nothing.
-  if (_SEAL_AUTHORITATIVE) {
-    const fr = owner ? owner.fitResult : state.fitResult;
+  {
+    const fr = owner ? _fitResultOf(owner) : state.fitResult;     // the active tab's result lives in `state`
     if (fr && fr.seal) { const s = _sealedDisplay(fr, owner || _activeTab()); return !!(s && _sealUnsupported(s.view, p)); }
   }
   if (!(p && p.support && p.support.supported === false)) return false;
@@ -8236,7 +8245,7 @@ function _isUnsupported(p, key, owner) {
 }
 // A CURRENT verdict, either way (for exports: a stale or keyless verdict is "not established", never "supported").
 function _currentSupport(p) {
-  if (_SEAL_AUTHORITATIVE && state.fitResult && state.fitResult.seal) {
+  if (state.fitResult && state.fitResult.seal) {
     const s = _sealedDisplay(state.fitResult), c = s && _sealComponent(s.view, p);
     return (c && c.support) || null;
   }
@@ -8412,51 +8421,17 @@ function deriveAutoFit(pageModel1, ctx1, O1) {
 // Publish Auto-Fit's FINAL fit — made in the corrected frame on exactly the points, background and
 // model it shows (Q8) — as runFit() publishes a result: the statistics, the record, the Results, one
 // history snapshot, the 40 % graphite warning. Returns false (nothing published) on a refused background.
-function _autoFitPublish(json, sealParts = null) {
-  // Build state.fitResult exactly as runFit() does.
-  const { be: be2, inten: inten2 } = getROIData();
-  const bgR2 = _bgOrFailure(() => computeBackground(be2, inten2));
-  if (bgR2.failure) {
-    notify('Auto-fit not applied: ' + bgR2.failure, 'red', true);
-    return false;
-  }
-  const bgI2 = bgR2.bg;
-  const bgSub2 = inten2.map((v, i) => v - bgI2[i]);
-  const stats = json.statistics || {};
-  const chiReduced = stats.reduced_chi_square || 0;
-  const rmse = Math.sqrt((json.residuals || []).reduce((s, v) => s + v * v, 0) / Math.max(1, be2.length));
-  const roiRange = { min: _arrMin(be2).toFixed(1), max: _arrMax(be2).toFixed(1) };
-  state.fitResult = {
-    chi: chiReduced * Math.max(1, be2.length - state.peaks.length * 3),
-    chiReduced, rmse,
-    be: be2, bgSubtracted: bgSub2, bgIntensity: bgI2,
-    uploadFull: true,                   // fitted on the full-precision upload (2026-10-03; _restoredFitBgFailure)
-    backendResult: json,
-    fittedY: json.fitted_y,
-    roiRange,
-    record: _fitRecordFrom(json),       // recording only (owner 2026-10-10)
-    startsModelKey: _startsLiveKey(),   // F1: binds the statistics to this model; re-stamped below with the locks
-    seal: sealParts ? _makeSeal(sealParts) : null,   // seal 1c step 3: beside the fields above (not yet read)
-  };
-  state.fitResult.rFactor = _computeRFactor(state.fitResult);
-
+function _autoFitPublish(json, seal) {
+  // seal step 7 (plan §6.3): the final fit IS its seal — the anchor fit its evidence E — installed frozen; the
+  // transaction commits both staged answers to it (runAutoFitC1sGraphite)
+  state.fitResult = Object.freeze({ seal });
   // 6. Update the same DOM elements runFit() updates.
-  const fq = document.getElementById('fit-quality');
-  if (fq) {
-    fq.textContent = 'χ²ᵣ = ' + chiReduced.toFixed(2);
-    if (typeof _CHISQ_TOOLTIP !== 'undefined') fq.setAttribute('data-xps-tip', _CHISQ_TOOLTIP);
-  }
   { const _t = typeof _activeTab === 'function' ? _activeTab() : null; if (_t) _t.modelProvenance = null; }
   if (typeof _applyStatDisplay === 'function') _applyStatDisplay(state.fitResult);
-  const sbChi = document.getElementById('sb-chi');
-  if (sbChi) sbChi.textContent = chiReduced.toFixed(3);
   const sbMsg = document.getElementById('sb-msg');
   if (sbMsg) sbMsg.textContent = 'Auto-fit complete';
   if (typeof _updateRFactorUI === 'function') _updateRFactorUI(state.fitResult.rFactor);
-  if (typeof _updateROIDisplay === 'function') _updateROIDisplay(roiRange);
-  // the locks and the refined charge shift are part of THIS result: the
-  // support verdicts describe the model as finalised here
-  if (typeof _restampSupport === 'function') _restampSupport();
+  if (typeof _updateROIDisplay === 'function') _updateROIDisplay(_fitRoiRange(state.fitResult));
   if (typeof renderPeakList === 'function') renderPeakList();
   if (typeof updatePlot === 'function') updatePlot();
   if (typeof renderResults === 'function') renderResults();
@@ -8774,6 +8749,10 @@ async function runAutoFitC1sGraphite() {
   // before a refusal above, which must leave a running Run Fit alone. No
   // await since the check above, so this cannot fail; kept as the guard.
   if (!_installFitOp(afOp)) return;
+  // seal step 7 (plan §6.3, §9): the transaction's STAGED checks — both fits' records are checked by the server
+  // before anything is published, and only a commit with both answers confirmed installs the result
+  const txn = _beginStaged(fittingTab, afOp);
+  let check1 = null;
   // ONE transaction from here (Q8, Codex round 1): the page shows only Auto-Fit's progress, with Cancel,
   // until the final fit is committed or everything is restored — no save, export, edit or shortcut
   const ctrl = new AbortController();
@@ -8869,6 +8848,7 @@ async function runAutoFitC1sGraphite() {
     }
 
     applyBackendResult(json, req1.pageModel);
+    check1 = _verifyStagedCheck(txn, req1.sealR, json);   // the anchor fit's record, checked while the final fit runs
 
     // The anchor fit's gates decide the charge shift; the shift moves the frame and locks every centre.
     const ok = applyAutoFitResult(json, graphiteRaw, { be: be2, inten: inten2, bgIntensity: bgI, bgSubtracted: bgSub });
@@ -8926,16 +8906,44 @@ async function runAutoFitC1sGraphite() {
       notify('After the refit in the corrected frame — ' + refusal2, 'red', true);
       return;
     }
-    // seal 1c step 3: the final fit's seal, with the anchor fit as its evidence E (not yet read)
-    if (!_autoFitPublish(json2, { engine: 'server', producer: 'autoFit', R: req2.sealR, O: json2, D: {},
-                                  E: { R: req1.sealR, O: json } })) {
+    // seal step 7 (plan §6.3): both records checked by the server BEFORE the commit
+    if (spinLabel) spinLabel.textContent = 'Auto-Fit: confirming both fits…';
+    _autoFitBusyLabel('Auto-Fit: confirming both fits…');
+    const check2 = _verifyStagedCheck(txn, req2.sealR, json2);
+    const v1 = await check1, v2 = await check2;
+    if (userCancelled) throw new DOMException('cancelled', 'AbortError');
+    if (!_fitOpCurrent(afOp)) return;                                      // superseded: the newer fit owns the tab
+    if (v1 === null || v2 === null || !_ownerActive(fittingTab)) {
       _hideFitSpinnerFor(afOp);
+      notify('Auto-fit discarded — tab switched during fit.', 'amber');
       _autoFitRestore(snap, fittingTab);
       return;
     }
+    const agg = _aggregateVerdicts([v1, v2]);
+    if (![v1, v2].every(_outcomeCounts) || agg.unreachable || agg.state !== 'consistent') {
+      _hideFitSpinnerFor(afOp);
+      _autoFitRestore(snap, fittingTab);
+      notify(agg.state === 'mismatch'
+        ? 'Auto-fit not applied: the server\'s check of its fits failed (' + agg.check + ': ' + agg.reason + '). Nothing was changed.'
+        : 'Auto-Fit could not be confirmed' + (agg.unreachable ? ' (the server could not be reached)' : agg.reason ? ' (' + agg.reason + ')' : '') +
+          '; nothing was changed.', 'red', true);
+      return;
+    }
+    const seal = _makeSeal({ engine: 'server', producer: 'autoFit', R: req2.sealR, O: json2, D: {}, E: { R: req1.sealR, O: json } });
+    // the commit: both answers to this seal, then the seal judged as it will be installed (bindings, derivation,
+    // gates, the server's answers) — only CURRENT is published (§6.3)
+    const committed = _commitStaged(txn, seal);
+    const st = sealedState(Object.freeze({ seal }), fittingTab);
+    if (!committed.committed || st.state !== 'current') {
+      _hideFitSpinnerFor(afOp);
+      _autoFitRestore(snap, fittingTab);
+      notify('Auto-Fit could not be confirmed (' + (st.check || 'commit') + ': ' + (st.reason || 'the checks could not be committed') + '); nothing was changed.', 'red', true);
+      return;
+    }
+    _autoFitPublish(json2, seal);
 
     _hideFitSpinnerFor(afOp);
-    notify('Auto-fit complete. χ²ᵣ = ' + (state.fitResult?.chiReduced?.toFixed(3) || '?'), 'green');
+    notify('Auto-fit complete. χ²ᵣ = ' + _sealView(seal).statistics.chi2r.toFixed(3), 'green');
   } catch (e) {
     clearTimeout(timer);
     // superseded (Run Fit pressed during Auto-Fit): nothing at all — no
@@ -9086,7 +9094,8 @@ function _startsRecordKey(t) { return _startsModelKey(t.peaks, t.ui, t.ccShift, 
 // BEHIND THE SWITCH: nothing reads sealedState until step 7 makes the seal the authority. Every check is exact —
 // no tolerance (CLAUDE.md "Thresholds on data-scaled quantities fail") — and reads each field the way its consumer
 // reads it ("Two readings of one field").
-let _SEAL_AUTHORITATIVE = false;   // a `let` only so the step-5 tests can turn the readers on; step 7 removes the switch
+// (seal step 7: the readers' switch is gone — a sealed fit is always read through its seal, an unsealed one through
+// the legacy adapter)
 
 // The RECORD rule (steps 3-4 Codex round 1): a seal is compared in the form it TRAVELS and is STORED in — JSON —
 // so a value and its round trip are one value, exactly (no tolerance): -0 is 0 (the upload and JSON send 0, and
@@ -9524,10 +9533,17 @@ function _verifyRecordOnly(owner, seal) {
     return v;
   });
 }
+// The "check again" control (plan §9, §10): a new attempt for the active tab's seal, whatever it holds (it also
+// ends a split of numerics — the numerics block's invariant 3).
+function _sealCheckAgain() {
+  const t = _activeTab();
+  if (t) _ensureVerified(t, true);
+  if (typeof renderResults === 'function') renderResults();
+}
 // A seal's verdict changed: the consumers repaint (step 7 wires them; until then an event for tests and observers).
 function _onSealVerdict(owner, seal) {
   try { window.dispatchEvent(new CustomEvent('xps-seal-verdict', { detail: { owner, seal } })); } catch (e) { /* no window */ }
-  if (_SEAL_AUTHORITATIVE) _repaintForSeal(owner);
+  _repaintForSeal(owner);
 }
 // Step 5: a verdict changes what the readers show (a mismatch makes the fit STALE: its record is no longer drawn).
 // The owner's own chart, or a stack showing it (its entries' render caches dropped first).
@@ -9585,7 +9601,7 @@ function sealedState(fr, owner, opts) {
 // and the consumer keeps today's behaviour (unsealed / LEGACY: today's machinery; STALE / PEAKS-ONLY: the live
 // preview, labelled by the state readers).
 function _sealedDisplay(fr, owner) {
-  if (!_SEAL_AUTHORITATIVE || !fr || !fr.seal || owner === null) return null;   // an owner that cannot be found: nothing to judge against
+  if (!fr || !fr.seal || owner === null) return null;   // an owner that cannot be found: nothing to judge against
   const o = owner === undefined ? _ownerOfFit(fr) : owner;   // (the active tab's result lives in `state`)
   if (!o) return null;
   const s = sealedState(fr, o);
@@ -9616,7 +9632,7 @@ function _sealStateOf(fr) {
 // sealed fit — a record that cannot be read establishes nothing ('stale'); undefined for an unsealed fit (LEGACY:
 // today's rule decides).
 function _sealStatsState(fr, owner) {
-  if (!_SEAL_AUTHORITATIVE || !fr || !fr.seal) return undefined;
+  if (!fr || !fr.seal) return undefined;
   const o = owner === undefined ? _ownerOfFit(fr) : owner;
   if (!o) return 'stale';
   const st = sealedState(fr, o).state;
@@ -9640,7 +9656,7 @@ function _shownStats(fr) {
 const _sealIds = new WeakMap();
 let _sealIdSeq = 0;
 function _sealSig(fr) {
-  if (!_SEAL_AUTHORITATIVE || !fr || !fr.seal) return '';
+  if (!fr || !fr.seal) return '';
   if (!_sealIds.has(fr.seal)) _sealIds.set(fr.seal, ++_sealIdSeq);
   const s = _sealStateOf(fr);
   return _sealIds.get(fr.seal) + '|' + s.state + '|' + (s.check || '') + '|' + s.reason;
@@ -9658,7 +9674,6 @@ function _sealStaleNote(fr) {
 // The area a reader shows: a sealed fit's RECORDED component area while its record describes the model shown;
 // else the server's formula on the one grid (Q5).
 function _componentArea(p, grid) {
-  if (!_SEAL_AUTHORITATIVE) return _peakArea(p, grid);
   const s = _sealedDisplay(state.fitResult);
   const c = s && _sealComponent(s.view, p);
   return c ? c.area : _peakArea(p, grid);
@@ -9666,19 +9681,18 @@ function _componentArea(p, grid) {
 // What an export writes about a sealed fit's state (plan §5): the state and, until confirmed, why — '' for an
 // unsealed fit (today's lines), and the record it carries (the view's for a sealed fit).
 function _exportSealState(fr) {
-  if (!_SEAL_AUTHORITATIVE || !fr || !fr.seal) return '';
+  if (!fr || !fr.seal) return '';
   const s = _sealStateOf(fr);
   return s.state.toUpperCase() + (s.state === 'current' ? '' : (s.check && s.state !== 'pending' ? ' (' + s.check + ')' : '') +
     ': ' + (s.state === 'pending' ? 'confirming\u2026 (the server has not yet checked this record)' : s.reason));
 }
 function _exportRecordOf(fr) {
-  if (_SEAL_AUTHORITATIVE && fr && fr.seal) { const st = _sealStateOf(fr); return st.view ? st.view.record : null; }
+  if (fr && fr.seal) { const st = _sealStateOf(fr); return st.view ? st.view.record : null; }
   return fr ? fr.record : null;
 }
 // The fitted values a reader shows for a live peak: the sealed view's model entry (names, colours and visibility
 // stay the live peak's), else the peak.
 function _shownPeak(p) {
-  if (!_SEAL_AUTHORITATIVE) return p;
   const s = _sealedDisplay(state.fitResult);
   const q = s && s.view.model.find(m => String(m.id) === String(p.id));
   return q ? { ...p, ...q, name: p.name, color: p.color, visible: p.visible } : p;
@@ -9687,7 +9701,7 @@ function _shownPeak(p) {
 // The starts evidence of `fr` if it still describes the fit whose key is `key`, else null.
 function _startsIfCurrent(fr, key) {
   // seal step 5: a sealed fit's starts are O's, while its record describes the model shown (plan §5)
-  if (_SEAL_AUTHORITATIVE && fr && fr.seal) { const s = _sealedDisplay(fr); return (s && s.view.starts) || null; }
+  if (fr && fr.seal) { const s = _sealedDisplay(fr); return (s && s.view.starts) || null; }
   const st = fr && fr.starts;
   if (!st || fr.backgroundStale || fr.voigtStale || !fr.startsModelKey || !_sameFitKey(fr.startsModelKey, key)) return null;   // (_restoredStale)
   return st;
@@ -9731,7 +9745,7 @@ function _restoredStaleWhy(fr) {
 function _bgStaleNote(fr) {
   return 'This fit was ' + _restoredStaleWhy(fr) + ': its \u03c7\u00b2, R-factor, RMSE and uncertainties are not reported. Run Fit to fit it again.';
 }
-function _staleNoteOf(fr) { if (_SEAL_AUTHORITATIVE && fr && fr.seal) return _sealStaleNote(fr); return _restoredStale(fr) ? _bgStaleNote(fr) : _STATS_STALE_NOTE; }
+function _staleNoteOf(fr) { if (fr && fr.seal) return _sealStaleNote(fr); return _restoredStale(fr) ? _bgStaleNote(fr) : _STATS_STALE_NOTE; }
 function _statsNote(st, fr) { return st === 'stale' ? _staleNoteOf(fr) : st === 'unverified' ? _STATS_UNVERIFIED_NOTE : ''; }
 // Fields a save adds beside the result (the key itself is saved as always).
 function _statsSaveFields(st, fr) {
@@ -9890,10 +9904,23 @@ function _recordParts(text, size = 16000) {
   for (let i = 0; i < cps.length; i += size) out.push(cps.slice(i, i + size).join(''));
   return out.length ? out : [''];
 }
+// one '#' line that is ONE cell to every delimiter-based reader (no comma, double quote, tab or line break)
+function _exportCommentLine(k, v) { return ('# ' + k + ': ' + v).replace(/,/g, ';').replace(/"/g, "'").replace(/[\t\r\n]+/g, ' '); }
+// A sealed fit's state and its record's provenance (seal 1c step 5 / 6), as rows: they open the block that FOLLOWS
+// every export's existing content (owner 2026-10-10: the lines, rows and columns before it are main's).
+function _exportStateRows(fr, note) {
+  const st = _exportSealState(fr), pv = _sealProvenanceOf(fr);
+  return [...(st ? [['Fit state', st + (note || '')]] : []), ...(pv ? [['Record provenance', _sealProvenanceText(pv)]] : [])];
+}
+// the block after the data: the state rows, then the record's lines (none: nothing is appended)
+function _exportTailText(fr, note) {
+  const lines = [..._exportStateRows(fr, note).map(([k, v]) => _exportCommentLine(k, v)), ..._fitRecordTextLines(_exportRecordOf(fr))];
+  return lines.length ? '\n\n' + lines.join('\n') : '';
+}
 function _fitRecordTextLines(rec) {
   return _fitRecordRows(rec).flatMap(([k, v]) => {
     if (k !== 'Fit record (JSON)')
-      return [('# ' + k + ': ' + v).replace(/,/g, ';').replace(/"/g, "'").replace(/[\t\r\n]+/g, ' ')];
+      return [_exportCommentLine(k, v)];
     const parts = _recordParts(_b64Utf8(v));
     return parts.map((t, i) => '# Fit record (JSON base64 part ' + (i + 1) + ' of ' + parts.length + '): ' + t);
   });
@@ -9958,7 +9985,7 @@ function _certificateMoveFrom(cert) {
   return (m && Math.abs(m.ev) > _STARTS_SHIFT_RED_EV) ? { id: m.id, ev: m.ev } : null;
 }
 function _certificateMoveIfCurrent(fr, key) {
-  if (_SEAL_AUTHORITATIVE && fr && fr.seal) {   // seal step 5: from O's certificate (the server's; the local engine's moves nothing)
+  if (fr && fr.seal) {   // seal step 5: from O's certificate (the server's; the local engine's moves nothing)
     const s = _sealedDisplay(fr);
     return s && s.view.engine === 'server' && s.view.certificate ? _certificateMoveFrom(s.view.certificate) : null;
   }
@@ -9983,11 +10010,11 @@ function _certificateNoticeHtml(fr) {
 
 // The recorded adoption: a sealed fit's is its record's D (plan §7), else the result's field.
 function _chosenOf(fr) {
-  if (_SEAL_AUTHORITATIVE && fr && fr.seal) { const s = _sealedDisplay(fr); return (s && s.view.chosenAlternative) || null; }
+  if (fr && fr.seal) { const s = _sealedDisplay(fr); return (s && s.view.chosenAlternative) || null; }
   return (fr && fr.chosenAlternative) || null;
 }
 // What identifies the evidence an alternative preview was drawn from: the seal, else the fit key.
-function _altKeyOf(fr) { return fr ? ((_SEAL_AUTHORITATIVE && fr.seal) ? fr.seal : fr.startsModelKey) : null; }
+function _altKeyOf(fr) { return fr ? ((fr.seal) ? fr.seal : fr.startsModelKey) : null; }
 // The recorded adoption, for the panel and the exports (only beside current evidence).
 function _startsChosenText(fr) {
   const c = _chosenOf(fr);
@@ -10009,12 +10036,12 @@ function _startsShiftHtml(shift) {
 }
 
 function _startsPanelHtml(fr) {
-  const recorded = !fr ? null : (_SEAL_AUTHORITATIVE && fr.seal) ? ((_sealStateOf(fr).view || {}).starts || null) : fr.starts;
+  const recorded = !fr ? null : (fr.seal) ? ((_sealStateOf(fr).view || {}).starts || null) : fr.starts;
   if (!recorded || !recorded.ran) return '';
   const st = _startsIfCurrent(fr, _startsLiveKey());
   // seal step 5 (plan §5): the panel distinguishes "confirming…", "unconfirmed: …" and "model changed"; adopting
   // an alternative needs a CURRENT record (Preview does not)
-  const sealSt = _SEAL_AUTHORITATIVE && fr.seal ? _sealStateOf(fr) : null;
+  const sealSt = fr.seal ? _sealStateOf(fr) : null;
   if (!st) {
     const why = sealSt && sealSt.state === 'stale' && sealSt.check !== 'edited' ? 'This fit\'s record does not hold together' : 'The model has changed since this fit';
     return `<div class="starts-panel" style="margin-top:10px;font-size:11px;line-height:1.5;color:var(--text3)">&#8635; ${why}, so its scattered-starts comparison no longer applies. Run the fit again to compare starts.</div>`;
@@ -10117,7 +10144,7 @@ function previewAlternative(k) {
 // the distance.
 async function useAlternative(k) {
   // display and adoption are separate gates (plan §5): the handler itself requires a CURRENT record
-  if (_SEAL_AUTHORITATIVE && state.fitResult && state.fitResult.seal) {
+  if (state.fitResult && state.fitResult.seal) {
     const ss = sealedState(state.fitResult, _activeTab());
     if (ss.state !== 'current') {
       notify(ss.state === 'stale' ? _STARTS_STALE_MSG : 'This fit is ' + _sealStateText(ss.state, ss.reason) + '; a solution can be used once it is confirmed.', 'amber', true);
@@ -10264,38 +10291,23 @@ async function runFit(opts = {}) {
       return;
     }
 
-    // Capture pre-fit values for uncertainty validation
-    const _preFit = {};
-    for (const p of state.peaks) {
-      _preFit[p.id] = { center: p.center, fwhm: p.fwhm, amplitude: p.amplitude, glMix: p.glMix };
-    }
     applyBackendResult(backendResult, pageModel);
     { const _t = _activeTab(); if (_t) _t.modelProvenance = null; }   // a new result supersedes imported provenance
-    const stats = backendResult.statistics || {};
-    const chiReduced = stats.reduced_chi_square || 0;
-    const rmse = Math.sqrt((backendResult.residuals || []).reduce((s, v) => s + v * v, 0) / Math.max(1, be.length));
-    const roiRange = { min: _arrMin(be).toFixed(1), max: _arrMax(be).toFixed(1) };
-    state.fitResult = { chi: chiReduced * Math.max(1, be.length - state.peaks.length * 3),
-                        chiReduced, rmse, be, bgSubtracted, bgIntensity, backendResult, uploadFull: true,
-                        fittedY: backendResult.fitted_y, roiRange, _preFit,
-                        starts: backendResult.starts || null,
-                        certificateMove: _certificateMoveFrom(backendResult.certificate),
-                        record: _fitRecordFrom(backendResult),   // recording only (owner 2026-10-10)
-                        startsModelKey: _startsLiveKey(),     // model + context, taken AFTER the result was applied
-                        chosenAlternative: opts.chosenAlternative || null,
-                        // seal 1c step 3: the sealed record of this fit, beside the fields above (not yet read)
-                        seal: _makeSeal({ engine: 'server', producer: sealProducer, R: sealR, O: backendResult,
-                                          D: { chosenAlternative: opts.chosenAlternative || null }, E: null }) };
+    // seal step 7 (plan §6.1): the fit IS its seal — R as captured before the first await, O verbatim, D the
+    // adopted alternative — installed frozen and PENDING, then checked under this fit's operation (§9)
+    const seal = _makeSeal({ engine: 'server', producer: sealProducer, R: sealR, O: backendResult,
+                             D: { chosenAlternative: opts.chosenAlternative || null }, E: null });
+    state.fitResult = Object.freeze({ seal });
     // a preview of an alternative always belongs to the PREVIOUS result (an identical
     // key does not make it this one's): clear it unconditionally
     if (_historyPreview && typeof _historyPreview.snapId === 'string' && _historyPreview.snapId.startsWith('alt:')) _historyPreview = null;
-    state.fitResult.rFactor = _computeRFactor(state.fitResult);
     _applyStatDisplay(state.fitResult);
-    document.getElementById('sb-msg').textContent = 'Fit complete (lmfit)';
+    document.getElementById('sb-msg').textContent = 'Fit complete (lmfit) \u2014 confirming\u2026';
     _updateRFactorUI(state.fitResult.rFactor);
-    _updateROIDisplay(roiRange);
+    _updateROIDisplay(_fitRoiRange(state.fitResult));
     _hideFitSpinnerFor(fitOp);
-    notify('Fit complete. \u03c7\u00b2\u1d63 = ' + chiReduced.toFixed(3), 'green');
+    notify('Fit complete. \u03c7\u00b2\u1d63 = ' + _sealView(seal).statistics.chi2r.toFixed(3) + ' (confirming\u2026)', 'green');
+    _verifySeal(fittingTab, seal, 'producer', fitOp);
   } catch (e) {
     // superseded (a newer fit on this tab): nothing at all — no message, no
     // local fallback, the newer fit owns the spinner and the result
@@ -10322,13 +10334,13 @@ async function runFit(opts = {}) {
       notify('The server could not be reached, and the model or its background / ROI settings were edited while the fit was running, so no local fit was run. Previous peaks and result kept. Run the fit again.', 'amber', true);
       return;
     }
-    if (e && e.transportFailure) {
+    if (e && e.transportFailure && sealR) {     // (sealR is read before the first await: a transport failure always has it)
       // Server unreachable: the local optimiser is the honest fallback, and
       // the overlay saying so opens only if it actually converged.
       if (e.message) console.warn('Backend unreachable, falling back to local LM:', e.message);
       const local = runFitLocal(be, bgSubtracted, bgIntensity, { spinnerOp: fitOp,
         // seal 1c step 3: the samples and context this fit was asked for (the fallback's own model is its start)
-        seal: sealR && { producer: 'local', context: sealR.context0.live, roi: { idx: sealR.idx, be: sealR.energies, inten: sealR.counts } } });
+        seal: { producer: 'local', context: sealR.context0.live, roi: { idx: sealR.idx, be: sealR.energies, inten: sealR.counts } } });
       if (local && local.success && !_snapshotSuppressed) {
         document.getElementById('localfit-warn-overlay').classList.add('open');
       }
@@ -10481,12 +10493,12 @@ function _applyStatDisplay(fr) {
   const sb = document.getElementById('sb-chi');
   const st = (fr && fr === state.fitResult) ? _statsLiveState() : 'current';
   // a sealed fit has its statistic in its record (a loaded one holds nothing else): the record decides, not a copy
-  const sealedFr = _SEAL_AUTHORITATIVE && !!fr && !!fr.seal;
+  const sealedFr = !!fr && !!fr.seal;
   const hasStat = !!fr && (sealedFr ? (st === 'stale' || Number.isFinite(_shownStats(fr).chiReduced)) : Number.isFinite(fr.chiReduced));
   if (hasStat && st === 'stale') {
     // F1: the statistic belongs to the previous model: say so, show no number
-    const sealCheck = _SEAL_AUTHORITATIVE && fr.seal ? sealedState(fr, _activeTab()).check : null;
-    if (fq) { fq.textContent = _fitStatLabel(fr) + (_SEAL_AUTHORITATIVE && fr.seal ? (sealCheck === 'edited' ? ' \u2014 (model changed)' : ' \u2014 (check failed: ' + sealCheck + ')')
+    const sealCheck = fr.seal ? sealedState(fr, _activeTab()).check : null;
+    if (fq) { fq.textContent = _fitStatLabel(fr) + (fr.seal ? (sealCheck === 'edited' ? ' \u2014 (model changed)' : ' \u2014 (check failed: ' + sealCheck + ')')
       : _restoredStale(fr) ? (fr.backgroundStale ? ' \u2014 (background changed)' : ' \u2014 (Voigt mix)') : ' \u2014 (model changed)'); fq.setAttribute('data-xps-tip', _staleNoteOf(fr)); }
     if (sb) sb.textContent = '\u2014';
   } else if (hasStat) {
@@ -10942,15 +10954,17 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
                 chi2: chi, chi2r: chiReduced, rmse, rFactor: sumAbsData === 0 ? null : sumAbsResid / sumAbsData,
                 areas: curves.map(c => _trapezoidArea(c, be)), nVaried, iterations,
                 certificate: state.fitResult.record.certificate, support: verdicts, reportable: false };
-    state.fitResult.seal = _makeSeal({ engine: 'local', producer: options.seal.producer || 'local',
+    // seal step 7 (plan §6.4): the local fit IS its seal, installed frozen — the page is its own verifier (CURRENT
+    // when its exact self-check holds)
+    state.fitResult = Object.freeze({ seal: _makeSeal({ engine: 'local', producer: options.seal.producer || 'local',
       R: _sealR(sealStart, options.seal.context, { engine_options: { maxIterations: maxIter } }, options.seal.roi, null),
-      O, D: {}, E: null });
+      O, D: {}, E: null }) });
   }
 
   _applyStatDisplay(state.fitResult);
   document.getElementById('sb-msg').textContent = 'Fit complete (local)';
   _updateRFactorUI(state.fitResult.rFactor);
-  _updateROIDisplay(roiRange);
+  _updateROIDisplay(_fitRoiRange(state.fitResult));
 
   renderPeakList();
   updatePlot();
@@ -11092,7 +11106,7 @@ function renderResults() {
       : '<p style="color:var(--text3);font-size:11px;text-align:center;padding:20px 0">Run the fit to see results.</p>';
     el.innerHTML += _outsideWindowNoteHtml(_areaGrid());   // the note needs no fit (a saved fit dropped on load, a model not yet fitted)
     // V6.8 (seal step 6): a legacy fit that could not be restored keeps its record, shown here
-    { const t = _activeTab(), pv = _SEAL_AUTHORITATIVE && t && t.provenance;
+    { const t = _activeTab(), pv = t && t.provenance;
       if (pv) el.innerHTML += `<div class="tab-provenance-note" style="font-size:11px;line-height:1.5;color:var(--text2);margin-top:6px">The saved fit of this model was not restored${pv.reason ? ' (' + _escHtml(pv.reason) + ')' : ''}. Its record: ${_fitRecordRows(pv.record).map(([k, v]) => _escHtml(k) + ' ' + _escHtml(String(v))).join('; ')}.</div>`; }
     el.setAttribute('data-area-sig', _areaSignature());
     // Quantify (#quantify-area) is populated by renderQuantify(), called
@@ -11113,12 +11127,13 @@ function renderResults() {
   const _stale = _stats === 'stale';
   // F1: a stale result's sigma belongs to the previous model: none is shown
   const stderrMap = _stale ? {} : _buildStderrMap(state.fitResult);
-  const _sealStale = _stale && _SEAL_AUTHORITATIVE && !!state.fitResult.seal;
+  const _sealStale = _stale && !!state.fitResult.seal;
   const _statsBanner = _sealStale ? `
     <div class="stats-stale-note" data-seal-stale="1" style="background:rgba(245,158,11,0.12);border:1px solid var(--amber,#f59e0b);border-radius:var(--radius);padding:8px 10px;margin-bottom:10px;font-size:11px;line-height:1.5;color:var(--text)">
       &#9888; <strong>${sealedState(state.fitResult, _activeTab()).check === 'edited' ? 'The model has changed since this fit.' : 'This fit cannot be shown as recorded.'}</strong> ${_escHtml(_sealStaleNote(state.fitResult))} The table below is the current model, not a fitted result.
     </div>` : _shown.sealState && _shown.sealState !== 'current' ? `
-    <div class="stats-seal-note" data-seal-state="${_shown.sealState}" style="font-size:11px;line-height:1.5;color:var(--text2);margin-bottom:8px">The values below are this fit as recorded &mdash; ${_escHtml(_sealStateText(_shown.sealState, _shown.sealReason))}.</div>` : _stale && _restoredStale(state.fitResult) ? `
+    <div class="stats-seal-note" data-seal-state="${_shown.sealState}" style="font-size:11px;line-height:1.5;color:var(--text2);margin-bottom:8px">The values below are this fit as recorded &mdash; ${_escHtml(_sealStateText(_shown.sealState, _shown.sealReason))}.${_shown.sealState === 'unconfirmed'
+      ? ' <button class="btn btn-sm seal-check-again" onclick="_sealCheckAgain()" title="Ask the server to recompute this fit\'s record again">Check again</button>' : ''}</div>` : _stale && _restoredStale(state.fitResult) ? `
     <div class="stats-stale-note" data-background-stale="1" style="background:rgba(245,158,11,0.12);border:1px solid var(--amber,#f59e0b);border-radius:var(--radius);padding:8px 10px;margin-bottom:10px;font-size:11px;line-height:1.5;color:var(--text)">
       &#9888; <strong>This saved fit cannot be shown as it was fitted.</strong> ${_escHtml(_bgStaleNote(state.fitResult))}
     </div>` : _stale ? `
@@ -11273,7 +11288,7 @@ function renderQuantify(areas, totalArea) {
     </div>` : '';
   // seal step 5 (plan §5): areas of a recorded fit not yet confirmed carry its state; a STALE sealed fit's are the
   // live preview of the edited model
-  const _qSeal = _SEAL_AUTHORITATIVE && state.fitResult && state.fitResult.seal ? _statsLiveState() : null;
+  const _qSeal = state.fitResult && state.fitResult.seal ? _statsLiveState() : null;
   const _qSealNote = !_qSeal || _qSeal === 'current' ? '' : `
     <div class="quantify-seal-note" data-seal-state="${_qSeal}" style="font-size:11px;line-height:1.5;color:var(--text2);margin-bottom:8px">${_qSeal === 'stale'
       ? 'The model has changed since this fit (or its record does not hold): these areas are the current model\'s, not a fitted result.'
@@ -11603,7 +11618,7 @@ function _restoredModelIsFit(rec) {
 function _restoredFitBgFailure(rec) {
   if (!rec || !rec.fitResult || rec.isStack) return null;
   // §8.1: the legacy restore machinery is never handed a sealed fit (the loaders dispatch first)
-  if (_SEAL_AUTHORITATIVE && rec.fitResult.seal) throw new Error('the legacy restore was handed a sealed fit');
+  if (rec.fitResult.seal) throw new Error('the legacy restore was handed a sealed fit');
   // the certificate needs the raw data: a fit without them cannot be checked, so it
   // is not restored (Codex impl round 4: a truncated record used to skip the check)
   if (!Array.isArray(rec.rawBE) || !Array.isArray(rec.rawIntensity) || rec.rawBE.length < 2 ||
@@ -12089,7 +12104,7 @@ function _fitRecordWellFormed(r) {
   } catch (_) { return false; }
 }
 function _dropRestoredFit(rec, reason) {
-  if (_SEAL_AUTHORITATIVE && rec.fitResult && _fitRecordWellFormed(rec.fitResult.record))
+  if (rec.fitResult && _fitRecordWellFormed(rec.fitResult.record))
     rec.provenance = { record: rec.fitResult.record, reason: reason || '' };
   rec.fitResult = null;
   for (const p of rec.peaks || []) if (p.support) p.support = null;   // its verdicts belonged to that fit
@@ -12352,7 +12367,7 @@ function _stackEnvLabel(src, rd) {
   if (!src) return 'entry (fit)';
   const local = rd && rd.sealState ? !rd.reportable : _isLocalFit(src.fitResult);
   let state = '';
-  if (_SEAL_AUTHORITATIVE && src.fitResult && src.fitResult.seal) {
+  if (src.fitResult && src.fitResult.seal) {
     const st = rd && rd.sealState ? rd.sealState : _statsRecordState(src);
     state = st === 'pending' ? ', confirming\u2026' : st === 'unconfirmed' ? ', unconfirmed' : st === 'stale' ? ', no longer applies' : '';
   }
@@ -12361,7 +12376,7 @@ function _stackEnvLabel(src, rd) {
 
 // The VISIBLE state of a sealed source in the stack legend (plan §5: text, never only a tooltip or a hidden label).
 function _stackSourceStateText(src) {
-  if (!(_SEAL_AUTHORITATIVE && src.fitResult && src.fitResult.seal)) return '';
+  if (!(src.fitResult && src.fitResult.seal)) return '';
   const st = sealedState(src.fitResult, src);
   return st.state === 'pending' ? ' \u2014 fit confirming\u2026'
     : st.state === 'unconfirmed' ? ' \u2014 fit unconfirmed: ' + st.reason
@@ -12790,7 +12805,7 @@ function updatePlot() {
   // seal step 5: a sealed snapshot previews ITS record — its own envelope on its own energies — never its peaks
   // re-evaluated over today's background (an alternative's preview is a model, not a fit: as before)
   let prevView = null, prevNote = '';
-  if (_SEAL_AUTHORITATIVE && _historyPreview && _historyPreview.fitResult && _historyPreview.fitResult.seal) {
+  if (_historyPreview && _historyPreview.fitResult && _historyPreview.fitResult.seal) {
     const st = _snapshotSealState(_activeTab(), _historyPreview);
     if (st.view && st.state !== 'stale' && st.state !== 'peaks-only') {
       prevView = st.view;
@@ -13433,7 +13448,7 @@ function _doSaveSpectrum() {
   if (_autoFitBlocks()) return;   // Q8: nothing is written during an Auto-Fit
   tabManager._syncActiveToRecord();
   const tab = tabManager._getTab(tabManager.activeId);
-  if (_SEAL_AUTHORITATIVE && state.fitResult && state.fitResult.seal) { _doSaveSealedSpectrum(tab); return; }
+  if (state.fitResult && state.fitResult.seal) { _doSaveSealedSpectrum(tab); return; }
 
   // a RESTORED-stale fit not edited since (2026-10-03): the file keeps the fit's own
   // points, counts, envelope and background — and residuals against that envelope
@@ -13532,7 +13547,7 @@ function _doSaveSpectrum() {
     notes: tab.notes || '',
     manualAnchors: tab.manualAnchors || [],
     modelProvenance: tab.modelProvenance || null,
-    ...(_SEAL_AUTHORITATIVE ? { provenance: state.fitResult ? null : (tab.provenance || null) } : {}),   // V6.8 (seal step 6)
+    provenance: state.fitResult ? null : (tab.provenance || null),   // V6.8 (seal step 6)
   };
 
   const fname = document.getElementById('save-fname').value.trim() || 'spectrum';
@@ -13546,15 +13561,27 @@ function _doSaveSpectrum() {
 // Seal step 6 (plan §8.4): a SEALED fit's spectrum file — the workspace as it is (an edit saved stays an edit and
 // reloads STALE) and the seal at the top level. The convenience fields (roiBE, fitCounts, background, fittedY,
 // residuals, peakCurves, statistics) are written FROM THE VIEW for external readers; the sealed loader never reads
-// them back. A STALE fit's are its record's, and its statistics say so (no statistic is written as current).
+// them back. A STALE fit's are the CURRENT model's on the live window — what Results shows (Q5), the fitted curve
+// matching its residuals (F1), as a save with no fit writes them (plan §5: live recompute for STALE) — and its
+// statistics say so (no statistic is written as current).
+function _liveSpectrumCurves(peaks) {
+  const { be, inten } = getROIData();
+  const bgR = _bgOrFailure(() => computeBackground(be, inten));
+  const bgFail = bgR.failure, bg = bgR.bg || new Array(be.length).fill(NaN);
+  const model = evalAllPeaks(be, peaks), bgSub = inten.map((y, i) => y - bg[i]);
+  return { roiBE: be, fitCounts: inten.slice(), background: bgFail ? null : bg, backgroundFailure: bgFail || null,
+           fittedY: bgFail ? null : model.map((y, i) => y + bg[i]), residuals: bgFail ? null : bgSub.map((y, i) => y - model[i]),
+           peakCurves: peaks.map(p => ({ id: p.id, name: p.name, y: evalPeakArray(be, p), area: _peakArea(p, _areaGrid()) })) };
+}
 function _doSaveSealedSpectrum(tab) {
   const fr = state.fitResult, st = sealedState(fr, tab), v = st.view;
   const displayed = st.state === 'current' || st.state === 'pending' || st.state === 'unconfirmed';
   const conv = v ? {
-    roiBE: v.energies.slice(), fitCounts: v.counts.slice(), background: v.background.slice(), backgroundFailure: null,
-    fittedY: v.fittedY.slice(), residuals: v.residuals.slice(),
-    peakCurves: tab.peaks.map(p => { const c = _sealComponent(v, p);
-      return { id: p.id, name: p.name, y: c ? c.y.slice() : null, area: c ? c.area : null }; }),
+    ...(displayed ? {
+      roiBE: v.energies.slice(), fitCounts: v.counts.slice(), background: v.background.slice(), backgroundFailure: null,
+      fittedY: v.fittedY.slice(), residuals: v.residuals.slice(),
+      peakCurves: tab.peaks.map(p => { const c = _sealComponent(v, p);
+        return { id: p.id, name: p.name, y: c ? c.y.slice() : null, area: c ? c.area : null }; }) } : _liveSpectrumCurves(state.peaks)),
     statistics: {
       ...(displayed ? { chi: v.statistics.chi2, chiReduced: v.statistics.chi2r, rmse: v.statistics.rmse, rFactor: v.rPanel }
                     : { statisticsState: 'stale', statisticsNote: _sealStaleNote(fr) }),
@@ -13627,7 +13654,7 @@ async function _doSaveProject() {
       peaks: t.peaks.map(p => ({...p})),
       nextId: t.nextId,
       // seal step 6 (§8.4): a sealed fit is saved as its seal and nothing else authoritative
-      fitResult: (_SEAL_AUTHORITATIVE && t.fitResult && t.fitResult.seal) ? { seal: t.fitResult.seal } : t.fitResult ? {
+      fitResult: (t.fitResult && t.fitResult.seal) ? { seal: t.fitResult.seal } : t.fitResult ? {
         chi: t.fitResult.chi, chiReduced: t.fitResult.chiReduced,
         rmse: t.fitResult.rmse, fittedY: t.fitResult.fittedY || null,
         rFactor: t.fitResult.rFactor || null,   // F1: the fit's own R, not one recomputed from edited peaks on reload
@@ -13661,7 +13688,7 @@ async function _doSaveProject() {
         ..._statsSaveFields(_statsRecordState(t), t.fitResult),   // F1: judged against the RECORD's key
       } : null,
       modelProvenance: t.modelProvenance || null,
-      ...(_SEAL_AUTHORITATIVE ? { provenance: t.fitResult ? null : (t.provenance || null) } : {}),   // V6.8 (seal step 6)
+      provenance: t.fitResult ? null : (t.provenance || null),   // V6.8 (seal step 6)
       notes: t.notes || '',
       manualAnchors: t.manualAnchors || [],
       lineWidth: t.lineWidth ?? 1.5,
@@ -13885,11 +13912,11 @@ function _loadSpectrumFile(data, sessionFile) {
   if (data.notes) active.notes = data.notes;
   active.modelProvenance = _isLocalProvenance(data.modelProvenance) ||
     (data.modelProvenance && _isFitRecord(data.modelProvenance.record)) ? data.modelProvenance : null;
-  if (_SEAL_AUTHORITATIVE) active.provenance = _loadedTabProvenance(data.provenance);   // V6.8 (seal step 6)
+  active.provenance = _loadedTabProvenance(data.provenance);   // V6.8 (seal step 6)
   // seal step 6 (§8.6): the sealed / legacy dispatch comes FIRST; a sealed file's convenience arrays and
   // statistics (written for external readers) are never read back
   let sealedLoad = false;
-  if (_SEAL_AUTHORITATIVE && _savedHasSeal(data)) {
+  if (_savedHasSeal(data)) {
     sealedLoad = true;
     const why = _installSavedSeal(active, data.seal);
     state.fitResult = active.fitResult;
@@ -14092,7 +14119,7 @@ function _loadProjectJSON(data, sessionFile) {
       nextId: t.nextId || 1,
       fitResult: t.fitResult || null,
       modelProvenance: t.modelProvenance || null,
-      provenance: _SEAL_AUTHORITATIVE ? _loadedTabProvenance(t.provenance) : null,   // V6.8 (seal step 6)
+      provenance: _loadedTabProvenance(t.provenance),   // V6.8 (seal step 6)
       // Autofit candidate-set annotations — restored verbatim when present
       // (see buildTabData; absent in pre-engine saves → null).
       analysis: t.analysis ?? null,
@@ -14126,7 +14153,7 @@ function _loadProjectJSON(data, sessionFile) {
   const droppedFits = [], staleFits = [], sealedTabs = [], unreadableSeals = [];
   for (const tab of newTabs) {
     // seal step 6 (§8.6): the sealed / legacy dispatch comes FIRST — a sealed fit never reaches the legacy adapter
-    if (_SEAL_AUTHORITATIVE && !tab.isStack && _savedHasSeal(tab.fitResult)) {
+    if (!tab.isStack && _savedHasSeal(tab.fitResult)) {
       const why = _installSavedSeal(tab, tab.fitResult.seal);
       if (why) unreadableSeals.push(tab.name + ' — ' + why); else sealedTabs.push(tab);
       continue;
@@ -14326,18 +14353,14 @@ function exportResults() {
     (bgFail ? '# WARNING: ' + bgFail + ' The Background, BG-subtracted and Residual columns are empty.\n' : '');
   // F1: the columns are computed from the CURRENT peaks; after an edit they
   // are the edited, unfitted model, not the last fit's curve
-  const _tsvSealCheck = _SEAL_AUTHORITATIVE && state.fitResult && state.fitResult.seal ? _sealStateOf(state.fitResult).check : null;
+  const _tsvSealCheck = state.fitResult && state.fitResult.seal ? _sealStateOf(state.fitResult).check : null;
   const staleNote = _statsLiveState() !== 'stale' ? ''
     : (_tsvSealCheck && _tsvSealCheck !== 'edited')
     ? '# NOTE: the last fit\'s record does not hold (' + _tsvSealCheck + '): Model, Residual and the component columns are the current (unfitted) model, not a fitted result. Run Fit before reporting.\n'
     : '# NOTE: the model has changed since the last fit: Model, Residual and the component columns are the current (unfitted) model, not a fitted result. Run Fit before reporting.\n';
-  // the record FOLLOWS the data (a blank line, then its lines): every existing line stays in place
-  const recLines = _fitRecordTextLines(_exportRecordOf(state.fitResult));   // a sealed fit's record is its view's
-  // a STALE sealed fit says WHICH check failed, and why (step 5, Codex round 1), beside today's note
-  const sealStale = _SEAL_AUTHORITATIVE && state.fitResult && state.fitResult.seal && _statsLiveState() === 'stale'
-    ? '# Fit state: ' + _exportSealState(state.fitResult) + '\n' +
-      (_sealProvenanceOf(state.fitResult) ? '# Record provenance: ' + _sealProvenanceText(_sealProvenanceOf(state.fitResult)) + '\n' : '') : '';
-  const csv = warning + sealStale + staleNote + rows.map(r => r.join('\t')).join('\n') + (recLines.length ? '\n\n' + recLines.join('\n') : '');
+  // the record FOLLOWS the data (a blank line, then its lines): every existing line stays in place — a STALE sealed
+  // fit's state (WHICH check failed, and why; step 5, Codex round 1) opens that block
+  const csv = warning + staleNote + rows.map(r => r.join('\t')).join('\n') + _exportTailText(state.fitResult);
   const blob = new Blob([csv], { type: 'text/tab-separated-values' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -14358,10 +14381,8 @@ function _exportSealedTsv(sealed) {
                ...comps.map(c => c ? c.y[i].toFixed(2) : '')]);
   }
   const warning = (_isLocalFit(state.fitResult) ? '# WARNING: ' + _localFitCaveat(state.fitResult) + '\n' : '');
-  const stateLine = '# Fit state: ' + _exportSealState(state.fitResult) + ' (the columns are this fit as recorded)\n' +
-    '# Record provenance: ' + _sealProvenanceText(v.provenance) + '\n';
-  const recLines = _fitRecordTextLines(v.record);
-  const tsv = warning + stateLine + rows.map(r => r.join('\t')).join('\n') + (recLines.length ? '\n\n' + recLines.join('\n') : '');
+  // the columns are main's; the state (the columns are this fit as recorded) opens the block that follows them
+  const tsv = warning + rows.map(r => r.join('\t')).join('\n') + _exportTailText(state.fitResult, ' (the columns are this fit as recorded)');
   const blob = new Blob([tsv], { type: 'text/tab-separated-values' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -14617,7 +14638,7 @@ function _doPublicationExport() {
     ctx.font = '38px Arial,sans-serif';
     ctx.fillStyle = '#555555'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
     if (state.fitResult && _figStats === 'stale') {
-      const _figCheck = _SEAL_AUTHORITATIVE && state.fitResult.seal ? _sealStateOf(state.fitResult).check : null;
+      const _figCheck = state.fitResult.seal ? _sealStateOf(state.fitResult).check : null;
       ctx.fillText(_figCheck && _figCheck !== 'edited' ? 'The fit\'s record does not hold (' + _figCheck + '): no statistics, not a fitted result'
                                                      : 'Model changed since the fit: no statistics, not a fitted result', plotX + 14, mainTop + 14);
     } else if (state.fitResult) {
@@ -14754,7 +14775,7 @@ function _doPublicationExport() {
   // the fit's record rides in the PNG itself (an iTXt chunk, keyword XPS-Fit-Record: recording only)
   const _rec0 = _exportRecordOf(state.fitResult);
   // a sealed fit's chunk always carries its state — STALE with the failed check too (step 5, Codex round 1)
-  const rec = _isFitRecord(_rec0) ? (_SEAL_AUTHORITATIVE && state.fitResult && state.fitResult.seal
+  const rec = _isFitRecord(_rec0) ? (state.fitResult && state.fitResult.seal
     ? { ..._rec0, sealState: _exportSealState(state.fitResult), provenance: _sealProvenanceOf(state.fitResult) } : _rec0) : null;
   canvas.toBlob(async blob => {
     if (!blob) { notify('Export failed.', 'red'); return; }
@@ -14839,7 +14860,6 @@ function exportFitTable(fmt) {
   // seal step 5: the record's statistic — none to format for a STALE sealed fit (its record holds no copy beside it)
   const _chi = _stats === 'stale' ? null : _shownStats(state.fitResult).chiReduced;
   const chiStr = Number.isFinite(_chi) ? _chi.toFixed(4) : '\u2014';
-  const _sealLine = _exportSealState(state.fitResult);
   const _statName = !_isLocalFit(state.fitResult) ? 'Chi-squared reduced'
     : (_isUnweightedLocal(state.fitResult) ? 'Residual variance (local fit, unweighted)' : 'Chi-squared reduced (local fit, Poisson-weighted)');
 
@@ -14876,8 +14896,6 @@ function exportFitTable(fmt) {
       ['XPS Fitting Studio Export'], ['Date', date],
       ...(_stats === 'stale' ? [['WARNING', _staleNoteOf(state.fitResult)]] : [[_statName, chiStr]]),
       ...(_stats === 'unverified' ? [['NOTE', _STATS_UNVERIFIED_NOTE]] : []),
-      ...(_sealLine ? [['Fit state', _sealLine]] : []),
-      ...(_sealProvenanceOf(state.fitResult) ? [['Record provenance', _sealProvenanceText(_sealProvenanceOf(state.fitResult))]] : []),
       ['Background type', bgType],
       ...(_isLocalFit(state.fitResult) ? [['WARNING', _localFitCaveat(state.fitResult)]] : []),
       ...(unsupportedNames.length ? [['WARNING', 'Not supported by the data (centre, width, uncertainties and At% not reported): ' + unsupportedNames.join(', ')]] : []),
@@ -14885,8 +14903,8 @@ function exportFitTable(fmt) {
       ...(_startsChosenText(state.fitResult) ? [['Chosen alternative', _startsChosenText(state.fitResult)]] : []),
       ...(_certificateMoveText(state.fitResult) ? [['Fit continued', _certificateMoveText(state.fitResult)]] : []),
       ['Charge correction (eV)', state.ccShift.toFixed(3)], [],
-      // the record FOLLOWS the existing rows: every one of them stays in place
-      ..._fitRecordXlsxRows(_exportRecordOf(state.fitResult))
+      // the state and the record FOLLOW the existing rows: every one of them stays in place
+      ..._exportStateRows(state.fitResult), ..._fitRecordXlsxRows(_exportRecordOf(state.fitResult))
     ]);
     XLSX.utils.book_append_sheet(wb, metaWS, 'Info');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([headers, ...rows]), 'Fit Results');
@@ -14896,8 +14914,6 @@ function exportFitTable(fmt) {
     let csv = `# XPS Fitting Studio Export\n# Date: ${date}\n`;
     csv += _stats === 'stale' ? `# WARNING: ${_staleNoteOf(state.fitResult)}\n` : `# ${_statName}: ${chiStr}\n`;
     if (_stats === 'unverified') csv += `# NOTE: ${_STATS_UNVERIFIED_NOTE}\n`;
-    if (_sealLine) csv += `# Fit state: ${_sealLine}\n`;
-    if (_sealProvenanceOf(state.fitResult)) csv += `# Record provenance: ${_sealProvenanceText(_sealProvenanceOf(state.fitResult))}\n`;
     csv += `# Background: ${bgType}\n`;
     if (_isLocalFit(state.fitResult)) csv += `# WARNING: ${_localFitCaveat(state.fitResult)}\n`;
     if (unsupportedNames.length) csv += `# WARNING: Not supported by the data (centre, width, uncertainties and At% not reported): ${unsupportedNames.join(', ')}\n`;
@@ -14907,9 +14923,8 @@ function exportFitTable(fmt) {
     csv += `# Charge correction: ${state.ccShift.toFixed(3)} eV\n\n`;
     csv += headers.join(',') + '\n';
     csv += rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
-    // the record FOLLOWS the data (a blank line, then its lines): every existing line stays in place
-    const recLines = _fitRecordTextLines(_exportRecordOf(state.fitResult));
-    if (recLines.length) csv += '\n\n' + recLines.join('\n');
+    // the state and the record FOLLOW the data (a blank line, then their lines): every existing line stays in place
+    csv += _exportTailText(state.fitResult);
     _downloadBlob(new Blob([csv], { type: 'text/csv' }), 'fit_results.csv');
     notify('Exported CSV table', 'green');
   }
@@ -15048,7 +15063,7 @@ function _updateRFactorUI(rf) {
 // the record; a seal-only result holds no copy), else the result's field.
 function _fitRoiRange(fr) {
   if (!fr) return null;
-  if (_SEAL_AUTHORITATIVE && fr.seal) {
+  if (fr.seal) {
     const st = _sealStateOf(fr);
     return st.view ? { min: _arrMin(st.view.energies).toFixed(1), max: _arrMax(st.view.energies).toFixed(1) } : null;
   }
@@ -17456,9 +17471,19 @@ function _autoSnapshot() {
   if (!tab._fitCount) tab._fitCount = 0;
   tab._fitCount++;
 
-  const chi = state.fitResult.chiReduced;
   const n = state.peaks.length;
   const label = `Fit #${tab._fitCount} (${n} peak${n !== 1 ? 's' : ''})`;
+  // seal step 7 (plan §8.2): a sealed fit is captured BY REFERENCE (frozen; its verification cache is reused)
+  if (state.fitResult.seal) {
+    let sv = null;
+    try { sv = _sealView(state.fitResult.seal); } catch (e) { sv = null; }
+    tab.snapshots.unshift({ id: Date.now(), label, timestamp: new Date().toLocaleTimeString(),
+                            peaks: JSON.parse(JSON.stringify(state.peaks)), fitResult: state.fitResult,
+                            chi: sv ? sv.statistics.chi2r : null, rFactor: sv && sv.rPanel ? sv.rPanel.rPct : null });
+    if (tab.snapshots.length > SNAPSHOT_MAX) tab.snapshots.pop();
+    return;
+  }
+  const chi = state.fitResult.chiReduced;
 
   const snap = {
     id: Date.now(),
@@ -17521,7 +17546,7 @@ function _renderHistoryList() {
   // seal step 5: a sealed snapshot shows ITS record's statistics (never a copy taken beside it) with the record's own
   // state (its bindings to this spectrum and the server's answer, not the live model's): none when it does not hold
   const statsOf = s => {
-    if (!(_SEAL_AUTHORITATIVE && s.fitResult && s.fitResult.seal)) return { chi: s.chi, r: s.rFactor, sealed: false };
+    if (!(s.fitResult && s.fitResult.seal)) return { chi: s.chi, r: s.rFactor, sealed: false };
     const st = _snapshotSealState(tab, s);
     if (!st.view || st.state === 'stale' || st.state === 'peaks-only')
       return { chi: null, r: null, sealed: true, note: 'record does not hold: ' + st.reason };
@@ -17633,9 +17658,10 @@ function _historyRestoreSnap(snapId) {
 
   pushUndo();
   state.peaks = _normalizePeaksCRef(JSON.parse(JSON.stringify(snap.peaks)));
-  state.fitResult = snap.fitResult ? { ...snap.fitResult } : null;
+  state.fitResult = _captureFit(snap.fitResult);
   tab.modelProvenance = null;   // the restored result governs the designation (unit A0)
   tabManager._syncActiveToRecord();
+  if (state.fitResult && state.fitResult.seal) _ensureVerified(tab);  // a reinstalled seal: a background check (§9)
 
   _historyClearPreview();
   renderPeakList();

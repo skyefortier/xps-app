@@ -18,7 +18,7 @@ function extractFn(name) {
   }
   assert.fail('unbalanced ' + name);
 }
-const H = new Function('document', ['_fitRecordFrom', '_pageSoftware', '_localFitRecord', '_isFitRecord', '_fitRecordRows', '_fitRecordRowsUnchecked', '_fitRecordTextLines', '_b64Utf8', '_recordParts', '_fitRecordXlsxRows'].map(extractFn).join('\n') +
+const H = new Function('document', ['_fitRecordFrom', '_pageSoftware', '_localFitRecord', '_isFitRecord', '_fitRecordRows', '_fitRecordRowsUnchecked', '_fitRecordTextLines', '_exportCommentLine', '_exportStateRows', '_exportTailText', '_b64Utf8', '_recordParts', '_fitRecordXlsxRows'].map(extractFn).join('\n') +
   '\nreturn { _fitRecordFrom, _localFitRecord, _isFitRecord, _fitRecordRows, _fitRecordTextLines, _fitRecordXlsxRows, _recordParts };')(
   { querySelector: () => ({ getAttribute: () => JSON.stringify({ git_commit: 'b'.repeat(40), numerics: '2026-10-09' }) }) });
 
@@ -28,9 +28,12 @@ const SERVER = { fit_method: 'leastsq', random_seed: 0, seed_source: 'caller',
   software: { git_commit: 'a'.repeat(40), git_dirty: false, python: '3.12.13', numpy: '2.4.4', scipy: '1.17.1', lmfit: '1.3.4', numerics: '2026-10-09', seed_derivation: 'xps-fit-seed-v2' } };
 
 test('every producer writes the record: Run Fit, Auto-Fit, the local engine', () => {
-  assert.match(extractFn('runFit'), /record: _fitRecordFrom\(backendResult\)/);
-  assert.match(extractFn('_autoFitPublish'), /record: _fitRecordFrom\(json\)/);   // Q8: Auto-Fit publishes its final fit
+  // seal step 7: every producer's record is its seal's — the server's O verbatim (the view's record is
+  // _fitRecordFrom(O)), the local O carrying the engine's certificate (the view's record is _localRecordOf)
+  assert.match(extractFn('runFit'), /_makeSeal\(\{ engine: 'server', producer: sealProducer, R: sealR, O: backendResult,/);
+  assert.match(extractFn('runAutoFitC1sGraphite'), /_makeSeal\(\{ engine: 'server', producer: 'autoFit', R: req2\.sealR, O: json2,/);
   assert.match(extractFn('runFitLocal'), /record: _localFitRecord\(certifyRestarts, /);
+  assert.match(extractFn('_sealView'), /v\.record = seal\.engine === 'server' \? _fitRecordFrom\(O\) : _localRecordOf\(R, O\);/);
   assert.match(extractFn('_doSaveFit'), /record: \(r => _isFitRecord\(r\) \? r : null\)\(_exportRecordOf\(state\.fitResult\)\)/);   // seal step 5: a sealed fit's record is its view's
   assert.match(extractFn('_doPublicationExport'), /_pngWithText\(blob, 'XPS-Fit-Record', JSON\.stringify\(rec\)\)/);
 });

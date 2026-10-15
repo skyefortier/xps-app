@@ -65,6 +65,24 @@ CAPTURE = """() => { window.__dl = []; window._downloadBlob = async (blob, name)
   window.__dl.push({ name, text: await blob.text() }); }; }"""
 
 
+# Step 7: the page's producers write only a seal, and a sealed save reloads through the seal. These tests are about
+# the LEGACY restore — the path every save made before the seal still takes — so after the fit the result is
+# replaced by exactly the legacy object main's runFit built (templates/index.html at main, "state.fitResult = {
+# chi: chiReduced * ..."), and the page's own legacy serializer writes it.
+LEGACY = """() => { const json = structuredClone(state.fitResult.seal.O);
+  const { be, inten } = getROIData();
+  const bgIntensity = computeBackground(be, inten), bgSubtracted = inten.map((v, i) => v - bgIntensity[i]);
+  const chiReduced = (json.statistics || {}).reduced_chi_square || 0;
+  const rmse = Math.sqrt((json.residuals || []).reduce((s, v) => s + v * v, 0) / Math.max(1, be.length));
+  state.fitResult = { chi: chiReduced * Math.max(1, be.length - state.peaks.length * 3), chiReduced, rmse, be, bgSubtracted, bgIntensity,
+                      backendResult: json, uploadFull: true, fittedY: json.fitted_y,
+                      roiRange: { min: _arrMin(be).toFixed(1), max: _arrMax(be).toFixed(1) },
+                      starts: json.starts || null, certificateMove: _certificateMoveFrom(json.certificate),
+                      record: _fitRecordFrom(json), startsModelKey: _startsLiveKey(), chosenAlternative: null };
+  state.fitResult.rFactor = _computeRFactor(state.fitResult);
+  tabManager._syncActiveToRecord(); updatePlot(); renderResults(); }"""
+
+
 def test_a_saved_fit_whose_background_no_longer_converges_is_not_restored(browser, server):
     # Codex implementation round 1 (BLOCKER): a restored fit used to bypass the certificate —
     # its stored background drew, fed the stack and was saved again
@@ -141,6 +159,7 @@ def test_restored_fits_keep_only_a_stored_curve_that_satisfies_its_statement(bro
         pg.evaluate(PEAK_TAB)
         pg.evaluate("() => { window.__d = false; runFit().then(() => window.__d = true, () => window.__d = true); }")
         pg.wait_for_function("() => window.__d === true", timeout=120000)
+        pg.evaluate(LEGACY)
         assert pg.evaluate("() => !!state.fitResult && state.fitResult.bgIntensity.converged === true")
         pg.evaluate(CAPTURE)
         pg.evaluate("() => _doSaveProject()")
@@ -199,6 +218,7 @@ def test_a_manual_background_fit_is_restored(browser, server):
             document.getElementById('bg-type').value = 'manual'; _onBgTypeChange(); updatePlot(); }""")
         pg.evaluate("() => { window.__d = false; runFit().then(() => window.__d = true, () => window.__d = true); }")
         pg.wait_for_function("() => window.__d === true", timeout=120000)
+        pg.evaluate(LEGACY)
         assert pg.evaluate("() => !!state.fitResult")
         pg.evaluate(CAPTURE)
         pg.evaluate("() => _doSaveProject()")
@@ -220,6 +240,7 @@ def _fit_and_capture(pg, setup, save, after_fit="() => {}"):
     pg.evaluate(setup)
     pg.evaluate("() => { window.__d = false; runFit().then(() => window.__d = true, () => window.__d = true); }")
     pg.wait_for_function("() => window.__d === true", timeout=120000)
+    pg.evaluate(LEGACY)
     assert pg.evaluate("() => !!state.fitResult")
     pg.evaluate(after_fit)
     pg.evaluate(CAPTURE)
@@ -349,6 +370,7 @@ def test_a_stack_shows_the_fits_own_counts_after_the_charge_shift_changes(browse
             document.getElementById('bg-start').value = 291; document.getElementById('bg-end').value = 281; updatePlot(); }""")
         pg.evaluate("() => { window.__d = false; runFit().then(() => window.__d = true, () => window.__d = true); }")
         pg.wait_for_function("() => window.__d === true", timeout=120000)
+        pg.evaluate(LEGACY)
         got = pg.evaluate("""() => {
             const src = tabManager._getTab(tabManager.activeId);
             const net = state.fitResult.bgSubtracted.slice();

@@ -41,7 +41,7 @@ function makeDoc() {
   return { els, getElementById: id => els[id] || null, querySelector: () => null, querySelectorAll: () => [] };
 }
 
-const STATE_FNS = ['_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey', '_statsState', '_statsLiveState', '_statsRecordState', '_statsNote', '_statsSaveFields', '_staleNoteOf', '_bgStaleNote', '_fmt3', '_restoredStale', '_restoredStaleWhy', '_isFitRecord', '_fitRecordRows', '_fitRecordRowsUnchecked', '_fitRecordTextLines', '_b64Utf8', '_recordParts', '_fitRecordXlsxRows'];
+const STATE_FNS = ['_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey', '_statsState', '_statsLiveState', '_statsRecordState', '_statsNote', '_statsSaveFields', '_staleNoteOf', '_bgStaleNote', '_fmt3', '_restoredStale', '_restoredStaleWhy', '_isFitRecord', '_fitRecordRows', '_fitRecordRowsUnchecked', '_fitRecordTextLines', '_exportCommentLine', '_exportStateRows', '_exportTailText', '_b64Utf8', '_recordParts', '_fitRecordXlsxRows'];
 const STATE_CONSTS = ['_STATS_STALE_NOTE', '_STATS_UNVERIFIED_NOTE'];
 
 // Build a sandbox with the F1 accessor, the display functions and renderResults.
@@ -109,10 +109,12 @@ test('one accessor classifies a result against a key: none / unverified / curren
 });
 
 test('the key is the step (b) key: F1 adds no second binding mechanism and no new key field', () => {
-  // every creator of a fit result stamps fitResult.startsModelKey from _startsLiveKey()
-  assert.match(extractFn('runFit'), /startsModelKey: _startsLiveKey\(\)/);
-  assert.match(extractFn('runFitLocal'), /startsModelKey: _startsLiveKey\(\)/, 'the local engine stamps its result');
-  assert.match(extractFn('_autoFitPublish'), /startsModelKey: _startsLiveKey\(\)/, 'Auto-Fit stamps its (final) result');
+  // seal step 7: every creator installs its fit AS ITS SEAL (the record binds the statistics to the model and context
+  // it was made from); F1's key remains only for legacy results (the local engine without a seal stamps it)
+  assert.match(extractFn('runFit'), /state\.fitResult = Object\.freeze\(\{ seal \}\);/);
+  assert.match(extractFn('runFitLocal'), /state\.fitResult = Object\.freeze\(\{ seal: _makeSeal\(\{ engine: 'local'/, 'the local engine installs its seal');
+  assert.match(extractFn('runFitLocal'), /startsModelKey: _startsLiveKey\(\)/, 'and stamps a legacy result when it has no seal');
+  assert.match(extractFn('_autoFitPublish'), /state\.fitResult = Object\.freeze\(\{ seal \}\);/, 'Auto-Fit installs its (final) fit\'s seal');
   // Auto-Fit locks every centre and refines the charge shift AFTER applying: the re-stamp covers the statistics
   const restamp = new Function('state', '_startsLiveKey', extractFn('_restampSupport') + '\n' + extractFn('_isInstalledSeal') + '\nreturn _restampSupport;');
   const st = { peaks: [{ id: 1, support: { fitKey: 'OLD' } }], fitResult: { startsModelKey: 'OLD' } };
@@ -406,7 +408,7 @@ test('Auto-Fit discards (and rolls back) a response when the model or context wa
       uploadToBackend: async () => { if (editDuringUpload) document.getElementById('bg-type').value = 'linear'; return 'sid'; },
       fetch: async () => ({ text: async () => JSON.stringify({ success: true, statistics: { reduced_chi_square: 1 }, fitted_y: [10, 20, 10], residuals: [0, 0, 0] }) }),
       applyBackendResult: () => { out.applied++; }, applyAutoFitResult: () => true, _autoFitAnchorRefusal: () => null, _autoFitPublish: () => true, _autoFitBusyBegin() {}, _autoFitBusyLabel() {}, _autoFitBusyEnd() {} };
-    const src = constants + '\n' + ['runAutoFitC1sGraphite', '_autoFitRequest', '_buildFitRequest', '_liveFitContext', '_contextOf', '_uiFromDom', '_sealR', '_makeSeal', '_deepFreeze', '_pageIdentity', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey'].map(extractFn).join('\n');
+    const src = require('./_seal_stubs.js').source() + '\n' + constants + '\n' + ['runAutoFitC1sGraphite', '_autoFitRequest', '_buildFitRequest', '_liveFitContext', '_contextOf', '_uiFromDom', '_sealR', '_makeSeal', '_deepFreeze', '_pageIdentity', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey'].map(extractFn).join('\n');
     await new Function(...Object.keys(pollify(deps)), src + '\n' + POLL_SRC + '\nreturn runAutoFitC1sGraphite;')(...Object.values(deps))();
     return out;
   };
@@ -456,7 +458,7 @@ test('F2: Auto-Fit on a 200 reply containing NaN fails closed with the reply mes
     peakToBackendSpec: p => ({ ...p }), _getManualAnchors: () => [], uploadToBackend: async () => 'sid',
     fetch: async () => ({ text: async () => '{"success": true, "statistics": {"reduced_chi_square": NaN}}' }),
     applyBackendResult: () => { out.applied++; }, applyAutoFitResult: () => true, _autoFitAnchorRefusal: () => null, _autoFitPublish: () => true, _autoFitBusyBegin() {}, _autoFitBusyLabel() {}, _autoFitBusyEnd() {}, console: { warn() {} } };
-  const src = constants + '\n' + ['runAutoFitC1sGraphite', '_autoFitRequest', '_buildFitRequest', '_liveFitContext', '_contextOf', '_uiFromDom', '_sealR', '_makeSeal', '_deepFreeze', '_pageIdentity', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey'].map(extractFn).join('\n');
+  const src = require('./_seal_stubs.js').source() + '\n' + constants + '\n' + ['runAutoFitC1sGraphite', '_autoFitRequest', '_buildFitRequest', '_liveFitContext', '_contextOf', '_uiFromDom', '_sealR', '_makeSeal', '_deepFreeze', '_pageIdentity', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey'].map(extractFn).join('\n');
   await new Function(...Object.keys(pollify(deps)), src + '\n' + POLL_SRC + '\nreturn runAutoFitC1sGraphite;')(...Object.values(deps))();
   assert.strictEqual(out.applied, 0);
   assert.strictEqual(out.restored, true);
@@ -483,7 +485,7 @@ for (const [label, reply, expect] of [
     peakToBackendSpec: p => ({ ...p }), _getManualAnchors: () => [], uploadToBackend: async () => 'sid',
     fetch: async () => reply,
     applyBackendResult: () => { out.applied++; }, applyAutoFitResult: () => true, _autoFitAnchorRefusal: () => null, _autoFitPublish: () => true, _autoFitBusyBegin() {}, _autoFitBusyLabel() {}, _autoFitBusyEnd() {}, console: { warn() {} } };
-  const src = constants + '\n' + ['runAutoFitC1sGraphite', '_autoFitRequest', '_buildFitRequest', '_liveFitContext', '_contextOf', '_uiFromDom', '_sealR', '_makeSeal', '_deepFreeze', '_pageIdentity', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey'].map(extractFn).join('\n');
+  const src = require('./_seal_stubs.js').source() + '\n' + constants + '\n' + ['runAutoFitC1sGraphite', '_autoFitRequest', '_buildFitRequest', '_liveFitContext', '_contextOf', '_uiFromDom', '_sealR', '_makeSeal', '_deepFreeze', '_pageIdentity', 'BgNotConverged', '_isBgNotConverged', '_bgOrFailure', '_endpointAvgFailure', '_readFitReply', '_bgWindowIndices', '_arrMin', '_arrMax', '_startsModelKey', '_startsLiveKey', '_fitKeyCanon', '_endpointAvgFailure', '_sameFitKey'].map(extractFn).join('\n');
   await new Function(...Object.keys(pollify(deps)), src + '\n' + POLL_SRC + '\nreturn runAutoFitC1sGraphite;')(...Object.values(deps))();
   assert.strictEqual(out.applied, 0);
   assert.strictEqual(out.restored, true);

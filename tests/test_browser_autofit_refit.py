@@ -26,11 +26,13 @@ def test_auto_fit_shows_the_fit_it_made_in_the_corrected_frame(browser, server):
         pg.evaluate("() => { window._showAutoFitConfirmModal = () => Promise.resolve(true); }")
         before = pg.evaluate("() => state.ccShift")
         pg.evaluate("async () => { await runAutoFitC1sGraphite(); }")
+        # step 7: a fit is its seal — the points shown are the chart's envelope, the published fit's are O's
         got = pg.evaluate("""() => {
-            const fr = state.fitResult, br = fr && fr.backendResult;
+            const fr = state.fitResult, v = fr && fr.seal && _sealView(fr.seal), br = v && v.engine === 'server' ? fr.seal.O : null;
+            const env = state.chart.data.datasets.find(d => /^Fit/.test(d.label || ''));
             return { msg: document.getElementById('sb-msg').textContent, cc: state.ccShift,
-                     shownBe: fr && fr.be, fittedBe: br && br.energy, nFitted: fr && fr.fittedY && fr.fittedY.length,
-                     r: fr && fr.rFactor && fr.rFactor.rPct, locked: state.peaks.every(p => p.fixCenter),
+                     shownBe: env ? env.data.map(p => p.x) : null, fittedBe: br && br.energy, nFitted: v && v.fittedY && v.fittedY.length,
+                     r: v && v.rPanel && v.rPanel.rPct, locked: state.peaks.every(p => p.fixCenter),
                      graphite: (state.peaks.find(p => p.name === 'Graphite') || {}).center }; }""")
     finally:
         pg.close()
@@ -48,7 +50,8 @@ def test_auto_fit_shows_the_fit_it_made_in_the_corrected_frame(browser, server):
 STATE = """() => { const t = _activeTab(), v = id => document.getElementById(id).value;
   return { peaks: JSON.stringify(state.peaks), ccShift: state.ccShift, anchors: JSON.stringify(_getManualAnchors()), nextId: state.nextId,
            fields: ['cc-method', 'cc-obs', 'cc-lit', 'roi-min', 'roi-max', 'bg-start', 'bg-end'].map(v),
-           fit: state.fitResult ? JSON.stringify({ chi: state.fitResult.chiReduced, be: state.fitResult.be || null, bg: state.fitResult.bgIntensity || null, fitted: state.fitResult.fittedY || null }) : null,
+           fit: state.fitResult ? JSON.stringify(state.fitResult.seal ? state.fitResult.seal   // step 7: a fit is its seal
+                : { chi: state.fitResult.chiReduced, be: state.fitResult.be || null, bg: state.fitResult.bgIntensity || null, fitted: state.fitResult.fittedY || null }) : null,
            undo: JSON.stringify(t.undoStack || []), redo: JSON.stringify(t.redoStack || []) }; }"""
 SETUP = """() => { window._showAutoFitConfirmModal = () => Promise.resolve(true);
   window.__notes = []; const n = window.notify; window.notify = (m, k, ...r) => { window.__notes.push([k, String(m)]); return n(m, k, ...r); };

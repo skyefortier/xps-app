@@ -12,6 +12,8 @@ SPY = """() => { window.__api = []; window.__notes = [];
     const o = window.fetch; window.fetch = (url, opts) => { if (String(url).includes('/api/')) window.__api.push(String(url)); return o(url, opts); };
     const n = window.notify; window.notify = (m, k, ...r) => { window.__notes.push([k, m]); return n(m, k, ...r); }; }"""
 RUN = """async () => { await runFit(); }"""
+# step 7: a fit is its seal; a fresh server fit starts its own check — wait for it to answer
+WAIT = """async () => { for (let k = 0; k < 600 && _sealAttempts.has(_activeTab()); k++) await new Promise(r => setTimeout(r, 50)); }"""
 
 
 @pytest.mark.parametrize("text", ["1e21", "0", "51", "2.5", "1e1"])
@@ -38,7 +40,8 @@ def test_a_value_in_range_fits_as_before(browser, server):
         pg.evaluate("() => { document.getElementById('bg-endpoint-avg').value = '50'; }")
         pg.evaluate(SPY)
         pg.evaluate(RUN)
-        got = pg.evaluate("() => ({ fit: !!state.fitResult && state.fitResult.record.engine, notes: window.__notes, k: state.fitResult && state.fitResult.record.backgroundVerdict.effect.k })")
+        got = pg.evaluate("""() => { const rec = state.fitResult && _sealView(state.fitResult.seal).record;
+            return { fit: !!rec && rec.engine, notes: window.__notes, k: rec && rec.backgroundVerdict.effect.k }; }""")
     finally:
         pg.close()
     assert got["fit"] == "server", got["notes"]
@@ -103,6 +106,7 @@ def test_a_saved_fit_at_an_averaging_outside_1_to_50_is_not_restored_as_current(
         pg.evaluate(PEAK_TAB)
         pg.evaluate("v => { document.getElementById('bg-endpoint-avg').value = v; }", fitted)
         pg.evaluate(RUN)
+        pg.evaluate(WAIT)
         assert pg.evaluate("() => _statsLiveState()") == "current"
         idx = pg.evaluate("() => _STARTS_UI_FIELDS.indexOf('endpointAvg')")
         proj = json.loads(pg.evaluate("""async () => { let out = null; const o = window._downloadBlob;
@@ -116,6 +120,11 @@ def test_a_saved_fit_at_an_averaging_outside_1_to_50_is_not_restored_as_current(
             assert t["ui"]["endpointAvg"] == fitted
             t["ui"]["endpointAvg"] = saved
         fr = t.get("fitResult")
+        # step 7: the seal records the context it was fitted in — saved as the same text
+        if fr and fr.get("seal"):
+            live = fr["seal"]["R"]["context0"]["live"]
+            assert live["endpointAvg"] == fitted
+            live["endpointAvg"] = str(saved)
         if fr and fr.get("startsModelKey"):
             key = json.loads(fr["startsModelKey"])
             assert key["u"][idx] == fitted
@@ -125,10 +134,14 @@ def test_a_saved_fit_at_an_averaging_outside_1_to_50_is_not_restored_as_current(
     try:
         pg.evaluate("data => _loadProjectJSON(data, 'p.proj.json')", proj)
         pg.wait_for_timeout(800)
-        got = pg.evaluate("() => ({ fit: !!state.fitResult, stats: _statsLiveState(), peaks: state.peaks.length })")
+        got = pg.evaluate("""() => { const s = sealedState(state.fitResult, _activeTab());
+            return { fit: !!state.fitResult, sealed: !!(state.fitResult && state.fitResult.seal), stats: _statsLiveState(),
+                     state: s.state, check: s.check, peaks: state.peaks.length }; }""")
     finally:
         pg.close()
     assert got["peaks"] == 2 and got["stats"] != "current", got
+    # the record and the live settings agree: only the refusal (no background at that averaging) keeps it from current
+    assert got["sealed"] and [got["state"], got["check"]] == ["stale", "background"], got
 
 
 @pytest.mark.parametrize("edited", ["1e2", ""], ids=["1e2", "cleared"])

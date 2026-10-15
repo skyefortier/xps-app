@@ -1,6 +1,6 @@
 """Seal 1c step 5 (plan docs/superpowers/plans/2026-10-14-seal-1c-page.md §5, §7): the CONSUMERS read a sealed fit's
 VIEW while its record describes the model shown (CURRENT / PENDING / UNCONFIRMED) and today's live preview once it
-is STALE. The switch (`_SEAL_AUTHORITATIVE`) is still off in the shipped page; these tests turn it on.
+is STALE. (Step 7 removed the switch: the shipped page reads every sealed fit this way.)
 
 Skips cleanly when Playwright / Chromium / gunicorn are absent.
 """
@@ -51,7 +51,10 @@ def _page(browser, server, scenario="asymgl_linked_smart", local=False):  # noqa
     if local:
         pg.route("**/api/upload", lambda route: route.abort())
     pg.evaluate("async () => { await runFit(); }")
-    pg.evaluate("() => { _SEAL_AUTHORITATIVE = true; }")
+    # step 7: a fresh server fit starts its own check; these tests begin from PENDING, before it answers
+    pg.evaluate("""async () => { for (let k = 0; k < 600 && _sealAttempts.has(_activeTab()); k++) await new Promise(r => setTimeout(r, 50));
+        const fr = state.fitResult; if (fr && fr.seal && fr.seal.engine === 'server') { _sealVerdicts.delete(fr.seal); _sealUnreachable.delete(fr.seal); }
+        updatePlot(); renderResults(); }""")
     return pg
 
 
@@ -149,20 +152,19 @@ def test_a_stack_draws_its_sources_record(browser, server):  # noqa: F811
         pg.close()
 
 
-def test_switch_off_is_todays_chart(browser, server):  # noqa: F811
-    """With the switch off nothing reads the seal: a record that DISAGREES with today's fields changes nothing."""
+def test_an_unsealed_legacy_fit_is_drawn_as_before(browser, server):  # noqa: F811
+    """A fit without a seal (a save from before this release) is read through today's machinery: a record beside
+    it is never consulted."""
     pg = _page(browser, server)
     try:
-        pg.evaluate("() => { _SEAL_AUTHORITATIVE = false; }")
-        pg.evaluate(TAMPER, "s.O.fitted_y = s.O.fitted_y.map(v => v + 1000); s.O.individual_peaks[0].params.area.value *= 2;"
-                            " s.O.statistics.reduced_chi_square = 123.456")
-        got = pg.evaluate("""() => { updatePlot(); renderResults();
-            const env = state.chart.data.datasets.find(d => d.label === 'Fit'), fr = state.fitResult;
-            return { env: env.data.every((p, i) => Object.is(p.y, fr.fittedY[i])), header: document.getElementById('fit-quality').textContent,
-                     area: _componentArea(state.peaks[0], _areaGrid()) === _peakArea(state.peaks[0], _areaGrid()),
-                     display: _sealedDisplay(fr), stats: _statsLiveState() }; }""")
-        assert got["env"] and "123.46" not in got["header"] and got["area"] and got["display"] is None, got
-        assert got["stats"] in ("current", "unverified"), got
+        got = pg.evaluate("""() => { const fr = state.fitResult, seal = fr.seal, v = _sealView(seal);
+            const legacy = { be: v.energies.slice(), bgIntensity: v.background.slice(), bgSubtracted: v.counts.map((c, i) => c - v.background[i]),
+                             fittedY: v.fittedY.map(y => y + 1000), chiReduced: 123.456, rmse: 1, startsModelKey: _startsLiveKey() };
+            state.fitResult = legacy; updatePlot(); renderResults();
+            const env = state.chart.data.datasets.find(d => d.label === 'Fit');
+            return { env: env.data.every((p, i) => Object.is(p.y, legacy.fittedY[i])), header: document.getElementById('fit-quality').textContent,
+                     display: _sealedDisplay(state.fitResult) }; }""")
+        assert got["env"] and "123.46" in got["header"] and got["display"] is None, got
     finally:
         pg.close()
 
@@ -384,9 +386,12 @@ def test_tsv_and_csv_export_the_record_and_its_state(browser, server):  # noqa: 
         pg.evaluate(CAPTURE)
         tsv = _export(pg, "() => exportResults()", "tsv")
         lines = tsv.split("\n")
-        assert lines[0].startswith("# Fit state: PENDING"), lines[:2]
-        assert lines[1].startswith("# Record provenance: "), lines[:3]       # step 6
-        first = lines[3].split("\t")
+        assert lines[0].startswith("BE (eV)\t"), lines[:2]                  # the columns are main's, from the first line
+        # the state and the provenance open the block that FOLLOWS the data (owner 2026-10-10)
+        tail = lines[lines.index("") + 1:]
+        assert tail[0].startswith("# Fit state: PENDING") and "(the columns are this fit as recorded)" in tail[0], tail[:2]
+        assert tail[1].startswith("# Record provenance: "), tail[:3]          # step 6
+        first = lines[1].split("\t")
         want = pg.evaluate("""() => { const v = sealedState(state.fitResult, _activeTab()).view, i = 0;
             return [v.energies[i].toFixed(4), v.counts[i].toFixed(2), v.background[i].toFixed(2), (v.counts[i] - v.background[i]).toFixed(2),
                     v.fittedSub[i].toFixed(2), v.residuals[i].toFixed(2), ...state.peaks.map(p => _sealComponent(v, p).y[i].toFixed(2))]; }""")
@@ -661,10 +666,13 @@ def test_legacy_duplicates_that_disagree_are_never_read(browser, server):  # noq
     pg = _page(browser, server)
     try:
         pg.evaluate(VERIFY)
-        pg.evaluate("""() => { const fr = state.fitResult;
+        # step 7: producers write no legacy fields, so the disagreeing duplicates are constructed beside the seal
+        pg.evaluate("""() => { const fr = state.fitResult, v = _sealView(fr.seal), O = fr.seal.O;
             state.fitResult = { ...fr, chiReduced: 999.5, rmse: 999.5, rFactor: { rPct: 99, level: 'red' },
-                                fittedY: fr.fittedY.map(v => v + 50), bgIntensity: fr.bgIntensity.map(v => v + 50),
-                                backendResult: { ...fr.backendResult, individual_peaks: fr.backendResult.individual_peaks.map(ip => ({ ...ip, params: { ...ip.params, center: { ...ip.params.center, stderr: 9.99 } } })) } }; }""")
+                                be: v.energies.slice(), bgSubtracted: v.counts.map((c, i) => c - v.background[i] + 50),
+                                fittedY: v.fittedY.map(y => y + 50), bgIntensity: v.background.map(b => b + 50),
+                                backendResult: { ...O, individual_peaks: O.individual_peaks.map(ip => ({ ...ip, params: { ...ip.params, center: { ...ip.params.center, stderr: 9.99 } } })) } }; }""")
+        assert pg.evaluate("() => Object.keys(state.fitResult).length > 1 && !!state.fitResult.backendResult && !!state.fitResult.seal")
         got = pg.evaluate(CHART, False)
         assert got["envelope"] and got["components"] and got["residuals"], got
         txt = pg.evaluate("() => { renderResults(); return [document.getElementById('fit-quality').textContent, document.getElementById('results-area').textContent]; }")
@@ -716,12 +724,13 @@ def test_the_status_bar_range_and_a_stale_fit_file_read_the_record(browser, serv
 def test_a_stale_sealed_fit_draws_the_same_preview_with_or_without_legacy_copies(browser, server):  # noqa: F811
     pg = _page(browser, server)
     try:
-        got = pg.evaluate("""() => { const fr = state.fitResult;
+        # step 7: producers write no legacy copies, so the poisoned ones are constructed from the record
+        got = pg.evaluate("""() => { const fr = state.fitResult, v = _sealView(fr.seal);
             const draw = (x) => { state.fitResult = x; updatePlot(); const ds = state.chart.data.datasets;
               return JSON.stringify(ds.filter(d => d.label !== 'Data').map(d => [d.label, d.data.map(p => [p.x, p.y])])); };
             state.peaks[0].center += 0.05;                                   // STALE (edited)
-            const poisoned = { ...fr, be: fr.be.map(x => x + 1), bgIntensity: fr.bgIntensity.map(v => v + 99),
-                               bgSubtracted: fr.bgSubtracted.map(v => v + 99), fittedY: fr.fittedY.map(v => v + 99) };
+            const poisoned = { ...fr, be: v.energies.map(x => x + 1), bgIntensity: v.background.map(b => b + 99),
+                               bgSubtracted: v.counts.map((c, i) => c - v.background[i] + 99), fittedY: v.fittedY.map(y => y + 99) };
             const a = draw(Object.freeze({ seal: fr.seal })), b = draw(poisoned);
             const st = sealedState(state.fitResult, _activeTab()).state;
             // the stack's entry for the same source, with and without the copies

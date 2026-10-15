@@ -1,7 +1,7 @@
 """Seal 1c step 4 (plan docs/superpowers/plans/2026-10-14-seal-1c-page.md §2-§6, §9, §11): JUDGING a seal —
 `sealedState` from the page's bindings, the live binding, the local engine's own exact check and the server's
-verification, with the verification manager's ownership rules. Behind the switch (nothing reads it yet), so these
-tests call it directly on real fits made by the real page and server.
+verification, with the verification manager's ownership rules, called directly on real fits made by the real page
+and server. (Since step 7 a fresh fit checks itself; `_fitted` forgets that answer, so a fit here starts unchecked.)
 
 Skips cleanly when Playwright / Chromium / gunicorn are absent.
 """
@@ -21,6 +21,12 @@ TAMPER = """(src) => { const s = structuredClone(state.fitResult.seal); (new Fun
   state.fitResult = { ...state.fitResult, seal: _makeSeal(s) }; }"""
 
 
+# step 7: a fresh fit checks itself (Run Fit's producer-bound check; Auto-Fit's staged pair). These tests judge a
+# seal the page has NOT yet checked — a reloaded fit's case — so the producer's answer is let through, then forgotten.
+FORGET = """async () => { for (let k = 0; k < 600 && _sealAttempts.has(_activeTab()); k++) await new Promise(r => setTimeout(r, 50));
+  const s = state.fitResult && state.fitResult.seal; if (s) { _sealVerdicts.delete(s); _sealUnreachable.delete(s); } }"""
+
+
 def _fake(pg, body):
     """A fabricated server answer, as the server writes one: with the software that answered (this server's)."""
     return json.dumps({**body, "software": pg.evaluate("() => _pageIdentity().software")})
@@ -33,6 +39,7 @@ def _fitted(browser, server, scenario="asymgl_linked_smart"):  # noqa: F811
     pg.goto(server + "/", wait_until="load")
     _setup(pg, SCENARIOS[scenario])
     pg.evaluate("async () => { await runFit(); }")
+    pg.evaluate(FORGET)
     return pg
 
 
@@ -91,7 +98,9 @@ def test_unreachable_is_unconfirmed_until_check_again(browser, server):  # noqa:
     ("s.O.statistics.chi_square *= 1.000001", "stale", "statistics"),               # the server's check fails
     ("s.O.individual_peaks[0].y[3] += 1e-6", "stale", "components"),
     ("s.R.request.fit_method = 'nelder'", "stale", "request"),                       # step 0 (the page)
-    ("s.R.idx = s.R.idx.slice(1); s.R.energies = s.R.energies.slice(1); s.R.counts = s.R.counts.slice(1)", "stale", "samples"),
+    # R's samples no longer the length of O's arrays: a record that cannot be read (step 6's schema, first)
+    ("s.R.idx = s.R.idx.slice(1); s.R.energies = s.R.energies.slice(1); s.R.counts = s.R.counts.slice(1)", "peaks-only", "schema"),
+    ("s.R.energies[0] += 1e-9", "stale", "samples"),                                 # R's samples, readable, not the raw data's
     ("s.O.background_y[2] += 1e-9", "stale", "background"),
     ("s.R.context0.live.ccShift = NaN", "stale", "context"),
     ("s.v = 'something else'", "peaks-only", "schema"),
@@ -146,6 +155,7 @@ def test_auto_fit_is_current_only_with_both_checks_and_its_evidence(browser, ser
         pg.evaluate("() => tabManager.activateTab(tabManager.tabs.find(t => t.name === 'C1s Scan').id)")
         pg.evaluate("() => { window._showAutoFitConfirmModal = () => Promise.resolve(true); }")
         pg.evaluate("async () => { await runAutoFitC1sGraphite(); }")
+        pg.evaluate(FORGET)
         calls = []
         pg.on("request", lambda r: calls.append(r.url) if r.url.endswith("/api/verify-fit") else None)
         assert pg.evaluate(STATE) == ["pending", None]
@@ -186,10 +196,11 @@ def test_a_producer_bound_reply_is_attached_only_under_its_operation_and_active_
             tabManager.createTab('B', state.rawBE.slice(), state.rawIntensity.slice());
             const r = await p;
             const out = [r, _fitOpCurrent(op), sealedState(owner.fitResult, owner).state];
-            tabManager.activateTab(owner.id);
-            await _ensureVerified(owner);
-            return [...out, sealedState(state.fitResult, owner).state]; }""")
-        assert got == [None, True, "pending", "current"], got
+            tabManager.activateTab(owner.id);                  // step 7: activation itself starts the check
+            const started = _sealAttempts.has(owner);
+            for (let k = 0; k < 600 && _sealAttempts.has(owner); k++) await new Promise(r => setTimeout(r, 50));
+            return [...out, started, sealedState(state.fitResult, owner).state]; }""")
+        assert got == [None, True, "pending", True, "current"], got
     finally:
         pg.close()
 
@@ -349,6 +360,7 @@ def _autofitted(browser, server):  # noqa: F811
     pg.evaluate("() => { window._showAutoFitConfirmModal = () => Promise.resolve(true); }")
     pg.evaluate("async () => { await runAutoFitC1sGraphite(); }")
     assert pg.evaluate("() => state.fitResult.seal.producer") == "autoFit"
+    pg.evaluate(FORGET)
     return pg
 
 

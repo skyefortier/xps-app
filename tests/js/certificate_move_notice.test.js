@@ -86,7 +86,9 @@ test('bound to the fit: after the model changes the notice is gone (placeholder 
 });
 
 test('wiring: stored from the response, shown before the starts panel, refreshed in place, saved while current, restored, exported', () => {
-  assert.match(html, /certificateMove: _certificateMoveFrom\(backendResult\.certificate\),/);
+  // seal step 7: a fresh fit's certificate is O's (the seal), read through _certificateMoveIfCurrent's sealed branch
+  assert.match(extractFn('_certificateMoveIfCurrent'), /_certificateMoveFrom\(s\.view\.certificate\)/);
+  assert.match(extractFn('runFit'), /_makeSeal\(\{ engine: 'server', producer: sealProducer, R: sealR, O: backendResult,/);
   assert.match(html, /html \+= _certificateNoticeHtml\(state\.fitResult\);\n  html \+= _startsPanelHtml\(state\.fitResult\);/);
   assert.match(html, /const cn = document\.querySelector\('\.certificate-move-note'\);\n  if \(cn && state\.fitResult\) cn\.outerHTML = _certificateNoticeHtml\(state\.fitResult\);/);
   assert.strictEqual((html.match(/certificateMove: _certificateMoveIfCurrent\(state\.fitResult, _startsLiveKey\(\)\),/g) || []).length, 2);

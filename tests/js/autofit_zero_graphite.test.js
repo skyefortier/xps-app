@@ -137,7 +137,7 @@ test('rolling back to a Custom reference shows its target field again', () => {
   const owner = { id: 1 };
   const state = { peaks: [], ccShift: 0.3 };
   const factory = new Function('document', 'state', '_ownerLive', '_activeTab', '_setManualAnchors', 'renderPeakList', 'updatePlot',
-    extractFn('_autoFitRestore') + '\nreturn _autoFitRestore;');
+    extractFn('_autoFitRestore') + '\nconst _fitResultOf = () => state.fitResult, _ensureVerified = () => null;   // seal step 7 (not exercised here)\nreturn _autoFitRestore;');
   const restore = factory({ getElementById: el }, state, () => true, () => owner, () => {}, () => {}, () => {});
   el('cc-target-field').style.display = 'none';            // what the provisional 'c1s' correction left behind
   el('cc-ref-field').style.display = 'block';

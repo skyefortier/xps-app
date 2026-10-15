@@ -19,12 +19,17 @@ READERS = """() => {
   const q = document.getElementById('quantify-area');
   const rows = [...document.querySelectorAll('#results-area .results-table tbody tr')].map(tr => [...tr.children].map(td => td.textContent.trim()));
   const sidebar = state.peaks.map(p => { const v = document.querySelectorAll('#peak-item-' + p.id + ' .peak-summary-val'); return v[2] ? v[2].textContent.trim() : null; });
-  const ip = (state.fitResult && state.fitResult.backendResult && state.fitResult.backendResult.individual_peaks) || [];
+  const fr = state.fitResult, br = fr && (fr.seal ? (fr.seal.engine === 'server' ? fr.seal.O : null) : fr.backendResult);   // step 7: a fit is its seal
+  const ip = (br && br.individual_peaks) || [];
   return { results: q && q._areas ? Array.from(q._areas) : null, resultsPct: rows.map(r => r[4]), sidebarPct: sidebar,
            server: state.peaks.map(p => { const x = ip.find(i => String(i.id) === String(p.id)); return x ? x.params.area.value : null; }),
            live: state.peaks.map(p => _peakArea(p, getROIData().be)), stats: _statsLiveState(),
            note: ((document.querySelector('#results-area .outside-window-note') || {}).textContent || '').replace(/\\s+/g, ' ').trim() || null };
 }"""
+
+
+# step 7: a fresh fit is PENDING until the server's check of its record answers
+CONFIRMED = """async () => { for (let k = 0; k < 600 && _sealAttempts.has(_activeTab()); k++) await new Promise(r => setTimeout(r, 50)); }"""
 
 
 def _save_and_csv(pg):
@@ -54,6 +59,7 @@ def test_every_reader_shows_the_servers_area_on_one_grid(browser, server):
         pg.evaluate(PEAK_TAB)
         pg.evaluate("() => { document.getElementById('fit-method').value = 'least_squares'; }")
         assert pg.evaluate("async () => { await runFit(); return !!state.fitResult; }")
+        pg.evaluate(CONFIRMED)
         got = pg.evaluate(READERS)
         assert got["stats"] == "current"
         assert got["results"] == got["server"], got          # the page's area IS the server's, bit for bit

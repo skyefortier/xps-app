@@ -3,6 +3,9 @@ creates a deep-frozen seal BESIDE today's result (nothing reads it yet). Real pa
 exactly what the fit was made from (the request the page sent, the samples `_roiSelect` chose, the start model,
 the context), its O the reply verbatim, step 0 already rebuilds R.request from R; its VIEW gives the numbers
 today's fitResult holds (the differences the plan release-notes — the page's approximate chi-square — named).
+Step 7: the seal IS the result (no legacy fields beside it), so the view is held to what the server SENT (the
+reply, captured off the wire), what the page computes itself (its samples, its background, its RMSE and R
+formulas, the local engine's statistics from the committed peaks) and what the chart draws.
 
 Skips cleanly when Playwright / Chromium / gunicorn are absent.
 """
@@ -29,35 +32,65 @@ CHECK = """async () => {
     const ka = Object.keys(a), kb = Object.keys(b);
     return ka.length === kb.length && ka.every(k => Object.hasOwn(b, k) && eq(a[k], b[k]));
   };
-  const roi = getROIData();
+  const roi = getROIData(), reply = window.__reply;
+  const pageBg = Array.from(_bgOrFailure(() => computeBackground(roi.be, roi.inten)).bg);   // what the page computes itself
+  const net = roi.inten.map((y, i) => y - pageBg[i]);
+  // what the chart draws (raw view: the background and the envelope over the fit's energies)
+  const t = document.getElementById('bg-sub-toggle'); if (t) t.checked = false;
+  document.getElementById('show-envelope').checked = true; updatePlot();
+  const ds = state.chart.data.datasets, drawn = l => { const d = ds.find(x => x.label === l || x.label.startsWith(l + ' ('));
+    return d ? { x: d.data.map(p => p.x), y: d.data.map(p => p.y) } : null; };
+  const bgDs = drawn('Background'), fitDs = drawn('Fit');
   const out = {
     seal: true, frozen: Object.isFrozen(seal) && Object.isFrozen(seal.R) && Object.isFrozen(seal.O) && Object.isFrozen(R.pageModel[0]),
     engine: seal.engine, producer: seal.producer,
     idx: eq(R.idx, roi.idx), energies: eq(R.energies, roi.be), counts: eq(R.counts, roi.inten),
     page: !!(R.page && R.page.software && R.page.page && R.page.page.page_sha256),
-    viewEnergies: eq(v.energies, fr.be), viewChi2r: v.statistics.chi2r === fr.chiReduced,
+    viewEnergies: eq(v.energies, roi.be) && !!bgDs && eq(bgDs.x, v.energies),
   };
   if (seal.engine === 'server') {
     out.request = _jsonEqual(R.request, window.__sent);   // the wire body, as the server received it
     out.step0 = eq(_buildFitRequest(seal.producer, R.pageModel, R.context0.live, R.energies,
                                     { requireComponent: R.context0.producer.require_component }), R.request);   // strictly: rebuilt from R
-    out.O = eq(O, fr.backendResult);
-    out.viewBg = eq(v.background, Array.from(fr.bgIntensity));
-    out.viewFittedY = eq(v.fittedY, fr.fittedY);
+    out.O = !!reply && eq(O, reply);   // the reply verbatim, parsed as the page parses it
+    out.viewChi2r = !!reply && v.statistics.chi2r === reply.statistics.reduced_chi_square;
+    out.viewBg = eq(v.background, pageBg) && eq(bgDs.y, v.background);
+    out.viewFittedY = !!reply && eq(v.fittedY, reply.fitted_y) && !!fitDs && eq(fitDs.y, v.fittedY);
     out.viewModel = state.peaks.every(p => { const q = v.model.find(x => x.id === p.id);
       return q && ['center', 'amplitude', 'fwhm', 'glMix'].every(k => Object.is(q[k], p[k])); });
-    out.rmseRel = Math.abs(v.statistics.rmse - fr.rmse) / fr.rmse;
-    out.rPct = v.rPanel ? Math.abs(v.rPanel.rPct - fr.rFactor.rPct) : null;
+    // the page's own RMSE (over the reply's residuals) and R (_computeRFactor over its samples and background)
+    const pageRmse = Math.sqrt(reply.residuals.reduce((a, r) => a + r * r, 0) / Math.max(1, roi.be.length));
+    const pageR = _computeRFactor({ be: roi.be, bgSubtracted: net, bgIntensity: pageBg, fittedY: reply.fitted_y });
+    out.rmseRel = Math.abs(v.statistics.rmse - pageRmse) / pageRmse;
+    out.rPct = v.rPanel ? Math.abs(v.rPanel.rPct - pageR.rPct) : null;
   } else {
-    out.viewRmse = v.statistics.rmse === fr.rmse;
-    out.viewR = v.rPanel && v.rPanel.rPct === fr.rFactor.rPct;
-    out.viewBg = eq(v.background, Array.from(fr.bgIntensity));
+    // the local engine's own statistics, from the peaks it committed, in its own arithmetic (runFitLocal)
+    const model = evalAllPeaks(roi.be, state.peaks), raw = net.map((y, i) => y - model[i]);
+    const w = net.map((y, i) => 1 / Math.sqrt(Math.max(y + pageBg[i], 1)));
+    const chi = raw.reduce((a, r, i) => a + (r * w[i]) * (r * w[i]), 0);
+    out.viewChi2r = v.statistics.chi2 === chi && v.statistics.chi2r === chi / Math.max(1, roi.be.length - v.statistics.nFree) &&
+                    v.statistics.nFree === state.peaks.length * 3;
+    out.viewRmse = v.statistics.rmse === Math.sqrt(raw.reduce((a, r) => a + r * r, 0) / roi.be.length);
+    const pageR = _computeRFactor({ be: roi.be, bgSubtracted: net, bgIntensity: pageBg });
+    out.viewR = !!v.rPanel && v.rPanel.rPct === pageR.rPct;
+    out.viewBg = eq(v.background, pageBg) && eq(bgDs.y, v.background);
+    out.viewFittedY = !!fitDs && eq(fitDs.y, v.fittedY);
     out.model = state.peaks.every(p => { const q = v.model.find(x => x.id === p.id);
       return q && ['center', 'amplitude', 'fwhm'].every(k => Object.is(q[k], p[k])); });
     out.bgCert = !!(seal.O.background.certificate || ['linear', 'none', 'manual'].includes(seal.O.background.bgType));
   }
   return out;
 }"""
+
+
+def _record_reply(page):
+    # the finished job's `result` is exactly the /api/fit body; parsed in the page, as the page parses it
+    def handle(route):
+        resp = route.fetch()
+        text = resp.text()
+        page.evaluate("(t) => { const r = JSON.parse(t); if (r.status === 'done') (window.__replies = window.__replies || []).push(window.__reply = r.result); }", text)
+        route.fulfill(response=resp, body=text)
+    page.route("**/api/fit/progress/**", handle)
 
 
 def _record_sent(page):
@@ -75,6 +108,7 @@ def test_run_fit_writes_a_seal_beside_its_result(browser, server, name):  # noqa
     try:
         _setup(pg, SCENARIOS[name])
         _record_sent(pg)
+        _record_reply(pg)
         pg.evaluate("async () => { await runFit(); }")
         got = pg.evaluate(CHECK)
     finally:
@@ -97,6 +131,7 @@ def test_auto_fit_seals_its_final_fit_with_the_anchor_fit_as_evidence(browser, s
         pg.wait_for_function("() => tabManager.tabs.some(t => t.name === 'C1s Scan')", timeout=60000)
         pg.evaluate("() => tabManager.activateTab(tabManager.tabs.find(t => t.name === 'C1s Scan').id)")
         pg.evaluate("() => { window._showAutoFitConfirmModal = () => Promise.resolve(true); }")
+        _record_reply(pg)
         pg.evaluate("async () => { await runAutoFitC1sGraphite(); }")
         got = pg.evaluate("""() => {
             const seal = state.fitResult && state.fitResult.seal; if (!seal) return { seal: false };
@@ -116,7 +151,7 @@ def test_auto_fit_seals_its_final_fit_with_the_anchor_fit_as_evidence(browser, s
             return { seal: true, producer: seal.producer, hasE: !!(E && E.R && E.O), frozen: Object.isFrozen(E.O),
                      step0R1: step0(E.R), step0R2: step0(R), derived: _sameModel(d.pageModel, R.pageModel),
                      derivedCtx: eq(d.ctx, R.context0.live),
-                     O2: eq(seal.O, state.fitResult.backendResult) }; }""")
+                     O2: !!window.__replies && eq(seal.O, window.__replies[window.__replies.length - 1]) }; }""")   # the final fit's reply
     finally:
         pg.close()
     assert got["seal"] and got["producer"] == "autoFit" and got["hasE"] and got["frozen"], got
@@ -137,7 +172,7 @@ def test_the_local_fallback_seals_its_own_snapshot(browser, server):  # noqa: F8
     finally:
         pg.close()
     assert got["seal"] and got["frozen"] and got["engine"] == "local" and got["producer"] == "local", got
-    for k in ("idx", "energies", "counts", "page", "viewEnergies", "viewChi2r", "viewRmse", "viewR", "viewBg", "model", "bgCert"):
+    for k in ("idx", "energies", "counts", "page", "viewEnergies", "viewChi2r", "viewRmse", "viewR", "viewBg", "viewFittedY", "model", "bgCert"):
         assert got[k] is True, (k, got)
     assert errors == [], errors
 
@@ -150,14 +185,19 @@ def test_use_this_solution_seals_the_alternative_start_and_the_choice(browser, s
     try:
         _setup(pg, SCENARIOS["gauss_voigt_linear_avg3_window"])
         pg.evaluate("async () => { await runFit(); }")
-        # an alternative in today's starts evidence (what Use this solution reads until step 7), from the fit itself
-        pg.evaluate("""() => { const fr = state.fitResult, st = structuredClone(fr.starts), ips = fr.backendResult.individual_peaks;
+        # an alternative in the fit's own starts evidence — step 7: Use this solution reads the SEAL's (O.starts), so
+        # the seal is replaced by a copy carrying it and checked again (the server checks the starts' form, not their
+        # values: it verifies CURRENT, which the handler requires)
+        pg.evaluate("""async () => { const s = structuredClone(state.fitResult.seal), st = s.O.starts, ips = s.O.individual_peaks;
             st.alternatives = [{ chi2r: st.fit.chi2r * 0.9, n_starts: 1,
               components: st.fit.components.map(c => { const ip = ips.find(q => q.id === c.id);
                 return { ...c, area: ip.params.area.value, params: { center: ip.params.center.value + 0.05, amplitude: ip.params.amplitude.value, fwhm: ip.params.fwhm.value } }; }),
               largest_centre_shift_from_start: st.fit.largest_centre_shift_from_start, largest_fraction_difference_pp: 1 }];
-            state.fitResult = { ...fr, starts: st }; }""")
+            state.fitResult = Object.freeze({ seal: _makeSeal(s) });
+            await _ensureVerified(_activeTab(), true); }""")
+        assert pg.evaluate("() => sealedState(state.fitResult, _activeTab()).state") == "current"
         start = pg.evaluate("() => _altPeaks(_currentAlternative(0))")
+        assert start
         pg.evaluate("async () => { await useAlternative(0); }")
         got = pg.evaluate("""(start) => { const seal = state.fitResult.seal;
             return { producer: seal.producer, chosen: seal.D.chosenAlternative, sameStart: _sameModel(seal.R.pageModel, start),
