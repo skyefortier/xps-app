@@ -1,0 +1,21 @@
+CORRECTNESS REVIEW, ROUND 1, of unit 1d ("Re-run this fit") of the sealed fit record in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software.
+
+REPO: this checkout, branch seal-1d, on seal-1c-s8 (unit 1c steps 2-8). 1d is `git diff seal-1c-s8..HEAD`. The plan is docs/superpowers/plans/2026-10-15-seal-1d-rerun.md; the design memo's "REPLAY-CHECKED" (docs/superpowers/plans/2026-09-02-background-architecture-sealed-fit-record.md, V5.4 and V6.22) and the owner's instruction (2026-10-15): judge the FIT, report the scattered starts SEPARATELY.
+
+WHAT 1d IS:
+- The comparator: tests/fit_equality.py's same-fit rules moved VERBATIM into the app module same_fit.py (`fit_differences` returns the problems; `assert_same_fit` wraps it); tests/fit_equality.py re-exports it, so every test and script uses the same function. One reading of "the same fit" — no page port.
+- POST /api/compare-fits {a, b} (app.py): both sides form-checked (`fitting.response_form_failure`; a side not of a response's form is a 400, never compared); the FIT compared without `starts`, `software` and `seed_source` (the starts on their own line; software is information, the numerics on their own line by the 2026-10-15 rule; a re-run passes the recorded seed explicitly, so its source reads 'caller'); the starts compared on their own (problems whose path starts with 'starts'); `numerics` = `fitting.numerics_difference(a.software)` (the re-run is made on this server).
+- The page (templates/index.html, "Seal 1d" block): a "Re-run this fit" button beside every sealed SERVER fit shown as recorded (Results, under the acceptance line) — not for a local, legacy, stale or unreadable one; the record's samples uploaded, its request with `seed: O.random_seed` through the start/poll path, the replies compared by the endpoint; Cancel; dropped if the tab closes or another fit is installed; the outcome (reproduced / a different solution — not unique, not stale / under other numerics / failed, plus the starts line) kept in a runtime WeakMap keyed by the seal: never installed, never saved, never changing the seal, the model or its state.
+- Measured (docs/findings/seal-1d/): the 202 committed records re-run through the real routes: 202 reproduced, the starts differ on 1 (an LA scan, 1.2e-7 relative); every record reads "other numerics" only through the four identity fields recorded since 2026-10-15, which these 2026-10-14 records lack.
+- Tests: tests/test_seal_1d_compare.py (server), tests/test_browser_seal_1d.py (page); tests/test_fit_equality.py unchanged, importing through the re-export.
+
+ANSWER EACH (cite file:line):
+1. Is same_fit.py exactly the former tests/fit_equality.py logic (nothing changed but the return of the problem list)? Does every importer still get the same objects?
+2. Is the endpoint's split correct: can a difference in the FIT be classified as a starts-only or numerics-only difference, or the reverse? Can excluding `software` / `seed_source` hide a real difference in the fit? Is any malformed input compared rather than refused, or can it raise?
+3. The page: can a re-run ever change the installed fit, the model, the seal's state, a save or an export? Can an outcome be shown beside a fit it was not made for (a replaced, edited, reloaded or other tab's fit)? Is the request it sends exactly the record's (samples, request, seed)?
+4. Are the measurement and its findings sound, and is "other numerics on all 202" correctly explained?
+5. Do the tests fail on the defects they name?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.
