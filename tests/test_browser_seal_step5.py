@@ -385,7 +385,8 @@ def test_tsv_and_csv_export_the_record_and_its_state(browser, server):  # noqa: 
         tsv = _export(pg, "() => exportResults()", "tsv")
         lines = tsv.split("\n")
         assert lines[0].startswith("# Fit state: PENDING"), lines[:2]
-        first = lines[2].split("\t")
+        assert lines[1].startswith("# Record provenance: "), lines[:3]       # step 6
+        first = lines[3].split("\t")
         want = pg.evaluate("""() => { const v = sealedState(state.fitResult, _activeTab()).view, i = 0;
             return [v.energies[i].toFixed(4), v.counts[i].toFixed(2), v.background[i].toFixed(2), (v.counts[i] - v.background[i]).toFixed(2),
                     v.fittedSub[i].toFixed(2), v.residuals[i].toFixed(2), ...state.peaks.map(p => _sealComponent(v, p).y[i].toFixed(2))]; }""")

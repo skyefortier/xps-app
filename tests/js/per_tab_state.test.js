@@ -53,6 +53,7 @@ const ALLOWLIST = {
   _stagedTxns: 'A', _stagedTxnSeq: 'A',   // seal 1c step 4: Auto-Fit's staged verification transactions, WeakMap keyed by the tab record (like _sealAttempts)
   _serverNumerics: 'B', _NUMERICS_IDENTITY_KEYS: 'B', _numericsEpoch: 'B', _numericsAllowance: 'B', _numericsSplit: 'B', _checksInFlight: 'B',   // owner 2026-10-15: the server's declared numerics, epoch, allowance and split (page-wide, not per tab)
   _sealDetached: 'B',   // seal 1c step 5: WeakSet of snapshot records with a detached check in flight (keyed by the immutable seal)
+  _sealSchemaMemo: 'B',   // seal 1c step 6: WeakMap memo seal -> its schema verdict (derived, keyed by the immutable seal)
   _sealIds: 'B', _sealIdSeq: 'B',   // seal 1c step 5: a display identity per immutable seal (repaint signature; no tab content)
   _SEAL_AUTHORITATIVE: 'A',   // seal 1c step 5: the readers' switch (a `let` for the tests; removed in step 7)
   BG_LABELS: 'B',            // constant table: background methods' display names (background math, 2026-10-01)

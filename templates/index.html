@@ -7155,6 +7155,98 @@ function _localRecordOf(R, O) {
                                 reason: cert ? cert.reason || '' : '' },
            certificate: O.certificate, software: sw && typeof sw === 'object' ? { ...sw, role: 'served_the_page' } : null };
 }
+// Seal 1c step 6 (plan §8.6): what a seal must hold to be READ at all — a loaded file is untrusted data — every
+// part of the plan §1 form with its type, and the ids and colours of its models as the loaders require them. A
+// seal that fails is PEAKS-ONLY with this reason, never reconstructed by the legacy adapter. Memoised per seal
+// (seals are frozen).
+const _sealSchemaMemo = new WeakMap();
+function _sealSchemaFailure(seal) {
+  if (seal && typeof seal === 'object' && _sealSchemaMemo.has(seal)) return _sealSchemaMemo.get(seal);
+  const why = _sealSchemaFailureUncached(seal);
+  if (seal && typeof seal === 'object') _sealSchemaMemo.set(seal, why);
+  return why;
+}
+function _sealSchemaFailureUncached(seal) {
+  const isObj = x => !!x && typeof x === 'object' && !Array.isArray(x);
+  const num = x => typeof x === 'number';
+  const nums = (a, n) => Array.isArray(a) && (n === undefined || a.length === n) && a.every(num);
+  const isId = x => typeof x === 'string' || typeof x === 'number';
+  const models = a => Array.isArray(a) && a.every(isObj) && !_peaksLoadError(a);
+  if (!isObj(seal)) return 'not a record';
+  if (seal.v !== 'xps-seal-1') return 'an unknown record version';
+  const PRODUCERS = { server: ['runFit', 'useSolution', 'autoFit'], local: ['local', 'batch'] };
+  if (!Object.hasOwn(PRODUCERS, seal.engine) || !PRODUCERS[seal.engine].includes(seal.producer)) return 'an unknown engine or producer';
+  const rFail = R => {
+    if (!isObj(R)) return 'no R';
+    if (!models(R.pageModel)) return 'R\'s start model is not a list of peaks with valid ids and colours';
+    if (!isObj(R.context0) || !isObj(R.context0.live) || !(R.context0.producer == null || isObj(R.context0.producer))) return 'R\'s context is malformed';
+    if (!Array.isArray(R.idx) || !R.idx.every(i => Number.isInteger(i) && i >= 0)) return 'R\'s sample indices are malformed';
+    if (!nums(R.energies, R.idx.length) || !nums(R.counts, R.idx.length)) return 'R\'s samples are malformed';
+    if (!isObj(R.page)) return 'R has no page identity';
+    if (seal.engine === 'server' && !(isObj(R.request) && Array.isArray(R.request.peaks))) return 'R has no request';
+    return null;
+  };
+  const oFail = (O, n) => {
+    if (!isObj(O) || typeof O.success !== 'boolean') return 'no O';
+    if (seal.engine === 'server') {
+      for (const k of ['energy', 'counts', 'fitted_y', 'fitted_sub', 'background_y', 'residuals'])
+        if (!nums(O[k], n)) return 'O.' + k + ' is not the samples\' length';
+      if (!Array.isArray(O.individual_peaks) || !O.individual_peaks.every(ip => isObj(ip) && isId(ip.id) && nums(ip.y, n) &&
+          isObj(ip.params) && isObj(ip.params.area) && num(ip.params.area.value) && (ip.support == null || isObj(ip.support))))
+        return 'O\'s components are malformed';
+      const st = O.statistics;
+      if (!isObj(st) || !['chi_square', 'reduced_chi_square', 'rmse'].every(k => num(st[k])) || !(st.r_factor === null || num(st.r_factor)))
+        return 'O\'s statistics are malformed';
+      const sf = O.starts;   // read by the starts panel before any check
+      if (!(sf == null || (isObj(sf) && isObj(sf.fit) && num(sf.fit.chi2r) && Array.isArray(sf.fit.components) &&
+            sf.fit.components.every(c => isObj(c) && isId(c.id) && num(c.area_percent) && num(c.center_shift_from_start)) &&
+            Array.isArray(sf.alternatives) && sf.alternatives.every(a => isObj(a) && num(a.chi2r) && Array.isArray(a.components) &&
+              a.components.every(c => isObj(c) && isId(c.id) && num(c.area_percent) && num(c.center_shift_from_start) && isObj(c.params))))))
+        return 'O\'s scattered-starts evidence is malformed';
+      if (!(O.certificate == null || isObj(O.certificate)) || !(O.required == null || isObj(O.required))) return 'O\'s certificate or anchor check is malformed';
+      return null;
+    }
+    if (!nums(O.energies, n) || !nums(O.net, n) || !nums(O.weights, n) || !nums(O.modelSum, n)) return 'the local O\'s arrays are malformed';
+    if (!isObj(O.background) || !nums(O.background.values, n)) return 'the local O\'s background is malformed';
+    if (!models(O.model) || !Array.isArray(O.paramMap) || !Array.isArray(O.curves) || O.curves.length !== O.model.length ||
+        !O.curves.every(c => nums(c, n)) || !nums(O.areas, O.model.length)) return 'the local O\'s model is malformed';
+    if (!['chi2', 'chi2r', 'rmse'].every(k => num(O[k])) || !(O.rFactor === null || num(O.rFactor)) || !isObj(O.support))
+      return 'the local O\'s statistics are malformed';
+    return null;
+  };
+  const r = rFail(seal.R);
+  if (r) return r;
+  const o = oFail(seal.O, seal.R.idx.length);
+  if (o) return o;
+  if (!(seal.D == null || isObj(seal.D))) return 'D is malformed';
+  if (seal.producer === 'autoFit') {
+    if (!isObj(seal.E)) return 'an Auto-Fit record without its anchor fit';
+    const e = rFail(seal.E.R) || oFail(seal.E.O, seal.E.R.idx.length);
+    if (e) return 'the anchor fit: ' + e;
+  } else if (seal.E != null) return 'evidence on a record that is not Auto-Fit\'s';
+  return null;
+}
+
+// Plan §8.3 (G6): what the record attests about the software that produced it — ATTESTED when the fitting
+// software (server: O.software; local: the page's, R.page.software) names a 40-hex commit of a CLEAN checkout and
+// its environment digest, and the producing page its own and its reference data's digests; else INCOMPLETE with
+// what is missing. A note: it never withholds a statistic (Q4).
+function _sealProvenance(seal) {
+  const sw = seal.engine === 'server' ? seal.O.software : (seal.R.page && seal.R.page.software);
+  const pg = seal.R.page && seal.R.page.page;
+  const missing = [];
+  if (!(sw && typeof sw.git_commit === 'string' && /^[0-9a-f]{40}$/.test(sw.git_commit))) missing.push('the software commit');
+  if (!(sw && sw.git_dirty === false)) missing.push('a clean checkout');
+  if (!(sw && typeof sw.env_sha256 === 'string' && sw.env_sha256)) missing.push('the environment digest');
+  if (!(pg && typeof pg.page_sha256 === 'string' && pg.page_sha256)) missing.push('the page digest');
+  if (!(pg && typeof pg.reference_sha256 === 'string' && pg.reference_sha256)) missing.push('the reference-data digest');
+  return { state: missing.length ? 'INCOMPLETE' : 'ATTESTED', missing };
+}
+function _sealProvenanceText(pv) {
+  return pv.state === 'ATTESTED' ? 'ATTESTED (clean commit, environment and page digests on record)'
+    : 'INCOMPLETE \u2014 the record does not name ' + pv.missing.join(', ');
+}
+
 // The VIEW of a seal (plan §7): every number a consumer shows for a sealed fit, from O alone (server) or the
 // local O. Pure; memoised per seal.
 const _sealViews = new WeakMap();
@@ -7192,6 +7284,7 @@ function _sealView(seal) {
   const r = v.statistics.rFactor;
   v.rPanel = r === null || r === undefined ? null : { rPct: r * 100, level: r * 100 < 5 ? 'good' : (r * 100 <= 10 ? 'amber' : 'red') };
   v.record = seal.engine === 'server' ? _fitRecordFrom(O) : _localRecordOf(R, O);
+  v.provenance = _sealProvenance(seal);
   v.initialValues = R.pageModel;
   v.chosenAlternative = (seal.D && seal.D.chosenAlternative) || null;
   v.producer = seal.producer;
@@ -9352,7 +9445,8 @@ function sealedState(fr, owner, opts) {
   if (!seal) return { state: 'legacy', check: null, reason: 'saved before sealed records — re-run this fit to confirm', view: null };
   let view;
   try {
-    if (seal.v !== 'xps-seal-1' || !seal.R || !seal.O || !seal.R.context0 || !seal.R.pageModel) throw new Error('not a seal');
+    const schema = _sealSchemaFailure(seal);
+    if (schema) throw new Error(schema);
     view = _sealView(seal);
     const b = _sealBindings(seal, owner);
     if (!b.ok) return { state: 'stale', check: b.check, reason: b.reason, view };
@@ -10874,6 +10968,9 @@ function renderResults() {
       ? '<p style="color:var(--amber,#f59e0b);font-size:11px;text-align:center;padding:20px 0">&#9888; This model was imported from a local fit: a starting point, not a reportable result. Run Fit to obtain results.</p>'
       : '<p style="color:var(--text3);font-size:11px;text-align:center;padding:20px 0">Run the fit to see results.</p>';
     el.innerHTML += _outsideWindowNoteHtml(_areaGrid());   // the note needs no fit (a saved fit dropped on load, a model not yet fitted)
+    // V6.8 (seal step 6): a legacy fit that could not be restored keeps its record, shown here
+    { const t = _activeTab(), pv = _SEAL_AUTHORITATIVE && t && t.provenance;
+      if (pv) el.innerHTML += `<div class="tab-provenance-note" style="font-size:11px;line-height:1.5;color:var(--text2);margin-top:6px">The saved fit of this model was not restored${pv.reason ? ' (' + _escHtml(pv.reason) + ')' : ''}. Its record: ${_fitRecordRows(pv.record).map(([k, v]) => _escHtml(k) + ' ' + _escHtml(String(v))).join('; ')}.</div>`; }
     el.setAttribute('data-area-sig', _areaSignature());
     // Quantify (#quantify-area) is populated by renderQuantify(), called
     // only from the non-null path below — without this it kept showing
@@ -10937,6 +11034,7 @@ function renderResults() {
       </div>` : ''}
     </div>
     ${_stale ? '' : _renderRFactorPanel(_shown.rFactor, _shown.sealState)}
+    ${_shown.sealState ? `<div class="seal-provenance" data-provenance="${_sealedDisplay(state.fitResult).view.provenance.state}" style="font-size:10px;color:var(--text3);margin:-6px 0 8px">Record provenance: ${_escHtml(_sealProvenanceText(_sealedDisplay(state.fitResult).view.provenance))}</div>` : ''}
     <table class="results-table">
       <thead><tr>
         <th>Peak</th><th>Center (eV)</th><th>FWHM (eV)</th><th>Area</th><th>%</th>
@@ -11381,6 +11479,8 @@ function _restoredModelIsFit(rec) {
 }
 function _restoredFitBgFailure(rec) {
   if (!rec || !rec.fitResult || rec.isStack) return null;
+  // §8.1: the legacy restore machinery is never handed a sealed fit (the loaders dispatch first)
+  if (_SEAL_AUTHORITATIVE && rec.fitResult.seal) throw new Error('the legacy restore was handed a sealed fit');
   // the certificate needs the raw data: a fit without them cannot be checked, so it
   // is not restored (Codex impl round 4: a truncated record used to skip the check)
   if (!Array.isArray(rec.rawBE) || !Array.isArray(rec.rawIntensity) || rec.rawBE.length < 2 ||
@@ -11836,7 +11936,23 @@ function _legacyVoigts(peaks) {
   }
   return out;
 }
-function _dropRestoredFit(rec) {
+// Seal 1c step 6 (plan §8.6): ONE installer of a SAVED sealed fit, for both formats (a project's tab, a spectrum
+// file). The record is installed exactly as saved, deep-frozen — no legacy field is read and nothing is rebuilt
+// from it; the workspace loads as saved and sealedState judges it (an edit saved stays an edit: STALE). Returns
+// the schema's reason when the record cannot be read (PEAKS-ONLY), else null. Its check starts once the tabs are
+// installed (_ensureVerified, a background attempt).
+function _installSavedSeal(rec, seal) {
+  rec.fitResult = Object.freeze({ seal: _deepFreeze(structuredClone(seal)) });
+  return _sealSchemaFailure(rec.fitResult.seal);
+}
+// V6.8: the record a LEGACY fit carried, kept beside the tab when its reconstruction falls back to peaks only
+// (`tab.provenance`), saved, loaded and shown while the tab has no fit. Loaded only in its own form.
+function _loadedTabProvenance(x) {
+  return x && typeof x === 'object' && _isFitRecord(x.record) ? { record: x.record, reason: typeof x.reason === 'string' ? x.reason : '' } : null;
+}
+function _dropRestoredFit(rec, reason) {
+  if (_SEAL_AUTHORITATIVE && rec.fitResult && _isFitRecord(rec.fitResult.record))
+    rec.provenance = { record: rec.fitResult.record, reason: reason || '' };
   rec.fitResult = null;
   for (const p of rec.peaks || []) if (p.support) p.support = null;   // its verdicts belonged to that fit
 }
@@ -13179,6 +13295,7 @@ function _doSaveSpectrum() {
   if (_autoFitBlocks()) return;   // Q8: nothing is written during an Auto-Fit
   tabManager._syncActiveToRecord();
   const tab = tabManager._getTab(tabManager.activeId);
+  if (_SEAL_AUTHORITATIVE && state.fitResult && state.fitResult.seal) { _doSaveSealedSpectrum(tab); return; }
 
   // a RESTORED-stale fit not edited since (2026-10-03): the file keeps the fit's own
   // points, counts, envelope and background — and residuals against that envelope
@@ -13277,6 +13394,7 @@ function _doSaveSpectrum() {
     notes: tab.notes || '',
     manualAnchors: tab.manualAnchors || [],
     modelProvenance: tab.modelProvenance || null,
+    ...(_SEAL_AUTHORITATIVE ? { provenance: state.fitResult ? null : (tab.provenance || null) } : {}),   // V6.8 (seal step 6)
   };
 
   const fname = document.getElementById('save-fname').value.trim() || 'spectrum';
@@ -13284,6 +13402,48 @@ function _doSaveSpectrum() {
     new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'}),
     fname + '.spec.json'
   );
+  notify('Spectrum + fit saved.', 'green');
+}
+
+// Seal step 6 (plan §8.4): a SEALED fit's spectrum file — the workspace as it is (an edit saved stays an edit and
+// reloads STALE) and the seal at the top level. The convenience fields (roiBE, fitCounts, background, fittedY,
+// residuals, peakCurves, statistics) are written FROM THE VIEW for external readers; the sealed loader never reads
+// them back. A STALE fit's are its record's, and its statistics say so (no statistic is written as current).
+function _doSaveSealedSpectrum(tab) {
+  const fr = state.fitResult, st = sealedState(fr, tab), v = st.view;
+  const displayed = st.state === 'current' || st.state === 'pending' || st.state === 'unconfirmed';
+  const conv = v ? {
+    roiBE: v.energies.slice(), fitCounts: v.counts.slice(), background: v.background.slice(), backgroundFailure: null,
+    fittedY: v.fittedY.slice(), residuals: v.residuals.slice(),
+    peakCurves: tab.peaks.map(p => { const c = _sealComponent(v, p);
+      return { id: p.id, name: p.name, y: c ? c.y.slice() : null, area: c ? c.area : null }; }),
+    statistics: {
+      ...(displayed ? { chi: v.statistics.chi2, chiReduced: v.statistics.chi2r, rmse: v.statistics.rmse, rFactor: v.rPanel }
+                    : { statisticsState: 'stale', statisticsNote: _sealStaleNote(fr) }),
+      engine: v.designation.engine, objective: v.designation.objective, weighting: v.designation.weighting,
+      reportable: v.designation.reportable, caveat: v.designation.caveat, record: v.record,
+      sealState: _exportSealState(fr), provenance: v.provenance,
+    },
+  } : { statistics: { sealState: _exportSealState(fr) } };
+  const data = {
+    version: 2,
+    timestamp: new Date().toISOString(),
+    spectrumName: tab.name,
+    rawBE: tab.rawBE,
+    rawIntensity: tab.rawIntensity,
+    ccShift: tab.ccShift,
+    peaks: tab.peaks.map(p => ({...p})),
+    nextId: tab.nextId,
+    ui: {...tab.ui},
+    ...conv,
+    seal: fr.seal,
+    notes: tab.notes || '',
+    manualAnchors: tab.manualAnchors || [],
+    modelProvenance: tab.modelProvenance || null,
+    provenance: tab.provenance || null,
+  };
+  const fname = document.getElementById('save-fname').value.trim() || 'spectrum';
+  _downloadBlob(new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'}), fname + '.spec.json');
   notify('Spectrum + fit saved.', 'green');
 }
 
@@ -13328,7 +13488,8 @@ async function _doSaveProject() {
       ccShift: t.ccShift, chargeVerified: t.chargeVerified ?? true,
       peaks: t.peaks.map(p => ({...p})),
       nextId: t.nextId,
-      fitResult: t.fitResult ? {
+      // seal step 6 (§8.4): a sealed fit is saved as its seal and nothing else authoritative
+      fitResult: (_SEAL_AUTHORITATIVE && t.fitResult && t.fitResult.seal) ? { seal: t.fitResult.seal } : t.fitResult ? {
         chi: t.fitResult.chi, chiReduced: t.fitResult.chiReduced,
         rmse: t.fitResult.rmse, fittedY: t.fitResult.fittedY || null,
         rFactor: t.fitResult.rFactor || null,   // F1: the fit's own R, not one recomputed from edited peaks on reload
@@ -13362,6 +13523,7 @@ async function _doSaveProject() {
         ..._statsSaveFields(_statsRecordState(t), t.fitResult),   // F1: judged against the RECORD's key
       } : null,
       modelProvenance: t.modelProvenance || null,
+      ...(_SEAL_AUTHORITATIVE ? { provenance: t.fitResult ? null : (t.provenance || null) } : {}),   // V6.8 (seal step 6)
       notes: t.notes || '',
       manualAnchors: t.manualAnchors || [],
       lineWidth: t.lineWidth ?? 1.5,
@@ -13585,7 +13747,16 @@ function _loadSpectrumFile(data, sessionFile) {
   if (data.notes) active.notes = data.notes;
   active.modelProvenance = _isLocalProvenance(data.modelProvenance) ||
     (data.modelProvenance && _isFitRecord(data.modelProvenance.record)) ? data.modelProvenance : null;
-  if (data.statistics) {
+  if (_SEAL_AUTHORITATIVE) active.provenance = _loadedTabProvenance(data.provenance);   // V6.8 (seal step 6)
+  // seal step 6 (§8.6): the sealed / legacy dispatch comes FIRST; a sealed file's convenience arrays and
+  // statistics (written for external readers) are never read back
+  let sealedLoad = false;
+  if (_SEAL_AUTHORITATIVE && data.seal) {
+    sealedLoad = true;
+    const why = _installSavedSeal(active, data.seal);
+    state.fitResult = active.fitResult;
+    if (why) notify('Saved fit record cannot be read (' + why + '). The model (the peaks) is kept; run Fit to fit it again.', 'amber', true);
+  } else if (data.statistics) {
     const fr = { chi: data.statistics.chi, chiReduced: data.statistics.chiReduced, rmse: data.statistics.rmse };
     for (const k of ['engine', 'objective', 'weighting', 'status', 'caveat', 'starts', 'startsModelKey', 'chosenAlternative', 'certificateMove']) if (data.statistics[k]) fr[k] = data.statistics[k];
     if (typeof data.statistics.restoredKey === 'string') fr.restoredKey = data.statistics.restoredKey;   // what an older save's fit had
@@ -13633,7 +13804,7 @@ function _loadSpectrumFile(data, sessionFile) {
       notify('Saved fit restored as STALE: it was ' + _restoredStaleWhy(fr) + '. Its own background and peaks are shown; its statistics are not reported. Run Fit to fit it again.', 'amber', true);
     }
     if (failure) {
-      _dropRestoredFit(active);
+      _dropRestoredFit(active, failure);
       state.fitResult = null;
       notify('Saved fit not restored: ' + failure + ' The model (the fitted peaks) is kept; run Fit to fit it again.', 'amber', true);
     }
@@ -13644,6 +13815,7 @@ function _loadSpectrumFile(data, sessionFile) {
   updatePlot();
   renderResults();   // installs the restored result's designation in Results/Quantify and the statistic display (unit A0)
   notify('Spectrum loaded as new tab: ' + active.name, 'green');
+  if (sealedLoad) _ensureVerified(active);
 }
 
 // ── Project-load resource caps (audit F8) ─────────────────────────────
@@ -13782,6 +13954,7 @@ function _loadProjectJSON(data, sessionFile) {
       nextId: t.nextId || 1,
       fitResult: t.fitResult || null,
       modelProvenance: t.modelProvenance || null,
+      provenance: _SEAL_AUTHORITATIVE ? _loadedTabProvenance(t.provenance) : null,   // V6.8 (seal step 6)
       // Autofit candidate-set annotations — restored verbatim when present
       // (see buildTabData; absent in pre-engine saves → null).
       analysis: t.analysis ?? null,
@@ -13812,10 +13985,16 @@ function _loadProjectJSON(data, sessionFile) {
   }
   // A restored fit whose background has no converged solution now is dropped
   // (background math, 2026-10-01): nothing downstream may treat it as a fit.
-  const droppedFits = [], staleFits = [];
+  const droppedFits = [], staleFits = [], sealedTabs = [], unreadableSeals = [];
   for (const tab of newTabs) {
+    // seal step 6 (§8.6): the sealed / legacy dispatch comes FIRST — a sealed fit never reaches the legacy adapter
+    if (_SEAL_AUTHORITATIVE && !tab.isStack && tab.fitResult && tab.fitResult.seal) {
+      const why = _installSavedSeal(tab, tab.fitResult.seal);
+      if (why) unreadableSeals.push(tab.name + ' — ' + why); else sealedTabs.push(tab);
+      continue;
+    }
     const failure = _restoredFitBgFailure(tab);
-    if (failure) { _dropRestoredFit(tab); droppedFits.push(tab.name + ' — ' + failure); }
+    if (failure) { _dropRestoredFit(tab, failure); droppedFits.push(tab.name + ' — ' + failure); }
     else if (_restoredStale(tab.fitResult)) staleFits.push(tab.name + ' — ' + _restoredStaleWhy(tab.fitResult));
   }
   if (droppedFits.length) {
@@ -13823,6 +14002,9 @@ function _loadProjectJSON(data, sessionFile) {
   }
   if (staleFits.length) {
     notify('Saved fit restored as STALE: ' + staleFits.join('. ') + '. Its own background and peaks are shown; its statistics are not reported. Run Fit to fit it again.', 'amber', true);
+  }
+  if (unreadableSeals.length) {
+    notify('Saved fit record cannot be read: ' + unreadableSeals.join('. ') + '. The model (the peaks) is kept; run Fit to fit it again.', 'amber', true);
   }
 
   // Rewrite stack-entry source references through idMap BEFORE pruning.
@@ -13910,6 +14092,8 @@ function _loadProjectJSON(data, sessionFile) {
   tabManager._updateSurveyPanel();
   const label = data.sample_name ? ('"' + data.sample_name + '" — ') : '';
   notify('Project loaded: ' + label + newTabs.length + ' tab' + (newTabs.length !== 1 ? 's' : '') + '.', 'green');
+  // every loaded sealed fit is checked now, the inactive tabs too (stack sources; plan §9)
+  for (const tab of sealedTabs) _ensureVerified(tab);
 }
 
 async function _loadZipProject(file) {
@@ -14035,7 +14219,8 @@ function _exportSealedTsv(sealed) {
                ...comps.map(c => c ? c.y[i].toFixed(2) : '')]);
   }
   const warning = (_isLocalFit(state.fitResult) ? '# WARNING: ' + _localFitCaveat(state.fitResult) + '\n' : '');
-  const stateLine = '# Fit state: ' + _exportSealState(state.fitResult) + ' (the columns are this fit as recorded)\n';
+  const stateLine = '# Fit state: ' + _exportSealState(state.fitResult) + ' (the columns are this fit as recorded)\n' +
+    '# Record provenance: ' + _sealProvenanceText(v.provenance) + '\n';
   const recLines = _fitRecordTextLines(v.record);
   const tsv = warning + stateLine + rows.map(r => r.join('\t')).join('\n') + (recLines.length ? '\n\n' + recLines.join('\n') : '');
   const blob = new Blob([tsv], { type: 'text/tab-separated-values' });
@@ -14552,6 +14737,7 @@ function exportFitTable(fmt) {
       ...(_stats === 'stale' ? [['WARNING', _staleNoteOf(state.fitResult)]] : [[_statName, chiStr]]),
       ...(_stats === 'unverified' ? [['NOTE', _STATS_UNVERIFIED_NOTE]] : []),
       ...(_sealLine ? [['Fit state', _sealLine]] : []),
+      ...(_sealLine && _sealedDisplay(state.fitResult) ? [['Record provenance', _sealProvenanceText(_sealedDisplay(state.fitResult).view.provenance)]] : []),
       ['Background type', bgType],
       ...(_isLocalFit(state.fitResult) ? [['WARNING', _localFitCaveat(state.fitResult)]] : []),
       ...(unsupportedNames.length ? [['WARNING', 'Not supported by the data (centre, width, uncertainties and At% not reported): ' + unsupportedNames.join(', ')]] : []),
@@ -14571,6 +14757,7 @@ function exportFitTable(fmt) {
     csv += _stats === 'stale' ? `# WARNING: ${_staleNoteOf(state.fitResult)}\n` : `# ${_statName}: ${chiStr}\n`;
     if (_stats === 'unverified') csv += `# NOTE: ${_STATS_UNVERIFIED_NOTE}\n`;
     if (_sealLine) csv += `# Fit state: ${_sealLine}\n`;
+    if (_sealLine && _sealedDisplay(state.fitResult)) csv += `# Record provenance: ${_sealProvenanceText(_sealedDisplay(state.fitResult).view.provenance)}\n`;
     csv += `# Background: ${bgType}\n`;
     if (_isLocalFit(state.fitResult)) csv += `# WARNING: ${_localFitCaveat(state.fitResult)}\n`;
     if (unsupportedNames.length) csv += `# WARNING: Not supported by the data (centre, width, uncertainties and At% not reported): ${unsupportedNames.join(', ')}\n`;

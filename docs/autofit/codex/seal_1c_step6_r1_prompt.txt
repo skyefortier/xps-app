@@ -1,0 +1,18 @@
+CORRECTNESS REVIEW of step 6 of unit 1c ("sealed fit record") in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software.
+
+REPO: this checkout, branch seal-1c-s6; review `git diff seal-1c-s5..HEAD` (step 5 — the consumers reading a sealed fit behind the switch `_SEAL_AUTHORITATIVE` — is under its own review; the owner's 2026-10-15 rule "confirmation by recomputation" is beneath it). THE PLAN: docs/superpowers/plans/2026-10-14-seal-1c-page.md §8 (8.1 mutators, 8.3 provenance, 8.4 saves, 8.5 the per-tab context, 8.6 loaders), §11, §12 step 6: "Both serializers and the one loader, early sealed / legacy dispatch, provenance persistence." Undo / history reinstall (8.2) and switching the producers belong to step 7.
+
+WHAT CHANGED (all behind the switch; with it off the page saves and loads exactly as before): `_sealSchemaFailure` (memoised per seal) — what a seal must hold to be read at all, every part of plan §1 typed, model ids / colours as the loaders require, and the parts the starts panel reads; `sealedState` uses it (PEAKS-ONLY with the reason). `_sealProvenance` / view.provenance — ATTESTED / INCOMPLETE (plan §8.3), shown in Results, CSV / XLSX / TSV. `_installSavedSeal` — the ONE installer for both formats (frozen `{seal}`, deep copy), used FIRST by the project loader (before the legacy restore) and the spectrum loader; every loaded seal is verified at once (`_ensureVerified`, inactive tabs too). Serializers: a project tab's `fitResult` is `{seal}` only; a spectrum file carries `seal` at the top level and convenience fields written from the view (`_doSaveSealedSpectrum`), never read back; a STALE save keeps the seal and the edited workspace. `tab.provenance` (V6.8): a legacy fit dropped to peaks-only keeps its record (`_dropRestoredFit(rec, reason)`), saved, loaded and shown in Results while the tab has no fit. 8.1: an installed seal is frozen; `_invalidateBgCache`, `_invalidateFittedY`, `_restampSupport` and the lazy R-factor do nothing to it (`_isInstalledSeal`); `_restoredFitBgFailure` throws if handed a sealed fit. Tests: tests/test_browser_seal_step6.py (17): JSON and ZIP projects (five tabs verified without activation), spectrum file (convenience fields ignored), local fit, Auto-Fit, edited saves reload STALE, a nondefault method, unreadable records PEAKS-ONLY without reaching the legacy adapter, the legacy refusal, legacy provenance round trip, provenance shown and exported, switch off unchanged.
+
+ANSWER EACH (cite file:line):
+1. Does every save and load path follow plan §8.4 / §8.6 (and is there any other loader or restore entry — `.fit.json`, the ZIP loader, drag-and-drop, history, Batch — that could hand a sealed fit to the legacy machinery or install one without the schema)?
+2. Is the schema complete and safe: can a loaded file make a page reader throw, inject markup through an id, colour or name, or read as a sealed fit while malformed? Is anything required that an honest seal lacks?
+3. Round trips: does every honest seal (server, local, Auto-Fit, "Use this solution", Batch) reload CURRENT after verification, an edited one STALE, and does a save written from a seal-only result (as loaded) lose nothing?
+4. The legacy provenance (V6.8) and the record provenance (§8.3): right fields, right states, shown where the plan says?
+5. 8.1: any mutator still writing into a frozen seal-only result, or any consumer expecting a legacy field a loaded seal no longer has?
+6. With the switch OFF, is everything exactly today's?
+7. Do the tests each fail on the defect they name?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.
