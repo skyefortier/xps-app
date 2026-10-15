@@ -167,6 +167,27 @@ def test_switch_off_is_todays_chart(browser, server):  # noqa: F811
         pg.close()
 
 
+def test_switch_off_draws_todays_stored_curves_beside_a_seal(browser, server):  # noqa: F811
+    """Codex step 5 round 6: with the switch off a seal rides beside today's result and changes NOTHING drawn — the
+    chart and the stack draw today's stored curves (made distinguishable here: shifted by 1000 / 99), never a
+    recomputation chosen because a seal is present."""
+    pg = _page(browser, server)
+    try:
+        pg.evaluate("() => { _SEAL_AUTHORITATIVE = false; }")
+        got = pg.evaluate("""() => { const fr0 = state.fitResult, src = _activeTab();
+            state.fitResult = { ...fr0, fittedY: fr0.fittedY.map(v => v + 1000), bgIntensity: fr0.bgIntensity.map(v => v + 99) };
+            tabManager._syncActiveToRecord(); updatePlot();
+            const ds = state.chart.data.datasets, env = ds.find(d => d.label === 'Fit'), bg = ds.find(d => d.label === 'Background');
+            const fr = state.fitResult, eq = (a, b) => a.length === b.length && a.every((x, i) => Object.is(x, b[i]));
+            const chart = { env: eq(env.data.map(p => p.y), fr.fittedY), bg: eq(bg.data.map(p => p.y), Array.from(fr.bgIntensity)) };
+            const stack = tabManager.createStackTab(); _addSpectrumToStack(stack, src.id);
+            const rd = _buildEntryRenderData(stack.entries[0]);
+            return { seal: !!fr.seal, chart, stack: { env: eq(rd.fittedY, fr.fittedY), bg: eq(rd.bg, Array.from(fr.bgIntensity)) } }; }""")
+        assert got == {"seal": True, "chart": {"env": True, "bg": True}, "stack": {"env": True, "bg": True}}, got
+    finally:
+        pg.close()
+
+
 # ── group 2: Results, header, status bar, sidebar, Quantify ──
 PANELS = """() => {
   updatePlot(); renderResults(); renderPeakList();
@@ -701,8 +722,15 @@ def test_a_stale_sealed_fit_draws_the_same_preview_with_or_without_legacy_copies
             const poisoned = { ...fr, be: fr.be.map(x => x + 1), bgIntensity: fr.bgIntensity.map(v => v + 99),
                                bgSubtracted: fr.bgSubtracted.map(v => v + 99), fittedY: fr.fittedY.map(v => v + 99) };
             const a = draw(Object.freeze({ seal: fr.seal })), b = draw(poisoned);
-            return [sealedState(state.fitResult, _activeTab()).state, a === b]; }""")
-        assert got == ["stale", True], got
+            const st = sealedState(state.fitResult, _activeTab()).state;
+            // the stack's entry for the same source, with and without the copies
+            const src = _activeTab(), stack = tabManager.createStackTab(); _addSpectrumToStack(stack, src.id);
+            const entry = (x) => { src.fitResult = x; stack.entries[0]._renderDataCache = null;
+              const rd = _buildEntryRenderData(stack.entries[0]);
+              return JSON.stringify([rd.be, rd.bg, rd.fittedY, rd.fittedSub, rd.rawY, rd.peaks.map(pc => pc.peakOnly)]); };
+            const c = entry(Object.freeze({ seal: fr.seal })), d = entry(poisoned);
+            return [st, a === b, sealedState(src.fitResult, src).state, c === d]; }""")
+        assert got == ["stale", True, "stale", True], got
     finally:
         pg.close()
 
@@ -731,9 +759,34 @@ def test_the_uncertainty_rules_read_the_records_sigma(browser, server):  # noqa:
             if (!target) return null;
             target[0].params[target[1]].stderr = null;
             state.fitResult = { ...state.fitResult, seal: _makeSeal(s) };
-            return _validateUncertainties().warnings.join(' '); }""")
-        if got is None:
-            pytest.skip("no parameter in this fit stayed within 0.1 % of its start")
-        assert "could not be estimated" in got, got
+            const name = state.peaks.find(q => String(q.id) === String(target[0].id)).name;
+            return { label: '<b>' + name + ' / ' + target[1] + ':</b> uncertainty could not be estimated',
+                     warnings: _validateUncertainties().warnings.join(' ') }; }""")
+        assert got is not None, "this fixture has a free parameter that stayed within 0.1 % of its start"
+        assert got["label"] in got["warnings"], got                         # the selected parameter's own warning
+    finally:
+        pg.close()
+
+
+@pytest.mark.parametrize("unreadable", [False, True], ids=["readable", "unreadable-record"])
+def test_a_fit_file_writes_nothing_from_beside_a_seal(browser, server, unreadable):  # noqa: F811
+    """Codex step 5 round 6: `.fit.json` read the legacy status, fit key, caveat, engine and statistic beside a seal
+    (and fell through to them when the record could not be read). A sealed fit's file is its view's or nothing."""
+    import json
+    pg = _page(browser, server)
+    try:
+        pg.evaluate(VERIFY)
+        pg.evaluate(CAPTURE)
+        pg.evaluate("""(unreadable) => { let seal = state.fitResult.seal;
+            if (unreadable) { const s = structuredClone(seal); s.v = 'something else'; seal = _makeSeal(s); }
+            state.fitResult = { seal, status: 'POISON', startsModelKey: 'POISON', caveat: 'POISON', engine: 'POISON',
+                                objective: 'POISON', weighting: 'POISON', reportable: 'POISON', chiReduced: 999.5 }; }""", unreadable)
+        name = pg.evaluate("() => (document.getElementById('save-fname').value.trim() || 'spectrum') + '.fit.json'")
+        text = _export(pg, "() => _doSaveFit()", name)
+        stats = json.loads(text)["fitStatistics"]
+        assert "POISON" not in text and "999.5" not in text, stats
+        if not unreadable:
+            v = pg.evaluate("() => { const d = _sealView(state.fitResult.seal).designation; return [d.engine, d.weighting]; }")
+            assert [stats["engine"], stats["weighting"]] == v and stats["sealState"] == "CURRENT", stats
     finally:
         pg.close()

@@ -358,10 +358,10 @@ test('spectrum load renders the Results panel after restoring a saved result, an
   const load = grab('function _loadSpectrumFile(', 9000);
   const tail = load.slice(load.indexOf("notify('Spectrum loaded as new tab") - 200, load.indexOf("notify('Spectrum loaded as new tab"));
   assert.match(tail, /renderResults\(\)/, 'Results (and the statistic display) must be rendered after the restored result is installed');
-  const save = grab('function _doSaveFit()', 3000);
-  assert.match(save, /fitStatistics: state\.fitResult \? \(\(sd, sv\) => \(\{/, 'Save Fit writes a fitStatistics block');
-  assert.match(save, /caveat: _localFitCaveat\(state\.fitResult\)/, 'Save Fit derives the caveat');
-  assert.match(save, /reportable: (sd \? sd\.reportable : \()?_isLocalFit\(state\.fitResult\) \? false/, 'Save Fit derives reportable (a sealed fit from its designation)');
+  const save = grab('function _doSaveFit()', 4500);
+  assert.match(save, /fitStatistics: state\.fitResult \? \(\(sd, sv, rs\) => \(\{/, 'Save Fit writes a fitStatistics block');
+  assert.match(save, /caveat: rs \? \(sd \? sd\.caveat : null\) : \(_localFitCaveat\(state\.fitResult\)/, 'Save Fit derives the caveat (a sealed fit from its designation)');
+  assert.match(save, /reportable: sd \? sd\.reportable : rs \? null : \(_isLocalFit\(state\.fitResult\) \? false/, 'Save Fit derives reportable (a sealed fit from its designation)');
 });
 
 test('_applyStatDisplay clears header, tooltip, caption and value together on local → none', () => {

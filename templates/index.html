@@ -9418,10 +9418,15 @@ function _sealStatsState(fr, owner) {
 }
 // The statistics a reader shows: a sealed fit's RECORDED ones (the R panel's ratio never recomputed), else the
 // result's own fields.
+// A result the SEALED readers own: the switch on and a seal present (Codex step 5 round 6: never the seal alone —
+// with the switch off a seal rides beside today's result and changes nothing).
+function _readsSeal(fr) { return _SEAL_AUTHORITATIVE && !!fr && !!fr.seal; }
 function _shownStats(fr) {
   const s = fr && _sealedDisplay(fr);
   if (s) return { chiReduced: s.view.statistics.chi2r, rmse: s.view.statistics.rmse, rFactor: s.view.rPanel,
                   sealState: s.state, sealReason: s.reason };
+  // a sealed fit not shown as recorded (STALE, unreadable) has no statistic to show: never a copy beside its seal
+  if (_readsSeal(fr)) return { chiReduced: null, rmse: null, rFactor: null, sealState: null, sealReason: '' };
   return { chiReduced: fr ? fr.chiReduced : null, rmse: fr ? fr.rmse : null, rFactor: fr ? fr.rFactor : null, sealState: null, sealReason: '' };
 }
 // What a reader rendered for a sealed fit — the seal's identity, state, failed check and reason — so a verdict
@@ -11851,7 +11856,7 @@ function _buildEntryRenderData(entry) {
   // be + bg + rawY — a STALE sealed source reconstructs from its record's settings (Path B), never from legacy
   // copies kept beside its seal (Codex step 5 round 5)
   let be, bg, rawY;
-  if (!fr.seal && Array.isArray(fr.be) && fr.be.length >= 2
+  if (!_readsSeal(fr) && Array.isArray(fr.be) && fr.be.length >= 2
       && Array.isArray(fr.bgIntensity)
       && fr.bgIntensity.length === fr.be.length) {
     // Path A/A2: fit-time be + bg both present (frozen).
@@ -12366,7 +12371,7 @@ function updatePlot() {
   const sealed = _sealedDisplay(state.fitResult);
   const sv = sealed && sealed.view;
   // a STALE sealed fit draws the live preview — never legacy copies kept beside its seal (Codex step 5 round 5)
-  const haveFit = !!sv || !!(state.fitResult && !state.fitResult.seal && Array.isArray(state.fitResult.be) &&
+  const haveFit = !!sv || !!(state.fitResult && !_readsSeal(state.fitResult) && Array.isArray(state.fitResult.be) &&
                      state.fitResult.be.length > 0 &&
                      Array.isArray(state.fitResult.bgIntensity) &&
                      state.fitResult.bgIntensity.length === state.fitResult.be.length);
@@ -13129,22 +13134,23 @@ function _doSaveFit() {
     // is a starting point, not a reportable result (unit A0).
     // seal step 5 (plan §7): a sealed fit's statistics, record and designation come from its view (the same field
     // names, so the importer, which reads fitStatistics, is unchanged); its state rides beside them
-    fitStatistics: state.fitResult ? ((sd, sv) => ({
+    // (rs: a sealed fit — nothing beside its seal is read, whether or not its record can be; Codex step 5 round 6)
+    fitStatistics: state.fitResult ? ((sd, sv, rs) => ({
       record: (r => _isFitRecord(r) ? r : null)(_exportRecordOf(state.fitResult)),   // the parameters' provenance (recording only)
-      chiReduced: (sd && _statsLiveState() === 'stale') ? null : (_shownStats(state.fitResult).chiReduced ?? null),   // a stale record's statistic is not written as current
-      engine: sd ? sd.engine : (state.fitResult.engine || null),
-      objective: sd ? (sd.engine === 'local' ? sd.objective : null) : (state.fitResult.objective || null),   // a server result carries none (_isLocalProvenance reads a Poisson objective as local)
-      weighting: sd ? sd.weighting : (state.fitResult.weighting || null),
-      status: state.fitResult.status || null,
+      chiReduced: (rs && _statsLiveState() === 'stale') ? null : (_shownStats(state.fitResult).chiReduced ?? null),   // a stale record's statistic is not written as current
+      engine: sd ? sd.engine : rs ? null : (state.fitResult.engine || null),
+      objective: sd ? (sd.engine === 'local' ? sd.objective : null) : rs ? null : (state.fitResult.objective || null),   // a server result carries none (_isLocalProvenance reads a Poisson objective as local)
+      weighting: sd ? sd.weighting : rs ? null : (state.fitResult.weighting || null),
+      status: rs ? null : (state.fitResult.status || null),
       ...(sv ? { sealState: sv } : {}),
       starts: _startsForSave(_startsIfCurrent(state.fitResult, _startsLiveKey())),
-      startsModelKey: state.fitResult.startsModelKey || null,
+      startsModelKey: rs ? null : (state.fitResult.startsModelKey || null),
       chosenAlternative: _startsIfCurrent(state.fitResult, _startsLiveKey()) ? _chosenOf(state.fitResult) : null,
       certificateMove: _certificateMoveIfCurrent(state.fitResult, _startsLiveKey()),
-      reportable: sd ? sd.reportable : (_isLocalFit(state.fitResult) ? false : (state.fitResult.reportable ?? null)),
-      caveat: _localFitCaveat(state.fitResult) || state.fitResult.caveat || null,
+      reportable: sd ? sd.reportable : rs ? null : (_isLocalFit(state.fitResult) ? false : (state.fitResult.reportable ?? null)),
+      caveat: rs ? (sd ? sd.caveat : null) : (_localFitCaveat(state.fitResult) || state.fitResult.caveat || null),
       ..._statsSaveFields(_statsLiveState(), state.fitResult),   // F1: says plainly when the statistics belong to the previous model
-    }))(_sealDesignation(state.fitResult), _exportSealState(state.fitResult)) : ((_activeTab() && _activeTab().modelProvenance) ? (_isLocalProvenance(_activeTab().modelProvenance) ? {
+    }))(_sealDesignation(state.fitResult), _exportSealState(state.fitResult), _readsSeal(state.fitResult)) : ((_activeTab() && _activeTab().modelProvenance) ? (_isLocalProvenance(_activeTab().modelProvenance) ? {
       ..._activeTab().modelProvenance, reportable: false, caveat: _localFitCaveat(_activeTab().modelProvenance),
     } : { ..._activeTab().modelProvenance }) : null),
   };

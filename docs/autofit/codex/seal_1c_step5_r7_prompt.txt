@@ -1,0 +1,15 @@
+CORRECTNESS REVIEW, ROUND 7, of step 5 of unit 1c ("sealed fit record") in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software.
+
+REPO: this checkout, branch seal-1c-s5 (on seal-numerics-rule at ab489b8... rebased: see `git log`). Step 5 is `git diff ab489b8..HEAD`. Read docs/autofit/codex/seal_1c_step5_r1_prompt.txt … r6_prompt.txt for what step 5 is. Round 6 (both runs NO-GO; verdicts seal_1c_step5_r6_verdict_run{A,B}.md) found one MAJOR — round 5's guards (`!fr.seal`) bypassed the authority switch, so with the switch OFF (as shipped) a seal-bearing Run Fit no longer drew its stored curves (chart) and the stack mixed paths — and MINORs: `.fit.json` wrote legacy `status`, `startsModelKey`, `caveat` (and engine / objective / weighting / reportable when the record was unreadable) from beside a seal; `_shownStats` read legacy statistics for a STALE sealed fit; the stale-preview test did not cover the stack; the sigma test could skip and accepted any warning.
+
+WHAT THIS ROUND CHANGES: one predicate `_readsSeal(fr)` = switch on AND a seal; the chart's frozen-fit branch and the stack's Path A / A2 are skipped only under it; `_shownStats` returns no statistic for a sealed fit not shown as recorded; `.fit.json` reads nothing beside a seal (designation from the view, else null). Tests: switch OFF, a seal beside today's result with distinguishable stored curves — the chart and the stack draw them (mutation-checked: the round-5 guards fail it, chart and stack background); the stale-preview test now covers the stack entry too; the sigma test asserts its fixture qualifies and requires the selected parameter's own warning; `.fit.json` with poisoned legacy fields beside a readable and an unreadable seal writes none of them (mutation-checked).
+
+ANSWER EACH (cite file:line):
+1. Is every round-6 finding resolved, or a stated limit? List each with its status.
+2. With the switch OFF, is everything a user sees, saves or exports exactly today's (stated exceptions: the total renderer / CSV-XLSX "—" for a missing statistic)?
+3. With the switch ON and a sealed fit in ANY state, does any consumer still read a legacy duplicate beside the seal?
+4. Do the new tests fail on the defects they name?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

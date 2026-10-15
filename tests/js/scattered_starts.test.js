@@ -279,7 +279,8 @@ test('wiring: the trigger is decided with the other request inputs, BEFORE the f
 test('persistence and export sites carry the summary', () => {
   // only evidence that still describes the saved model is written, with the key that binds it
   for (const fn of ['_doSaveFit', '_doSaveSpectrum']) {
-    assert.match(extractFn(fn), /starts: _startsForSave\(_startsIfCurrent\(state\.fitResult, _startsLiveKey\(\)\)\),\n\s*startsModelKey: state\.fitResult\.startsModelKey \|\| null,/, fn);
+    // (a sealed fit's .fit.json writes no key from beside its seal: seal 1c step 5, Codex round 6)
+    assert.match(extractFn(fn), /starts: _startsForSave\(_startsIfCurrent\(state\.fitResult, _startsLiveKey\(\)\)\),\n\s*startsModelKey: (rs \? null : \()?state\.fitResult\.startsModelKey \|\| null\)?,/, fn);
   }
   assert.strictEqual((html.match(/starts: _startsForSave\(_startsIfCurrent\(t\.fitResult, _startsRecordKey\(t\)\)\)/g) || []).length, 1, 'project save (buildTabData)');
   assert.strictEqual((html.match(/starts: _startsForSave\(/g) || []).length, 3, 'exactly three save sites');
