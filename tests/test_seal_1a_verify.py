@@ -209,12 +209,56 @@ def test_an_extra_or_missing_field_is_a_mismatch(client, sealed):
         assert v["state"] == "mismatch" and v["check"] == "schema", v
 
 
-def test_another_softwares_record_is_unconfirmed(client, sealed):
+# Owner 2026-10-15 (consistent with Q4): a seal is confirmed by RECOMPUTATION. Another git commit, checkout state
+# or environment is information only; other numerics only decide how a recomputation that DIFFERS reads.
+INFO_ONLY = ({"git_commit": "0" * 40}, {"git_dirty": True}, {"env_sha256": "0" * 64},
+             {"git_commit": "f" * 40, "git_dirty": False, "env_sha256": "1" * 64})
+
+
+@pytest.mark.parametrize("change", INFO_ONLY)
+def test_a_record_from_another_commit_or_environment_is_confirmed_by_recomputation(client, sealed, change):
     R, O = sealed
-    for change in ({"git_commit": "0" * 40}, {"numerics": "2026-10-09"}, {"env_sha256": "0" * 64}):
-        O2 = {**O, "software": {**O["software"], **change}}
-        v = _verify(client, R, O2)
-        assert v["state"] == "unconfirmed" and v["check"] == "software", v
+    v = _verify(client, R, {**O, "software": {**O["software"], **change}})
+    assert v["state"] == "consistent", (change, v)
+
+
+def test_a_deploy_with_no_numerics_change_leaves_existing_seals_confirmed(client, sealed, monkeypatch):
+    """The record was made by one deployment; the verifying server is ANOTHER deployment of the same numerics: a
+    new commit, another checkout state and environment (fitting.SOFTWARE as that server process would hold it)."""
+    R, O = sealed
+    deployed = {**fitting.SOFTWARE, "git_commit": "a" * 40, "git_dirty": False, "env_sha256": "b" * 64}
+    assert all(deployed[k] == O["software"][k] for k in fitting.NUMERICS_IDENTITY_KEYS)
+    assert deployed["git_commit"] != O["software"]["git_commit"]
+    monkeypatch.setattr(fitting, "SOFTWARE", deployed)
+    v = _verify(client, R, O)
+    assert v["state"] == "consistent" and v["software"]["git_commit"] == "a" * 40, v
+
+
+@pytest.mark.parametrize("change", ({"numerics": "2026-10-09"}, {"seed_derivation": "xps-fit-seed-v1"}, {"numpy": "1.0.0"}))
+def test_a_record_from_other_numerics_that_recomputes_exactly_is_confirmed(client, sealed, change):
+    R, O = sealed
+    v = _verify(client, R, {**O, "software": {**O["software"], **change}})
+    assert v["state"] == "consistent", (change, v)
+
+
+def test_a_record_from_other_numerics_that_recomputes_differently_is_unconfirmed_with_the_reason(client, sealed):
+    R, O = sealed
+    O2 = copy.deepcopy(O)
+    O2["software"]["numerics"] = "2026-10-09"
+    O2["fitted_y"][3] += 1e-6
+    v = _verify(client, R, O2)
+    assert v["state"] == "unconfirmed" and v["check"] == "numerics", v
+    assert "numerics 2026-10-09 (here " + fitting.NUMERICS_VERSION + ")" in v["reason"] and "fitted_y" in v["reason"], v
+    O2["software"]["numerics"] = fitting.NUMERICS_VERSION            # the same numerics: the record does not hold
+    v = _verify(client, R, O2)
+    assert v["state"] == "mismatch", v
+
+
+@pytest.mark.parametrize("sw", (None, "x", {"numerics": 1}, {}))
+def test_a_record_without_a_software_record_is_a_mismatch(client, sealed, sw):
+    R, O = sealed
+    v = _verify(client, R, {**O, "software": sw})
+    assert v["state"] == "mismatch" and v["check"] == "schema", (sw, v)
 
 
 def test_a_record_paired_with_another_request_is_a_mismatch(client, sealed):

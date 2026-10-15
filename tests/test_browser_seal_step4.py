@@ -232,14 +232,14 @@ def test_check_again_always_starts_a_new_attempt(browser, server):  # noqa: F811
     try:
         import json as _json
         pg.route("**/api/verify-fit", lambda route: route.fulfill(status=200, content_type="application/json",
-                 body=_json.dumps({"state": "unconfirmed", "check": "software", "reason": "another software record"})))
+                 body=_json.dumps({"state": "unconfirmed", "check": "numerics", "reason": "made under other numerics and the recomputation differs"})))
         pg.evaluate(VERIFY)
-        assert pg.evaluate(STATE) == ["unconfirmed", "software"]
+        assert pg.evaluate(STATE) == ["unconfirmed", "numerics"]
         pg.unroute("**/api/verify-fit")
         calls = []
         pg.on("request", lambda r: calls.append(r.url) if r.url.endswith("/api/verify-fit") else None)
         pg.evaluate(VERIFY)                                 # a background trigger: the answer is cached
-        assert calls == [] and pg.evaluate(STATE) == ["unconfirmed", "software"]
+        assert calls == [] and pg.evaluate(STATE) == ["unconfirmed", "numerics"]
         pg.evaluate("async () => { await _ensureVerified(_activeTab(), true); }")   # "check again"
         assert len(calls) == 1 and pg.evaluate(STATE) == ["current", None], calls
         # an unreachable server on "check again" leaves the cached answer in place
@@ -400,14 +400,14 @@ def _route_by_fit(pg, actions):
 
 
 MISMATCH = {"state": "mismatch", "check": "components", "reason": "test mismatch"}
-OTHER_SOFTWARE = {"state": "unconfirmed", "check": "software", "reason": "another software record"}
+OTHER_NUMERICS = {"state": "unconfirmed", "check": "numerics", "reason": "made under other numerics and the recomputation differs"}
 
 
 @pytest.mark.parametrize("actions,expect", [
     ({"E": MISMATCH, "R": "abort"}, ["stale", "components"]),         # a mismatch is never hidden by an unreachable check
     ({"E": "abort", "R": MISMATCH}, ["stale", "components"]),
     ({"E": "abort", "R": "continue"}, ["unconfirmed", "unreachable"]),
-    ({"E": OTHER_SOFTWARE, "R": "continue"}, ["unconfirmed", "software"]),
+    ({"E": OTHER_NUMERICS, "R": "continue"}, ["unconfirmed", "numerics"]),
     ({"E": "continue", "R": "continue"}, ["current", None]),
 ])
 def test_auto_fit_aggregates_its_two_checks_by_precedence(browser, server, actions, expect):  # noqa: F811
@@ -534,5 +534,32 @@ def test_staged_checks_resolve_only_their_current_transaction(browser, server): 
             tabManager.createTab('B', state.rawBE.slice(), state.rawIntensity.slice());
             return [await p, _commitStaged(txn, seal).committed]; }""")
         assert got == [None, False], got
+    finally:
+        pg.close()
+
+
+# Owner 2026-10-15: a seal from another deployment is confirmed by recomputation — its commit, checkout state and
+# environment are information only (the real server recomputes the record).
+@pytest.mark.parametrize("src", [
+    "s.O.software.git_commit = 'f'.repeat(40); s.O.software.git_dirty = true; s.O.software.env_sha256 = '0'.repeat(64)",
+    "s.O.software.numerics = '2026-10-09'",                          # other numerics, recomputing exactly
+])
+def test_a_seal_from_another_deployment_is_current_when_it_recomputes(browser, server, src):  # noqa: F811
+    pg = _fitted(browser, server)
+    try:
+        pg.evaluate(TAMPER, src)
+        pg.evaluate(VERIFY)
+        assert pg.evaluate(STATE) == ["current", None], src
+    finally:
+        pg.close()
+
+
+def test_a_seal_from_other_numerics_that_recomputes_differently_is_unconfirmed(browser, server):  # noqa: F811
+    pg = _fitted(browser, server)
+    try:
+        pg.evaluate(TAMPER, "s.O.software.numerics = '2026-10-09'; s.O.fitted_y[3] += 1e-6")
+        pg.evaluate(VERIFY)
+        st = pg.evaluate("() => { const s = sealedState(state.fitResult, _activeTab()); return [s.state, s.check, s.reason]; }")
+        assert st[:2] == ["unconfirmed", "numerics"] and "2026-10-09" in st[2], st
     finally:
         pg.close()

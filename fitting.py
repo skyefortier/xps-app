@@ -42,11 +42,18 @@ from scipy.optimize import least_squares as _scipy_least_squares
 
 SEED_TAG = "xps-fit-seed-v2"                      # _request_seed's derivation tag (recorded with every fit)
 # The version of the NUMERICS: bumped whenever a change can move a fitted number for the same
-# request (the background arithmetic, the optimiser path, the certificate, the seed derivation).
+# request (the background arithmetic, the optimiser path, the certificate, the seed derivation) — and
+# ONLY then (owner 2026-10-15): tests/test_numerics_version.py pairs it with a digest of the fitting math
+# (tests/fixtures/numerics_manifest.json) and fails on a math change without a bump, or a bump without one.
 # Recorded with every fit (owner 2026-10-10). History: "2026-10-09" — background math
 # (levels-only averaging, certified backgrounds, full-precision upload, seed v2), deployed then;
 # "2026-10-13" — the reported statistics formed from the returned arrays (seal 1a′, V6.6).
 NUMERICS_VERSION = "2026-10-13"
+# The fields of a software record that define the NUMBERS a fit computes (owner 2026-10-15, consistent with Q4):
+# the numerics version, the seed derivation and the numerical libraries. The rest — the git commit, whether the
+# checkout was clean, the environment digest — is recorded and shown as INFORMATION only: a seal is confirmed
+# by recomputation, whatever commit made it.
+NUMERICS_IDENTITY_KEYS = ("numerics", "seed_derivation", "python", "numpy", "scipy", "lmfit")
 # The fields every fit response RECORDS (owner 2026-10-10); fit_record() copies them.
 RECORD_KEYS = ("fit_method", "random_seed", "seed_source", "background_verdict", "certificate", "software")
 
@@ -3288,22 +3295,30 @@ def verify_fit(O, *, energy, counts, peak_specs, background_method="shirley", bg
     (``_fit_statistics``) and each component's support.
 
     ``{"state": "consistent" | "mismatch" | "unconfirmed", "check", "reason", "software"}``.
-    ``unconfirmed`` = it cannot be judged exactly here: O was computed by other software, holds a
-    non-finite number, or one of the two EVALUATION identities (a recorded curve / the model sum is this
-    server's evaluation of the parameters) failed on a request with a lineshape that is not evaluated
-    bit-identically (``NOT_BIT_STABLE_SHAPES``, owner Q7); every relation of the recorded arrays stays
-    exact. CONSISTENT is consistency under
+    The record is ALWAYS recomputed (owner 2026-10-15): another git commit, checkout state or environment
+    is information only, and a recomputation that matches is ``consistent`` whatever produced it.
+    ``mismatch`` = the recomputation differs under the SAME numerics (``NUMERICS_IDENTITY_KEYS``): the
+    record does not hold. ``unconfirmed`` = it cannot be judged exactly here: the recomputation differs
+    and the record was made under OTHER numerics (check ``numerics``, naming the fields and the failed
+    check), O holds a non-finite number, or one of the two EVALUATION identities (a recorded curve / the
+    model sum is this server's evaluation of the parameters) failed on a request with a lineshape that is
+    not evaluated bit-identically (``NOT_BIT_STABLE_SHAPES``, owner Q7); every relation of the recorded
+    arrays stays exact. CONSISTENT is consistency under
     this verifier's code, not acceptance: ``success``, ``message``, the σ, ``certificate``,
     ``starts`` and ``required`` are the producer's statements, shown AS RECORDED (option (b),
     owner 2026-10-11) — a re-run is what tests them."""
     def answer(state, check=None, reason=""):
         return {"state": state, "check": check, "reason": reason, "software": SOFTWARE}
 
+    other = []          # the numerics fields that differ from this server's (none known yet: a malformed record is a mismatch)
     try:
         if not isinstance(O, dict):
             raise _Mismatch("schema", "the recorded result is not an object")
-        if not _same(O.get("software"), _as_json(SOFTWARE)):
-            return answer("unconfirmed", "software", "computed by different software")
+        sw = O.get("software")
+        if not isinstance(sw, dict) or not all(isinstance(sw.get(k), str) for k in NUMERICS_IDENTITY_KEYS):
+            raise _Mismatch("schema", "the recorded software is not a software record")
+        # which numerics made the record: decides only how a recomputation that DIFFERS reads
+        other = [f"{k} {sw.get(k)} (here {SOFTWARE.get(k)})" for k in NUMERICS_IDENTITY_KEYS if sw.get(k) != SOFTWARE.get(k)]
         bad = _non_finite(O)
         if bad:
             return answer("unconfirmed", "non_finite",
@@ -3315,6 +3330,10 @@ def verify_fit(O, *, energy, counts, peak_specs, background_method="shirley", bg
     except _Unverifiable as exc:
         return answer("unconfirmed", exc.check, exc.reason)
     except _Mismatch as exc:
+        if other:
+            return answer("unconfirmed", "numerics",
+                          f"made under other numerics ({'; '.join(other)}) and the recomputation differs "
+                          f"({exc.check}: {exc.reason})")
         return answer("mismatch", exc.check, exc.reason)
     except Exception as exc:                 # never a 500 and never current: a record this verifier could not judge
         log.exception("verification raised")
