@@ -1,0 +1,25 @@
+**No outstanding BLOCKER, MAJOR, or MINOR correctness findings.** Round-1 defects are resolved; the save-test guarantee is now explicitly limited.
+
+1. **Round-1 findings**
+   - **MAJOR, recordless PNG — resolved.** State is computed independently of record availability; a recordless legacy fit receives `{sealState}`. [index.html:14828](/Users/skyefortier/xps-app/.claude/worktrees/seal-1c-s8/templates/index.html:14828)
+   - **MINOR, stale legacy header — resolved.** Both the suffix and tooltip qualify the fit. [index.html:10533](/Users/skyefortier/xps-app/.claude/worktrees/seal-1c-s8/templates/index.html:10533)
+   - **MINOR, dropped legacy fit — resolved.** Results identifies the unrestored saved fit and reason; export state says PEAKS-ONLY. [index.html:11145](/Users/skyefortier/xps-app/.claude/worktrees/seal-1c-s8/templates/index.html:11145), [index.html:9708](/Users/skyefortier/xps-app/.claude/worktrees/seal-1c-s8/templates/index.html:9708)
+   - **MINOR, measurements — resolved.** Correct medians, affected-fit denominator, and workflow qualification are documented. [README.md:39](/Users/skyefortier/xps-app/.claude/worktrees/seal-1c-s8/docs/findings/seal-1c/README.md:39), [README.md:69](/Users/skyefortier/xps-app/.claude/worktrees/seal-1c-s8/docs/findings/seal-1c/README.md:69)
+   - **MINOR, tests — resolved with a stated limit.** Missing surfaces now have assertions. The new save test establishes repeatability and absence of state wording across three formats; main equality remains the separate project census’s evidence. [test_browser_seal_step8.py:156](/Users/skyefortier/xps-app/.claude/worktrees/seal-1c-s8/tests/test_browser_seal_step8.py:156), [test_browser_seal_step8.py:235](/Users/skyefortier/xps-app/.claude/worktrees/seal-1c-s8/tests/test_browser_seal_step8.py:235)
+
+2. **No incorrect attribution or marker persistence found.** The WeakMap uses tab-object identity, marks only dropped unsealed fits, and deletes the entry when that tab has a fit. Results invokes that cleanup before rendering. Non-null export results use their own legacy/sealed state. In-memory probes passed for another tab, sealed results, the active working copy, and fit-then-clear. The marker adds no serializable tab field. [index.html:12150](/Users/skyefortier/xps-app/.claude/worktrees/seal-1c-s8/templates/index.html:12150), [index.html:11134](/Users/skyefortier/xps-app/.claude/worktrees/seal-1c-s8/templates/index.html:11134)
+
+3. **Saves and export layout are preserved by step 8.** All three save functions are byte-identical to step 7; `.fit.json` still uses `_exportSealState`, which excludes legacy wording. Existing census exceptions remain `provenance` and `ui.fitMethod`. CSV/TSV state uses the trailing block; XLSX uses trailing Info rows. PNG changes metadata only; its chunk writer is unchanged. [index.html:13485](/Users/skyefortier/xps-app/.claude/worktrees/seal-1c-s8/templates/index.html:13485), [README.md:19](/Users/skyefortier/xps-app/.claude/worktrees/seal-1c-s8/docs/findings/seal-1c/README.md:19), [index.html:9943](/Users/skyefortier/xps-app/.claude/worktrees/seal-1c-s8/templates/index.html:9943), [index.html:14960](/Users/skyefortier/xps-app/.claude/worktrees/seal-1c-s8/templates/index.html:14960)
+
+4. **The corrected numbers match the output rows.** I recomputed:
+   - Seal medians **68,123 B / 26,293 B**; maxima **95,112 B / 37,773 B**.
+   - The **113 affected** χ² values: median **1.020408%**, maximum **2.873563%**. Remaining **89**: maximum relative difference **1.370194 × 10⁻¹⁶**.
+   - Project totals and **111 CURRENT / 10 UNCONFIRMED**, with no recorded errors.
+
+   These support the corrected findings and the refit-and-resave interpretation. [README.md:39](/Users/skyefortier/xps-app/.claude/worktrees/seal-1c-s8/docs/findings/seal-1c/README.md:39), [README.md:67](/Users/skyefortier/xps-app/.claude/worktrees/seal-1c-s8/docs/findings/seal-1c/README.md:67)
+
+5. **The new assertions target the named defects.** In-memory regression probes confirmed that the PNG and stale-header assertions reject round-1 behavior. Inspection confirms direct assertions for dropped-fit presentation and cleanup, PENDING/UNCONFIRMED acceptance, and certificate qualification. The PNG test intercepts metadata construction rather than parsing the completed PNG; repeat-save equality cannot detect a deterministic change from main. [test_browser_seal_step8.py:144](/Users/skyefortier/xps-app/.claude/worktrees/seal-1c-s8/tests/test_browser_seal_step8.py:144), [test_browser_seal_step8.py:193](/Users/skyefortier/xps-app/.claude/worktrees/seal-1c-s8/tests/test_browser_seal_step8.py:193), [test_browser_seal_step8.py:253](/Users/skyefortier/xps-app/.claude/worktrees/seal-1c-s8/tests/test_browser_seal_step8.py:253)
+
+Validation: **130 selected JS tests passed**; one backend-parity test failed because the read-only sandbox lacks a writable temporary directory. Browser tests were inspected, not executed; I did not independently rerun every reported mutation check. No files changed.
+
+VERDICT: GO
