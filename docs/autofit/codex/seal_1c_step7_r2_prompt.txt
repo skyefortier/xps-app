@@ -1,0 +1,18 @@
+CORRECTNESS REVIEW, ROUND 2, of step 7 of unit 1c ("sealed fit record") in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software.
+
+REPO: this checkout, branch seal-1c-s7, on seal-1c-s6 (steps 5 and 6, reviewed; rebased since round 1 onto their latest fixes). Step 7 is `git diff seal-1c-s6..HEAD`. Read docs/autofit/codex/seal_1c_step7_r1_prompt.txt for what step 7 is. Round 1 (both runs NO-GO; verdicts seal_1c_step7_r1_verdict_run{A,B}.md) found two MAJORs and MINORs:
+- MAJOR: a fit could be stranded PENDING — Run Fit A installs its seal with its check in flight; Run Fit B claims the tab and fails; A's producer-bound reply is discarded and nothing re-requested it; the inactive-tab Auto-Fit rollback returned before re-verifying; an active rollback could find an obsolete producer attempt and stop.
+- MAJOR: Auto-Fit's confirmation phase ignored Cancel and had no timeout (the timer was cleared before the staged checks, which carried no abort signal; Cancel was read only after both replies).
+- MINOR: a rejected staged commit kept its cached verdict; an unpublished transaction stayed in `_stagedTxns`; the Auto-Fit success-toast assertion was weakened to any number; tests did not exercise these paths.
+
+WHAT THIS ROUND CHANGES: a producer-bound reply discarded (superseded or switched) while its seal is still the one installed hands over to a background check at once (`_verifySeal`), so no seal is stranded and an obsolete attempt never blocks recovery; the inactive-tab rollback re-verifies the seal it reinstalls; the staged checks carry the operation's abort signal and the confirmation has its own 2-minute timer — Cancel or timeout end it at once (throw → the catch path restores everything); a rejected commit forgets the verdict it cached; every unpublished transaction ends in the `finally` (`_abandonStaged`); the harness's stubbed view reads the seal's own statistic and the toast is pinned to 2.000 again. Also on this branch since round 1 (from steps 5-6): `_readsSeal` is a seal's presence (no switch); `_sealReadableView` (the schema gate) for every designation read. New tests (tests/test_browser_seal_step7.py, end): a fit whose check is discarded by a failed newer fit still reaches CURRENT with nothing else asked; Cancel during the held confirmation restores at once (bounded wait); a mismatch on the final check alone publishes nothing and ends the transaction; an Auto-Fit rolled back on an inactive tab re-verifies the seal it reinstalls. Each was mutation-checked (removing its fix fails it). The step-4 producer-bound test now requires the background recovery to start by itself.
+
+ANSWER EACH (cite file:line):
+1. Is every round-1 finding resolved, or a stated limit? List each with its status.
+2. Can any installed seal still be left PENDING with no attempt, no cached answer and no trigger to come (any order of operations: Run Fit, Use this solution, Auto-Fit, Batch, undo/redo, history, tab switch/close, load)?
+3. Auto-Fit: does every failure path (cancel and timeout at every phase, unreachable, mismatch on either check, superseded, tab switch) restore everything and leave no transaction or cached answer for an unpublished seal?
+4. Do the new tests fail on the defects they name? Does any change weaken an existing assertion?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.
