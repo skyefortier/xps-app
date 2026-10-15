@@ -169,7 +169,7 @@ def _load_c1s_with_stale_narrow_fit(pg):
         document.getElementById('sb-chi').textContent = '1.000';
         document.getElementById('fit-quality').textContent = 'χ²ᵣ = 1.00';
         document.getElementById('fit-quality').setAttribute('data-xps-tip', 'stale tip');
-        _updateRFactorUI({ rPct: 3.2, level: 'good' });
+        _updateRFactorUI(state.fitResult.rFactor);   // as the page itself calls it (step 8: a legacy fit's R reads '(legacy)')
         renderResults();
     }""")
 
