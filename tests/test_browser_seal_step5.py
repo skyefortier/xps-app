@@ -424,12 +424,17 @@ def test_the_stack_updates_in_place_from_the_record_and_follows_a_verdict(browse
             return { built, inPlace, label: peak0().label, envLabel: env().label, srcId: src.id }; }""")
         assert got["built"] and got["inPlace"], got
         assert got["label"].endswith("(" + pg.evaluate("() => _UNSUPPORTED_LABEL") + ")") and "confirming" in got["envLabel"], got
+        legend = pg.evaluate("() => Array.from(document.querySelectorAll('#stack-legend-list .name')).map(e => e.textContent)")
+        assert any("fit confirming" in t for t in legend), legend
         # the server's check fails while the stack is shown: the verdict repaints it in place — no flag, "no longer applies"
         pg.evaluate("async (id) => { await _ensureVerified(tabManager._getTab(id)); }", got["srcId"])
         after = pg.evaluate("""(id) => { const ds = state.chart.data.datasets, t = tabManager._getTab(id);
             return { peak: ds.find(d => d._stackKey && d._stackKey.endsWith(':peak:' + t.peaks[0].id)).label,
                      env: ds.find(d => d._stackKey && d._stackKey.endsWith(':env')).label }; }""", got["srcId"])
         assert "(" + pg.evaluate("() => _UNSUPPORTED_LABEL") + ")" not in after["peak"] and "no longer applies" in after["env"], after
+        # what the student SEES: the stack legend (the chart's own legend is hidden) — repainted by the verdict
+        legend = pg.evaluate("() => Array.from(document.querySelectorAll('#stack-legend-list .name')).map(e => e.textContent)")
+        assert any("fit no longer applies (record does not hold" in t for t in legend), legend
     finally:
         pg.close()
 
@@ -496,14 +501,90 @@ def test_a_stale_sealed_fit_exports_its_failed_check(browser, server):  # noqa: 
         pg.close()
 
 
-def test_xlsx_carries_the_state_and_the_provenance(browser, server):  # noqa: F811
+def test_xlsx_carries_the_state_and_the_records_values(browser, server):  # noqa: F811
     pg = _page(browser, server)
     try:
         if not pg.evaluate("() => typeof XLSX !== 'undefined'"):
             pytest.skip("the XLSX library did not load (offline)")
-        rows = pg.evaluate("""() => { let info = null; const w = XLSX.writeFile; XLSX.writeFile = (wb) => { info = XLSX.utils.sheet_to_json(wb.Sheets['Info'], { header: 1 }); };
-            try { exportFitTable('xlsx'); } finally { XLSX.writeFile = w; } return info; }""")
-        flat = [" ".join(str(c) for c in r) for r in rows]
+        got = pg.evaluate("""() => { let info = null, res = null; const w = XLSX.writeFile;
+            XLSX.writeFile = (wb) => { info = XLSX.utils.sheet_to_json(wb.Sheets['Info'], { header: 1 });
+                                       res = XLSX.utils.sheet_to_json(wb.Sheets['Fit Results'], { header: 1 }); };
+            try { exportFitTable('xlsx'); } finally { XLSX.writeFile = w; }
+            const v = sealedState(state.fitResult, _activeTab()).view;
+            return { info, res, centre: v.model[0].center.toFixed(4), area: _sealComponent(v, state.peaks[0]).area.toFixed(2) }; }""")
+        flat = [" ".join(str(c) for c in r) for r in got["info"]]
         assert any(r.startswith("Fit state PENDING") for r in flat), flat
+        row = got["res"][1]
+        assert str(row[2]) == got["centre"] and str(row[8]) == got["area"], (row, got)
+    finally:
+        pg.close()
+
+
+
+def _seal_only(pg, src=None):
+    """The result as a LOADED sealed fit holds it: the seal and nothing else (no legacy copy to fall back on)."""
+    pg.evaluate("(src) => { const s = structuredClone(state.fitResult.seal); if (src) (new Function('s', src))(s);"
+                " state.fitResult = Object.freeze({ seal: _makeSeal(s) }); }", src)
+
+
+@pytest.mark.parametrize("fmt", ["csv", "xlsx"])
+def test_a_stale_seal_only_fit_exports_its_warning_without_a_statistic(browser, server, fmt):  # noqa: F811
+    pg = _page(browser, server)
+    try:
+        if fmt == "xlsx" and not pg.evaluate("() => typeof XLSX !== 'undefined'"):
+            pytest.skip("the XLSX library did not load (offline)")
+        pg.evaluate(CAPTURE)
+        _seal_only(pg, "s.O.statistics.chi_square *= 1.000001")
+        pg.evaluate(VERIFY)
+        assert pg.evaluate(STATE) == "stale"
+        if fmt == "csv":
+            csv = _export(pg, "() => exportFitTable('csv')", "fit_results.csv")
+            assert "# WARNING:" in csv and "# Fit state: STALE (statistics)" in csv and "Chi-squared reduced:" not in csv, csv[:500]
+        else:
+            info = pg.evaluate("""() => { let info = null; const w = XLSX.writeFile; XLSX.writeFile = (wb) => { info = XLSX.utils.sheet_to_json(wb.Sheets['Info'], { header: 1 }); };
+                try { exportFitTable('xlsx'); } finally { XLSX.writeFile = w; } return info; }""")
+            flat = [" ".join(str(c) for c in r) for r in info]
+            assert any(r.startswith("WARNING") for r in flat) and any(r.startswith("Fit state STALE (statistics)") for r in flat), flat
+        assert pg.errors == [], pg.errors
+    finally:
+        pg.close()
+
+
+def test_a_seal_only_server_fit_shows_its_engine_card(browser, server):  # noqa: F811
+    pg = _page(browser, server)
+    try:
+        _seal_only(pg)
+        pg.evaluate(VERIFY)
+        got = pg.evaluate("() => { renderResults(); return document.getElementById('results-area').textContent; }")
+        assert "lmfit" in got, got[:300]
+    finally:
+        pg.close()
+
+
+def test_an_open_preview_follows_its_records_verdict(browser, server):  # noqa: F811
+    pg = _page(browser, server)
+    try:
+        # a snapshot whose record does not hold, previewed BEFORE its check answers: the verdict repaints the preview
+        held = []
+        pg.route("**/api/verify-fit", lambda route: held.append(route))
+        pg.evaluate("""() => { const t = _activeTab(), snap = t.snapshots[0], s = structuredClone(snap.fitResult.seal);
+            s.O.fitted_y[2] += 1e-6; snap.fitResult = { ...snap.fitResult, seal: _makeSeal(s) }; showHistoryModal(); _historyPreviewSnap(snap.id); }""")
+        assert "confirming" in pg.evaluate("() => state.chart.data.datasets.find(d => d._historyPreview).label")
+        pg.wait_for_timeout(300)
+        for r in held:
+            r.continue_()
+        pg.unroute("**/api/verify-fit")
+        pg.wait_for_function("() => /record does not hold/.test(state.chart.data.datasets.find(d => d._historyPreview).label)", timeout=30000)
+    finally:
+        pg.close()
+
+
+def test_an_open_history_panel_follows_the_active_tab(browser, server):  # noqa: F811
+    pg = _page(browser, server)
+    try:
+        pg.evaluate("() => showHistoryModal()")
+        assert pg.evaluate("() => document.querySelectorAll('#history-list .hist-row').length") >= 1
+        pg.evaluate("() => tabManager.createTab('B', state.rawBE.slice(), state.rawIntensity.slice())")
+        assert pg.evaluate("() => document.querySelectorAll('#history-list .hist-row').length") == 0
     finally:
         pg.close()

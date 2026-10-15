@@ -2557,7 +2557,8 @@ function renderStackLegend(stackTab) {
   for (const entry of entries) {
     const src = tabManager._getTab(entry.sourceTabId);
     const name = (src ? src.name : '(missing source)') +
-      (src && _isLocalFit(src.fitResult) ? ' \u2014 local fit: starting point, not reportable' : '');
+      (src && _isLocalFit(src.fitResult) ? ' \u2014 local fit: starting point, not reportable' : '') +
+      (src ? _stackSourceStateText(src) : '');
     const shift = src ? (src.ccShift || 0) : 0;
     const shiftStr = (shift >= 0 ? '+' : '') + shift.toFixed(2);
     const hasFit = _entryHasFit(entry);
@@ -3326,6 +3327,9 @@ class TabManager {
     }
     _updateRFactorUI(state.fitResult ? state.fitResult.rFactor : null);
     _updateROIDisplay(state.fitResult ? state.fitResult.roiRange : null);
+    // seal step 5: an open history panel shows the ACTIVE tab's snapshots and their records' states
+    if (_SEAL_AUTHORITATIVE) { const hp = document.getElementById('history-panel');
+      if (hp && hp.classList.contains('open') && typeof _renderHistoryList === 'function') _renderHistoryList(); }
     // Reset Y zoom so chart auto-scales to this tab's data range
     // (prevents survey zoom from squishing narrow-region spectra)
     state._mainYMax = tab.yZoom || null;
@@ -9316,13 +9320,15 @@ function _repaintForSeal(owner) {
   if (typeof tabManager === 'undefined' || !tabManager) return;
   const active = _activeTab();
   if (!active) return;
-  // the history list judges its snapshots' records (step 5, Codex round 1)
+  // the history list judges its snapshots' records (step 5, Codex rounds 1-2): it shows the ACTIVE tab's, so any
+  // verdict repaints it while it is open (cheap; the verdict may be for a snapshot of this tab or another's)
   const hp = document.getElementById('history-panel');
-  if (active === owner && hp && hp.classList.contains('open') && typeof _renderHistoryList === 'function') _renderHistoryList();
+  if (hp && hp.classList.contains('open') && typeof _renderHistoryList === 'function') _renderHistoryList();
   if (active === owner) { updatePlot(); return; }
   if (isStackTab(active) && active.entries.some(e => e.sourceTabId === owner.id)) {
     for (const e of active.entries) if (e.sourceTabId === owner.id) e._renderDataCache = null;
     _updateStackChart(active);
+    if (typeof renderStackLegend === 'function') renderStackLegend(active);   // the visible state text
   }
 }
 
@@ -10898,7 +10904,7 @@ function renderResults() {
         <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">RMSE</div>
         <div style="font-family:var(--mono);font-size:16px;color:var(--accent2)">${_stale ? _dash : rmse.toFixed(1)}</div>
       </div>
-      ${backendResult ? `<div style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px">
+      ${(_sealDesignation(state.fitResult) ? _sealDesignation(state.fitResult).engine === 'server' : backendResult) ? `<div style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px">
         <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Engine</div>
         <div style="font-family:var(--mono);font-size:11px;color:var(--green)">lmfit</div>
       </div>` : ''}
@@ -12069,6 +12075,16 @@ function _stackEnvLabel(src, rd) {
     state = st === 'pending' ? ', confirming\u2026' : st === 'unconfirmed' ? ', unconfirmed' : st === 'stale' ? ', no longer applies' : '';
   }
   return src.name + (local ? ' (fit: local, starting point' + state + ')' : (state ? ' (fit' + state + ')' : ' (fit)'));
+}
+
+// The VISIBLE state of a sealed source in the stack legend (plan §5: text, never only a tooltip or a hidden label).
+function _stackSourceStateText(src) {
+  if (!(_SEAL_AUTHORITATIVE && src.fitResult && src.fitResult.seal)) return '';
+  const st = sealedState(src.fitResult, src);
+  return st.state === 'pending' ? ' \u2014 fit confirming\u2026'
+    : st.state === 'unconfirmed' ? ' \u2014 fit unconfirmed: ' + st.reason
+    : (st.state === 'stale' || st.state === 'peaks-only') ? ' \u2014 fit no longer applies (' + (st.check === 'edited' ? 'model changed' : 'record does not hold: ' + st.check) + ')'
+    : '';
 }
 
 // Destroy + rebuild path — used on entry add/remove or initial activation.
@@ -14465,7 +14481,9 @@ function exportFitTable(fmt) {
 
   const date = new Date().toISOString().slice(0,10);
   const bgType = document.getElementById('bg-type')?.value || '';
-  const chiStr = _shownStats(state.fitResult).chiReduced.toFixed(4);   // seal step 5: the record's statistic
+  // seal step 5: the record's statistic — none to format for a STALE sealed fit (its record holds no copy beside it)
+  const _chi = _stats === 'stale' ? null : _shownStats(state.fitResult).chiReduced;
+  const chiStr = Number.isFinite(_chi) ? _chi.toFixed(4) : '\u2014';
   const _sealLine = _exportSealState(state.fitResult);
   const _statName = !_isLocalFit(state.fitResult) ? 'Chi-squared reduced'
     : (_isUnweightedLocal(state.fitResult) ? 'Residual variance (local fit, unweighted)' : 'Chi-squared reduced (local fit, Poisson-weighted)');
