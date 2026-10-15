@@ -570,3 +570,21 @@ def test_a_batch_fit_round_trips(browser, server):  # noqa: F811
         assert pg.evaluate(STATE, "TGT") == ["current", None]
     finally:
         pg.close()
+
+
+@pytest.mark.parametrize("effect", [
+    "{ method: 'smart', window: [], k: 1 }", "{ method: 'smart', window: [0, 1, 2], k: 1 }",
+    "{ method: 'manual', anchors: [[1]] }", "{ method: 'smart', k: 1 }", "{ method: 'none', k: 1 }",
+])
+def test_the_background_effect_is_read_in_its_exact_form(browser, server, effect):  # noqa: F811
+    pg = _fitted(browser, server)
+    try:
+        name, text = _save_project(pg)
+    finally:
+        pg.close()
+    pg = _load_tampered(browser, server, text, "d.tabs[0].fitResult.seal.O.background_verdict.effect = " + effect)
+    try:
+        st = pg.evaluate("() => { const s = sealedState(state.fitResult, _activeTab()); return [s.state, s.reason]; }")
+        assert st[0] == "peaks-only" and "background verdict" in st[1], st
+    finally:
+        pg.close()

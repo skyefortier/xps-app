@@ -7227,6 +7227,16 @@ const _SEAL_SOFTWARE_T = { git_commit: ['null', 'str'], git_dirty: ['null', 'boo
   '?asteval': 'str', '?machine': 'str', '?os': 'str', '?blas': 'str', '?role': 'str' };
 // fitting._BG_EFFECT_T (the page's _bgEffect writes the same form)
 const _SEAL_BG_EFFECT_T = { method: 'str', '?window': ['list', 'int'], '?k': 'int', '?anchors': ['list', ['list', 'num']] };
+// fitting._bg_effect_form_failure's twin: per method its fields and nothing else — a two-integer window and k, k for
+// the manual line, two-number anchors for a manual background, nothing for none (null: no effect recorded)
+function _sealEffectExact(e) {
+  if (e === null) return true;
+  if (!_sealTyped(e, _SEAL_BG_EFFECT_T)) return false;
+  const want = { none: [], manual: ['anchors'], 'manual-line': ['k'] }[e.method] || ['window', 'k'];
+  const keys = Object.keys(e).filter(k => k !== 'method').sort();
+  return JSON.stringify(keys) === JSON.stringify(want.slice().sort()) &&
+    (!('window' in e) || e.window.length === 2) && (!('anchors' in e) || e.anchors.every(a => a.length === 2));
+}
 const _SEAL_BG_VERDICT_T = { method: ['null', 'str'], effect: ['null', _SEAL_BG_EFFECT_T], check: 'str', converged: ['null', 'bool'],
   residual: ['null', 'num'], reason: 'str' };
 const _SEAL_PAGE_T = { software: ['null', _SEAL_SOFTWARE_T], page: ['null', ['map', ['null', 'str']]] };
@@ -7279,7 +7289,8 @@ function _sealSchemaFailureUncached(seal) {
         return 'O\'s anchor check is malformed';
       if (!(O.certificate === null || _sealTyped(O.certificate, _SEAL_CERTIFICATE_T))) return 'O\'s certificate is malformed';
       if (!_sealTyped(O.software, _SEAL_SOFTWARE_T) || 'role' in O.software) return 'O\'s software record is malformed';
-      if (!_sealTyped(O.background_verdict, _SEAL_BG_VERDICT_T)) return 'O\'s background verdict is malformed';
+      if (!_sealTyped(O.background_verdict, _SEAL_BG_VERDICT_T) || !_sealEffectExact(O.background_verdict.effect))
+        return 'O\'s background verdict is malformed';
       if (!['fit_method', 'seed_source', 'request_digest'].every(k => typeof O[k] === 'string') || !Number.isInteger(O.random_seed) ||
           typeof O.charge_shift_applied !== 'number') return 'O\'s record fields are malformed';
       return null;
@@ -7288,7 +7299,7 @@ function _sealSchemaFailureUncached(seal) {
     if (!nums(O.energies, n) || !nums(O.net, n) || !nums(O.weights, n) || !nums(O.modelSum, n)) return 'the local O\'s arrays are malformed';
     if (!_sealTyped(O.background, { values: 'any', bgType: ['null', 'str'], converged: 'bool',
                                     certificate: ['null', { converged: 'bool', residual: ['null', 'num'], reason: ['null', 'str'], '?scale': ['null', 'num'] }],
-                                    effect: ['null', _SEAL_BG_EFFECT_T] }) || !nums(O.background.values, n))
+                                    effect: ['null', _SEAL_BG_EFFECT_T] }) || !_sealEffectExact(O.background.effect) || !nums(O.background.values, n))
       return 'the local O\'s background is malformed';
     if (!models(O.model) || !_sealTyped(O.paramMap, ['list', { id: 'id', param: 'str' }]) || !Array.isArray(O.curves) ||
         O.curves.length !== O.model.length || !O.curves.every(c => nums(c, n)) || !nums(O.areas, O.model.length))
@@ -12064,7 +12075,7 @@ function _loadedTabProvenance(x) {
 function _fitRecordWellFormed(r) {
   return _isFitRecord(r) && _sealTyped(r, { engine: 'str', fitMethod: ['null', 'str'], seed: ['null', 'int'], seedSource: ['null', 'str'],
     backgroundVerdict: ['null', _SEAL_BG_VERDICT_T], certificate: ['null', ['or', _SEAL_CERTIFICATE_T, _SEAL_LOCAL_CERT_T]],
-    software: ['null', _SEAL_SOFTWARE_T] });
+    software: ['null', _SEAL_SOFTWARE_T] }) && (!r.backgroundVerdict || _sealEffectExact(r.backgroundVerdict.effect));
 }
 function _dropRestoredFit(rec, reason) {
   if (_SEAL_AUTHORITATIVE && rec.fitResult && _fitRecordWellFormed(rec.fitResult.record))

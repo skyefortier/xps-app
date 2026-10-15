@@ -1,0 +1,15 @@
+CORRECTNESS REVIEW, ROUND 3, of step 6 of unit 1c ("sealed fit record") in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software.
+
+REPO: this checkout, branch seal-1c-s6, rebased onto seal-1c-s5 (step 5, under its own review, on the rule branch whose page numerics block now follows three stated invariants). Step 6 is `git diff seal-1c-s5..HEAD`. Read docs/autofit/codex/seal_1c_step6_r1_prompt.txt and r2_prompt.txt for what step 6 is and what round 1 changed. Round 2 (NO-GO x2; verdicts seal_1c_step6_r2_verdict_run{A,B}.md) found: the schema could THROW on hostile values (`engine: {toString: 0}`, an id of that form) instead of reading PEAKS-ONLY (MAJOR); model parameter types, component `params: {}` and the background effect's contents unchecked (MAJOR); a legacy record's certificate / effect crashing the Results renderer (MAJOR); tests not discriminating (SETTLE masking the loader's own checks, the Auto-Fit round trip not counting its checks, provenance always-INCOMPLETE passing, switch-off never loading, field tests deleting siblings).
+
+WHAT THIS ROUND CHANGES: `_sealSchemaFailure` is TOTAL (an exception reads as "the record cannot be read"); engine / producer typed as text before use; a model's id / link / colour scalars, name and shape text, centre / width / amplitude numbers, every fit field a scalar; each component's `params` must hold `area`; the background effect in its EXACT form per method (`_sealEffectExact`, the twin of fitting._bg_effect_form_failure) for the server O, the local O and a legacy record; the local background certificate typed; a legacy record's certificate typed (server or local form) — and `_fitRecordRows` is total. `['or', …]` joins the typed language. Tests (tests/test_browser_seal_step6.py): hostile / untyped values PEAKS-ONLY with loading completing; malformed legacy records not kept and the renderer total; exact effect forms; a global method's fit and a Batch fit round trip; the ZIP test waits without starting checks (`WAIT`); the Auto-Fit round trip counts both loader checks and goes STALE when the anchor check fails; provenance ATTESTED and each INCOMPLETE item exactly; switch-off saves AND loads as today; field tests change only the named field.
+
+ANSWER EACH (cite file:line):
+1. Is every round-2 finding (both runs) resolved? List each with its status.
+2. Is the schema now total and complete for every field a page reader formats, renders or keys on — and does it still accept every honest seal (all producers, global methods' "not run" evidence, local fits, Batch)?
+3. Can any loaded value still crash a reader, inject markup, or reach the legacy machinery?
+4. Do the tests each fail on the defect they name? With the switch off, is everything today's?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.
