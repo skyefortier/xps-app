@@ -101,13 +101,22 @@ def test_auto_fit_seals_its_final_fit_with_the_anchor_fit_as_evidence(browser, s
         got = pg.evaluate("""() => {
             const seal = state.fitResult && state.fitResult.seal; if (!seal) return { seal: false };
             const E = seal.E, R = seal.R;
+            // STRICT identity (numbers by Object.is, the same own keys, undefined included): all three sides are
+            // in-page objects that never travelled as JSON
+            const eq = (a, b) => {
+              if (typeof a === 'number' || typeof b === 'number') return Object.is(a, b);
+              if (a === null || b === null || typeof a !== 'object' || typeof b !== 'object') return a === b;
+              if (Array.isArray(a) !== Array.isArray(b)) return false;
+              const ka = Object.keys(a), kb = Object.keys(b);
+              return ka.length === kb.length && ka.every(k => Object.hasOwn(b, k) && eq(a[k], b[k]));
+            };
             const d = deriveAutoFit(E.R.pageModel, E.R.context0.live, E.O);
-            const step0 = (r) => JSON.stringify(_buildFitRequest('autoFit', r.pageModel, r.context0.live, r.energies,
-                                     { requireComponent: r.context0.producer.require_component })) === JSON.stringify(r.request);
+            const step0 = (r) => eq(_buildFitRequest('autoFit', r.pageModel, r.context0.live, r.energies,
+                                     { requireComponent: r.context0.producer.require_component }), r.request);
             return { seal: true, producer: seal.producer, hasE: !!(E && E.R && E.O), frozen: Object.isFrozen(E.O),
                      step0R1: step0(E.R), step0R2: step0(R), derived: _sameModel(d.pageModel, R.pageModel),
-                     derivedCtx: JSON.stringify(d.ctx) === JSON.stringify(R.context0.live),
-                     O2: JSON.stringify(seal.O) === JSON.stringify(state.fitResult.backendResult) }; }""")
+                     derivedCtx: eq(d.ctx, R.context0.live),
+                     O2: eq(seal.O, state.fitResult.backendResult) }; }""")
     finally:
         pg.close()
     assert got["seal"] and got["producer"] == "autoFit" and got["hasE"] and got["frozen"], got
