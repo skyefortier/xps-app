@@ -325,3 +325,108 @@ def test_xlsx_carries_the_records_provenance(browser, server):  # noqa: F811
         assert any(r.startswith("Record provenance ATTESTED") or r.startswith("Record provenance INCOMPLETE") for r in flat), flat
     finally:
         pg.close()
+
+
+# ── Codex step 6 round 1 ──
+def _load_tampered(browser, server, text, src):  # noqa: F811
+    pg = _page(browser, server)
+    pg.evaluate("""([text, src]) => { const d = JSON.parse(text); (new Function('d', src))(d); _loadProjectJSON(d, 'p.proj.json'); }""", [text, src])
+    return pg
+
+
+@pytest.mark.parametrize("src", [
+    "d.tabs[0].fitResult.seal.O.starts = { ran: false, reason: 'method' }",                 # a global method's honest record
+    "d.tabs[0].fitResult.seal.O.required = { ran: false, reason: 'not requested' }",
+])
+def test_honest_not_run_evidence_is_readable(browser, server, src):  # noqa: F811
+    pg = _fitted(browser, server)
+    try:
+        name, text = _save_project(pg)
+    finally:
+        pg.close()
+    pg = _load_tampered(browser, server, text, src)
+    try:
+        st = pg.evaluate("() => { const s = sealedState(state.fitResult, _activeTab()); return [s.state, s.reason]; }")
+        assert st[0] != "peaks-only", st
+        pg.evaluate("() => { renderResults(); }")
+        assert pg.errors == [], pg.errors
+    finally:
+        pg.close()
+
+
+@pytest.mark.parametrize("src,why", [
+    ("d.tabs[0].fitResult.seal.O.starts.not_better_chi2r = ['x']", "scattered-starts"),
+    ("d.tabs[0].fitResult.seal.O.starts.n_same_as_fit = '<img src=x onerror=alert(1)>'", "scattered-starts"),
+    ("d.tabs[0].fitResult.seal.O.software.role = 42", "software"),
+    ("d.tabs[0].fitResult.seal.O.background_verdict.residual = 'x'", "background verdict"),
+    ("d.tabs[0].fitResult.seal.O.individual_peaks[0].support = { f: 'x' }", "components"),
+    ("d.tabs[0].fitResult.seal.R.page = { software: { role: 7 }, page: null }", "page identity"),
+    ("d.tabs[0].fitResult.seal.D = { chosenAlternative: { shiftName: '<b>' } }", "D is malformed"),
+])
+def test_a_field_a_reader_formats_or_renders_is_typed_before_any_check(browser, server, src, why):  # noqa: F811
+    pg = _fitted(browser, server, "gauss_voigt_linear_avg3_window")      # a fit with scattered-starts evidence
+    try:
+        name, text = _save_project(pg)
+    finally:
+        pg.close()
+    pg = _load_tampered(browser, server, text, src)
+    try:
+        st = pg.evaluate("() => { const s = sealedState(state.fitResult, _activeTab()); return [s.state, s.reason]; }")
+        assert st[0] == "peaks-only" and why in st[1], st
+        pg.evaluate("() => { renderResults(); updatePlot(); }")
+        assert pg.errors == [], pg.errors
+    finally:
+        pg.close()
+
+
+@pytest.mark.parametrize("value", ['"bad"', "true", "0", "false", "[]", "null"])
+def test_a_saved_seal_that_is_not_an_object_is_peaks_only_and_breaks_nothing(browser, server, value):  # noqa: F811
+    pg = _fitted(browser, server)
+    try:
+        name, text = _save_project(pg)
+    finally:
+        pg.close()
+    pg = _load_tampered(browser, server, text, "d.tabs[0].fitResult = { seal: " + value + " };")
+    try:
+        got = pg.evaluate("""() => { renderResults(); updatePlot(); _sealSig(state.fitResult);
+            const s = sealedState(state.fitResult, _activeTab()); return [s.state, s.reason]; }""")
+        assert got[0] == "peaks-only" and "not a record" in got[1], (value, got)
+        assert pg.errors == [], pg.errors
+    finally:
+        pg.close()
+
+
+def test_a_malformed_legacy_record_is_not_kept_as_provenance(browser, server):  # noqa: F811
+    pg = _fitted(browser, server)
+    try:
+        name, text = _save_project(pg)
+    finally:
+        pg.close()
+    data = json.loads(text)
+    data["tabs"][0]["fitResult"] = {"chiReduced": 2.0, "record": {"engine": "server", "fitMethod": "least_squares", "seed": 7,
+                                     "seedSource": "request", "backgroundVerdict": None, "certificate": None, "software": {"role": 7}}}
+    pg = _page(browser, server)
+    try:
+        pg.evaluate("(text) => _loadProjectJSON(JSON.parse(text), 'p.proj.json')", json.dumps(data))
+        assert pg.evaluate("() => _activeTab().provenance") is None
+        pg.evaluate("() => renderResults()")
+        assert pg.errors == [], pg.errors
+    finally:
+        pg.close()
+
+
+def test_a_stale_fit_keeps_its_record_provenance_in_results_and_exports(browser, server):  # noqa: F811
+    pg = _fitted(browser, server)
+    try:
+        pg.evaluate("() => { state.peaks[0].center += 0.05; updatePlot(); renderResults(); }")
+        assert pg.evaluate("() => sealedState(state.fitResult, _activeTab()).state") == "stale"
+        assert pg.evaluate("() => !!document.querySelector('#results-area .seal-provenance')")
+        pg.evaluate("() => exportFitTable('csv')")
+        pg.wait_for_function("() => !!window.__blobs['fit_results.csv']")
+        assert "# Record provenance: " in pg.evaluate(TEXT, "fit_results.csv")
+        pg.evaluate("() => { window.__chunk = null; window._pngWithText = async (b, k, t) => { window.__chunk = t; return b; }; _doPublicationExport(); }")
+        pg.wait_for_function("() => !!window.__chunk")
+        chunk = json.loads(pg.evaluate("() => window.__chunk"))
+        assert chunk["sealState"].startswith("STALE") and chunk["provenance"]["state"] in ("ATTESTED", "INCOMPLETE"), chunk
+    finally:
+        pg.close()

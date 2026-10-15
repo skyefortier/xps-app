@@ -7166,23 +7166,84 @@ function _sealSchemaFailure(seal) {
   if (seal && typeof seal === 'object') _sealSchemaMemo.set(seal, why);
   return why;
 }
+// The server's typed-form language (fitting._typed), as a page twin with the SAME specs — one reading of a
+// response's form on both sides (seal step 6, Codex round 1: the schema checks every field a reader formats or
+// renders before any check). Specs: 'bool' 'true' 'false' 'int' 'num' 'str' 'id' 'any'; ['null', s]; ['list', s];
+// ['map', s]; an object (keys required, '?key' optional, no others).
+function _sealTyped(v, spec) {
+  if (typeof spec === 'string') {
+    switch (spec) {
+      case 'bool': return typeof v === 'boolean';
+      case 'true': return v === true;
+      case 'false': return v === false;
+      case 'int': return Number.isInteger(v);
+      case 'num': return typeof v === 'number';
+      case 'str': return typeof v === 'string';
+      case 'id': return v === null || typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean';
+      case 'any': return true;
+    }
+    return false;
+  }
+  if (Array.isArray(spec)) {
+    const [kind, inner] = spec;
+    if (kind === 'null') return v === null || _sealTyped(v, inner);
+    if (kind === 'list') return Array.isArray(v) && v.every(e => _sealTyped(e, inner));
+    if (kind === 'map') return !!v && typeof v === 'object' && !Array.isArray(v) && Object.values(v).every(e => _sealTyped(e, inner));
+    return false;
+  }
+  if (spec && typeof spec === 'object') {
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return false;
+    const keys = Object.keys(spec), req = keys.filter(k => !k.startsWith('?'));
+    const allowed = new Set([...req, ...keys.filter(k => k.startsWith('?')).map(k => k.slice(1))]);
+    if (!req.every(k => Object.hasOwn(v, k))) return false;
+    return Object.keys(v).every(k => allowed.has(k) && _sealTyped(v[k], Object.hasOwn(spec, k) ? spec[k] : spec['?' + k]));
+  }
+  return false;
+}
+// fitting.py's specs, verbatim in this language
+const _SEAL_MOVE_T = { id: 'id', ev: 'num' };
+const _SEAL_NOT_RUN_T = { ran: 'false', reason: 'str', '?error': 'str' };
+const _SEAL_STARTS_T = { ran: 'true', n_run: 'int', n_converged: 'int', n_same_as_fit: 'int', n_in_alternatives: 'int',
+  n_not_better_elsewhere: 'int', not_better_chi2r: ['list', 'num'],
+  fit: { chi2r: 'num', largest_centre_shift_from_start: _SEAL_MOVE_T,
+         components: ['list', { id: 'id', area_percent: 'num', center_shift_from_start: 'num' }] },
+  alternatives: ['list', { chi2r: 'num', n_starts: 'int',
+    components: ['list', { id: 'id', area: 'num', params: ['map', 'num'], area_percent: 'num', center_shift_from_start: 'num' }],
+    largest_centre_shift_from_start: _SEAL_MOVE_T, largest_fraction_difference_pp: 'num' }] };
+const _SEAL_REQUIRED_T = { ran: 'true', required: ['null', 'bool'], f: ['null', 'num'], chi2_with: 'num',
+  chi2_without_refit: 'num', refit_converged: 'bool', '?reason': 'str', '?message': 'str' };
+const _SEAL_CERTIFICATE_T = { certified: 'bool', restarts: 'int', moved: 'bool', optimiser_flag: 'bool',
+  centre_moves: ['list', _SEAL_MOVE_T], largest_centre_move: ['null', _SEAL_MOVE_T] };
+const _SEAL_SUPPORT_T = { f: ['null', 'num'], delta_chi2: 'num', supported: 'bool', '?follows': 'id' };
+const _SEAL_STATISTICS_T = { chi_square: 'num', reduced_chi_square: 'num', r_factor: ['null', 'num'], n_data: 'int',
+  n_free_params: 'int', aic: 'num', bic: 'num', rmse: 'num' };
+// the page's own: the software record (fitting.software_failure; the page's copy may carry its `role`), the
+// background verdict, the page identity, the local engine's certificate
+const _SEAL_SOFTWARE_T = { git_commit: ['null', 'str'], git_dirty: ['null', 'bool'], env_sha256: ['null', 'str'],
+  numerics: 'str', seed_derivation: 'str', python: 'str', numpy: 'str', scipy: 'str', lmfit: 'str',
+  '?asteval': 'str', '?machine': 'str', '?os': 'str', '?blas': 'str', '?role': 'str' };
+const _SEAL_BG_VERDICT_T = { method: ['null', 'str'], effect: ['null', ['map', 'any']], check: 'str', converged: ['null', 'bool'],
+  residual: ['null', 'num'], reason: 'str' };
+const _SEAL_PAGE_T = { software: ['null', _SEAL_SOFTWARE_T], page: ['null', ['map', ['null', 'str']]] };
+const _SEAL_LOCAL_CERT_T = { certified: 'bool', restarts: ['null', 'int'], moved: 'bool', centre_moves: ['list', _SEAL_MOVE_T],
+  largest_centre_move: ['null', _SEAL_MOVE_T], check: 'str' };
 function _sealSchemaFailureUncached(seal) {
   const isObj = x => !!x && typeof x === 'object' && !Array.isArray(x);
-  const num = x => typeof x === 'number';
-  const nums = (a, n) => Array.isArray(a) && (n === undefined || a.length === n) && a.every(num);
-  const isId = x => typeof x === 'string' || typeof x === 'number';
+  const nums = (a, n) => Array.isArray(a) && (n === undefined || a.length === n) && a.every(x => typeof x === 'number');
   const models = a => Array.isArray(a) && a.every(isObj) && !_peaksLoadError(a);
-  if (!isObj(seal)) return 'not a record';
+  if (!isObj(seal) || Object.hasOwn(seal, 'unreadable')) return 'not a record';
   if (seal.v !== 'xps-seal-1') return 'an unknown record version';
   const PRODUCERS = { server: ['runFit', 'useSolution', 'autoFit'], local: ['local', 'batch'] };
   if (!Object.hasOwn(PRODUCERS, seal.engine) || !PRODUCERS[seal.engine].includes(seal.producer)) return 'an unknown engine or producer';
   const rFail = R => {
     if (!isObj(R)) return 'no R';
     if (!models(R.pageModel)) return 'R\'s start model is not a list of peaks with valid ids and colours';
-    if (!isObj(R.context0) || !isObj(R.context0.live) || !(R.context0.producer == null || isObj(R.context0.producer))) return 'R\'s context is malformed';
+    const live = R.context0 && R.context0.live;
+    if (!isObj(R.context0) || !isObj(live) || !(R.context0.producer == null || isObj(R.context0.producer))) return 'R\'s context is malformed';
+    if (typeof live.ccShift !== 'number' || !_sealTyped(live.anchors, ['list', { x: 'num', y: 'num' }])) return 'R\'s context is malformed';
     if (!Array.isArray(R.idx) || !R.idx.every(i => Number.isInteger(i) && i >= 0)) return 'R\'s sample indices are malformed';
     if (!nums(R.energies, R.idx.length) || !nums(R.counts, R.idx.length)) return 'R\'s samples are malformed';
-    if (!isObj(R.page)) return 'R has no page identity';
+    if (!_sealTyped(R.page, _SEAL_PAGE_T)) return 'R\'s page identity is malformed';
     if (seal.engine === 'server' && !(isObj(R.request) && Array.isArray(R.request.peaks))) return 'R has no request';
     return null;
   };
@@ -7191,34 +7252,47 @@ function _sealSchemaFailureUncached(seal) {
     if (seal.engine === 'server') {
       for (const k of ['energy', 'counts', 'fitted_y', 'fitted_sub', 'background_y', 'residuals'])
         if (!nums(O[k], n)) return 'O.' + k + ' is not the samples\' length';
-      if (!Array.isArray(O.individual_peaks) || !O.individual_peaks.every(ip => isObj(ip) && isId(ip.id) && nums(ip.y, n) &&
-          isObj(ip.params) && isObj(ip.params.area) && num(ip.params.area.value) && (ip.support == null || isObj(ip.support))))
+      if (typeof O.message !== 'string') return 'O\'s message is malformed';
+      if (!Array.isArray(O.individual_peaks) || !O.individual_peaks.every(ip => isObj(ip) && _sealTyped(ip.id, 'id') &&
+          typeof ip.shape === 'string' && nums(ip.y, n) && isObj(ip.params) && _sealTyped(ip.support, _SEAL_SUPPORT_T) &&
+          Object.entries(ip.params).every(([k, r]) => k === 'area'
+            ? _sealTyped(r, { value: 'num', stderr: ['null', 'num'] })
+            : _sealTyped(r, { value: 'num', stderr: ['null', 'num'], vary: 'bool', expr: ['null', 'str'], min: ['null', 'num'], max: ['null', 'num'] }))))
         return 'O\'s components are malformed';
-      const st = O.statistics;
-      if (!isObj(st) || !['chi_square', 'reduced_chi_square', 'rmse'].every(k => num(st[k])) || !(st.r_factor === null || num(st.r_factor)))
-        return 'O\'s statistics are malformed';
-      const sf = O.starts;   // read by the starts panel before any check
-      if (!(sf == null || (isObj(sf) && isObj(sf.fit) && num(sf.fit.chi2r) && Array.isArray(sf.fit.components) &&
-            sf.fit.components.every(c => isObj(c) && isId(c.id) && num(c.area_percent) && num(c.center_shift_from_start)) &&
-            Array.isArray(sf.alternatives) && sf.alternatives.every(a => isObj(a) && num(a.chi2r) && Array.isArray(a.components) &&
-              a.components.every(c => isObj(c) && isId(c.id) && num(c.area_percent) && num(c.center_shift_from_start) && isObj(c.params))))))
+      if (!_sealTyped(O.statistics, _SEAL_STATISTICS_T)) return 'O\'s statistics are malformed';
+      // as the server reads them: starts / required either their form or "not run" (a certificate only its form)
+      if (!(O.starts === null || _sealTyped(O.starts, _SEAL_STARTS_T) || _sealTyped(O.starts, _SEAL_NOT_RUN_T)))
         return 'O\'s scattered-starts evidence is malformed';
-      if (!(O.certificate == null || isObj(O.certificate)) || !(O.required == null || isObj(O.required))) return 'O\'s certificate or anchor check is malformed';
+      if (!(O.required === null || _sealTyped(O.required, _SEAL_REQUIRED_T) || _sealTyped(O.required, _SEAL_NOT_RUN_T)))
+        return 'O\'s anchor check is malformed';
+      if (!(O.certificate === null || _sealTyped(O.certificate, _SEAL_CERTIFICATE_T))) return 'O\'s certificate is malformed';
+      if (!_sealTyped(O.software, _SEAL_SOFTWARE_T) || 'role' in O.software) return 'O\'s software record is malformed';
+      if (!_sealTyped(O.background_verdict, _SEAL_BG_VERDICT_T)) return 'O\'s background verdict is malformed';
+      if (!['fit_method', 'seed_source', 'request_digest'].every(k => typeof O[k] === 'string') || !Number.isInteger(O.random_seed) ||
+          typeof O.charge_shift_applied !== 'number') return 'O\'s record fields are malformed';
       return null;
     }
+    if (O.engine !== 'local' || O.success !== true || O.reportable !== false) return 'the local O\'s designation is malformed';
     if (!nums(O.energies, n) || !nums(O.net, n) || !nums(O.weights, n) || !nums(O.modelSum, n)) return 'the local O\'s arrays are malformed';
-    if (!isObj(O.background) || !nums(O.background.values, n)) return 'the local O\'s background is malformed';
-    if (!models(O.model) || !Array.isArray(O.paramMap) || !Array.isArray(O.curves) || O.curves.length !== O.model.length ||
-        !O.curves.every(c => nums(c, n)) || !nums(O.areas, O.model.length)) return 'the local O\'s model is malformed';
-    if (!['chi2', 'chi2r', 'rmse'].every(k => num(O[k])) || !(O.rFactor === null || num(O.rFactor)) || !isObj(O.support))
+    if (!_sealTyped(O.background, { values: 'any', bgType: ['null', 'str'], converged: 'bool', certificate: ['null', ['map', 'any']],
+                                    effect: ['null', ['map', 'any']] }) || !nums(O.background.values, n))
+      return 'the local O\'s background is malformed';
+    if (!models(O.model) || !_sealTyped(O.paramMap, ['list', { id: 'id', param: 'str' }]) || !Array.isArray(O.curves) ||
+        O.curves.length !== O.model.length || !O.curves.every(c => nums(c, n)) || !nums(O.areas, O.model.length))
+      return 'the local O\'s model is malformed';
+    if (!['chi2', 'chi2r', 'rmse'].every(k => typeof O[k] === 'number') || !(O.rFactor === null || typeof O.rFactor === 'number') ||
+        !Number.isInteger(O.nVaried) || !Number.isInteger(O.iterations) || !_sealTyped(O.support, ['map', _SEAL_SUPPORT_T]))
       return 'the local O\'s statistics are malformed';
+    if (!_sealTyped(O.certificate, _SEAL_LOCAL_CERT_T)) return 'the local O\'s certificate is malformed';
     return null;
   };
   const r = rFail(seal.R);
   if (r) return r;
   const o = oFail(seal.O, seal.R.idx.length);
   if (o) return o;
-  if (!(seal.D == null || isObj(seal.D))) return 'D is malformed';
+  if (!(seal.D == null || (isObj(seal.D) && (seal.D.chosenAlternative == null ||
+        _sealTyped(seal.D.chosenAlternative, { fromChi: 'num', toChi: 'num', shiftName: 'str', shiftEv: 'num' })))))
+    return 'D is malformed';
   if (seal.producer === 'autoFit') {
     if (!isObj(seal.E)) return 'an Auto-Fit record without its anchor fit';
     const e = rFail(seal.E.R) || oFail(seal.E.O, seal.E.R.idx.length);
@@ -7241,6 +7315,13 @@ function _sealProvenance(seal) {
   if (!(pg && typeof pg.page_sha256 === 'string' && pg.page_sha256)) missing.push('the page digest');
   if (!(pg && typeof pg.reference_sha256 === 'string' && pg.reference_sha256)) missing.push('the reference-data digest');
   return { state: missing.length ? 'INCOMPLETE' : 'ATTESTED', missing };
+}
+// A sealed fit's record provenance whatever its state (it describes the RECORD: STALE included — §8.3); null when
+// the record cannot be read.
+function _sealProvenanceOf(fr) {
+  if (!_SEAL_AUTHORITATIVE || !fr || !fr.seal) return null;
+  const st = _sealStateOf(fr);
+  return st.view ? st.view.provenance : null;
 }
 function _sealProvenanceText(pv) {
   return pv.state === 'ATTESTED' ? 'ATTESTED (clean commit, environment and page digests on record)'
@@ -9820,7 +9901,7 @@ function _fitRecordRows(rec) {
   const sw = rec.software;
   if (sw) rows.push(['Software', 'commit ' + (sw.git_commit || 'unknown') + (sw.git_dirty ? ' (modified)' : '') +
                      '; numerics ' + sw.numerics + '; python ' + sw.python + ', numpy ' + sw.numpy + ', scipy ' + sw.scipy + ', lmfit ' + sw.lmfit +
-                     '; seed ' + sw.seed_derivation + (sw.role ? ' (' + sw.role.replace(/_/g, ' ') + ')' : '')]);
+                     '; seed ' + sw.seed_derivation + (typeof sw.role === 'string' && sw.role ? ' (' + sw.role.replace(/_/g, ' ') + ')' : '')]);
   // a summary is bounded (a field read from an imported file can be of any length, and every
   // reader has a limit — Codex recording round 6); the record below holds every value whole
   for (const r of rows) {
@@ -11034,7 +11115,7 @@ function renderResults() {
       </div>` : ''}
     </div>
     ${_stale ? '' : _renderRFactorPanel(_shown.rFactor, _shown.sealState)}
-    ${_shown.sealState ? `<div class="seal-provenance" data-provenance="${_sealedDisplay(state.fitResult).view.provenance.state}" style="font-size:10px;color:var(--text3);margin:-6px 0 8px">Record provenance: ${_escHtml(_sealProvenanceText(_sealedDisplay(state.fitResult).view.provenance))}</div>` : ''}
+    ${_sealProvenanceOf(state.fitResult) ? `<div class="seal-provenance" data-provenance="${_sealProvenanceOf(state.fitResult).state}" style="font-size:10px;color:var(--text3);margin:-6px 0 8px">Record provenance: ${_escHtml(_sealProvenanceText(_sealProvenanceOf(state.fitResult)))}</div>` : ''}
     <table class="results-table">
       <thead><tr>
         <th>Peak</th><th>Center (eV)</th><th>FWHM (eV)</th><th>Area</th><th>%</th>
@@ -11942,16 +12023,27 @@ function _legacyVoigts(peaks) {
 // the schema's reason when the record cannot be read (PEAKS-ONLY), else null. Its check starts once the tabs are
 // installed (_ensureVerified, a background attempt).
 function _installSavedSeal(rec, seal) {
-  rec.fitResult = Object.freeze({ seal: _deepFreeze(structuredClone(seal)) });
+  // a record that is not an object (a number, a text, a list) is held INSIDE one, so every reader keyed by the seal
+  // object (views, verdicts, signatures) still has an object; its schema reads it as not a record (PEAKS-ONLY)
+  const held = seal && typeof seal === 'object' && !Array.isArray(seal) ? structuredClone(seal) : { unreadable: structuredClone(seal) };
+  rec.fitResult = Object.freeze({ seal: _deepFreeze(held) });
   return _sealSchemaFailure(rec.fitResult.seal);
 }
+// A saved fit holds a seal when the key is PRESENT (whatever its value: `seal: false` is a record that cannot be
+// read, never a legacy fit).
+function _savedHasSeal(x) { return !!x && typeof x === 'object' && Object.hasOwn(x, 'seal'); }
 // V6.8: the record a LEGACY fit carried, kept beside the tab when its reconstruction falls back to peaks only
 // (`tab.provenance`), saved, loaded and shown while the tab has no fit. Loaded only in its own form.
 function _loadedTabProvenance(x) {
-  return x && typeof x === 'object' && _isFitRecord(x.record) ? { record: x.record, reason: typeof x.reason === 'string' ? x.reason : '' } : null;
+  return x && typeof x === 'object' && _fitRecordWellFormed(x.record) ? { record: x.record, reason: typeof x.reason === 'string' ? x.reason : '' } : null;
+}
+// A fit record (`fitResult.record`, `_fitRecordFrom` / `_localFitRecord`) of the form its renderer reads.
+function _fitRecordWellFormed(r) {
+  return _isFitRecord(r) && _sealTyped(r, { engine: 'str', fitMethod: ['null', 'str'], seed: ['null', 'int'], seedSource: ['null', 'str'],
+    backgroundVerdict: ['null', _SEAL_BG_VERDICT_T], certificate: ['null', ['map', 'any']], software: ['null', _SEAL_SOFTWARE_T] });
 }
 function _dropRestoredFit(rec, reason) {
-  if (_SEAL_AUTHORITATIVE && rec.fitResult && _isFitRecord(rec.fitResult.record))
+  if (_SEAL_AUTHORITATIVE && rec.fitResult && _fitRecordWellFormed(rec.fitResult.record))
     rec.provenance = { record: rec.fitResult.record, reason: reason || '' };
   rec.fitResult = null;
   for (const p of rec.peaks || []) if (p.support) p.support = null;   // its verdicts belonged to that fit
@@ -13751,7 +13843,7 @@ function _loadSpectrumFile(data, sessionFile) {
   // seal step 6 (§8.6): the sealed / legacy dispatch comes FIRST; a sealed file's convenience arrays and
   // statistics (written for external readers) are never read back
   let sealedLoad = false;
-  if (_SEAL_AUTHORITATIVE && data.seal) {
+  if (_SEAL_AUTHORITATIVE && _savedHasSeal(data)) {
     sealedLoad = true;
     const why = _installSavedSeal(active, data.seal);
     state.fitResult = active.fitResult;
@@ -13988,7 +14080,7 @@ function _loadProjectJSON(data, sessionFile) {
   const droppedFits = [], staleFits = [], sealedTabs = [], unreadableSeals = [];
   for (const tab of newTabs) {
     // seal step 6 (§8.6): the sealed / legacy dispatch comes FIRST — a sealed fit never reaches the legacy adapter
-    if (_SEAL_AUTHORITATIVE && !tab.isStack && tab.fitResult && tab.fitResult.seal) {
+    if (_SEAL_AUTHORITATIVE && !tab.isStack && _savedHasSeal(tab.fitResult)) {
       const why = _installSavedSeal(tab, tab.fitResult.seal);
       if (why) unreadableSeals.push(tab.name + ' — ' + why); else sealedTabs.push(tab);
       continue;
@@ -14197,7 +14289,8 @@ function exportResults() {
   const recLines = _fitRecordTextLines(_exportRecordOf(state.fitResult));   // a sealed fit's record is its view's
   // a STALE sealed fit says WHICH check failed, and why (step 5, Codex round 1), beside today's note
   const sealStale = _SEAL_AUTHORITATIVE && state.fitResult && state.fitResult.seal && _statsLiveState() === 'stale'
-    ? '# Fit state: ' + _exportSealState(state.fitResult) + '\n' : '';
+    ? '# Fit state: ' + _exportSealState(state.fitResult) + '\n' +
+      (_sealProvenanceOf(state.fitResult) ? '# Record provenance: ' + _sealProvenanceText(_sealProvenanceOf(state.fitResult)) + '\n' : '') : '';
   const csv = warning + sealStale + staleNote + rows.map(r => r.join('\t')).join('\n') + (recLines.length ? '\n\n' + recLines.join('\n') : '');
   const blob = new Blob([csv], { type: 'text/tab-separated-values' });
   const url = URL.createObjectURL(blob);
@@ -14615,7 +14708,8 @@ function _doPublicationExport() {
   // the fit's record rides in the PNG itself (an iTXt chunk, keyword XPS-Fit-Record: recording only)
   const _rec0 = _exportRecordOf(state.fitResult);
   // a sealed fit's chunk always carries its state — STALE with the failed check too (step 5, Codex round 1)
-  const rec = _isFitRecord(_rec0) ? (_SEAL_AUTHORITATIVE && state.fitResult && state.fitResult.seal ? { ..._rec0, sealState: _exportSealState(state.fitResult) } : _rec0) : null;
+  const rec = _isFitRecord(_rec0) ? (_SEAL_AUTHORITATIVE && state.fitResult && state.fitResult.seal
+    ? { ..._rec0, sealState: _exportSealState(state.fitResult), provenance: _sealProvenanceOf(state.fitResult) } : _rec0) : null;
   canvas.toBlob(async blob => {
     if (!blob) { notify('Export failed.', 'red'); return; }
     _downloadBlob(rec ? await _pngWithText(blob, 'XPS-Fit-Record', JSON.stringify(rec)) : blob, fname + '.png');
@@ -14737,7 +14831,7 @@ function exportFitTable(fmt) {
       ...(_stats === 'stale' ? [['WARNING', _staleNoteOf(state.fitResult)]] : [[_statName, chiStr]]),
       ...(_stats === 'unverified' ? [['NOTE', _STATS_UNVERIFIED_NOTE]] : []),
       ...(_sealLine ? [['Fit state', _sealLine]] : []),
-      ...(_sealLine && _sealedDisplay(state.fitResult) ? [['Record provenance', _sealProvenanceText(_sealedDisplay(state.fitResult).view.provenance)]] : []),
+      ...(_sealProvenanceOf(state.fitResult) ? [['Record provenance', _sealProvenanceText(_sealProvenanceOf(state.fitResult))]] : []),
       ['Background type', bgType],
       ...(_isLocalFit(state.fitResult) ? [['WARNING', _localFitCaveat(state.fitResult)]] : []),
       ...(unsupportedNames.length ? [['WARNING', 'Not supported by the data (centre, width, uncertainties and At% not reported): ' + unsupportedNames.join(', ')]] : []),
@@ -14757,7 +14851,7 @@ function exportFitTable(fmt) {
     csv += _stats === 'stale' ? `# WARNING: ${_staleNoteOf(state.fitResult)}\n` : `# ${_statName}: ${chiStr}\n`;
     if (_stats === 'unverified') csv += `# NOTE: ${_STATS_UNVERIFIED_NOTE}\n`;
     if (_sealLine) csv += `# Fit state: ${_sealLine}\n`;
-    if (_sealLine && _sealedDisplay(state.fitResult)) csv += `# Record provenance: ${_sealProvenanceText(_sealedDisplay(state.fitResult).view.provenance)}\n`;
+    if (_sealProvenanceOf(state.fitResult)) csv += `# Record provenance: ${_sealProvenanceText(_sealProvenanceOf(state.fitResult))}\n`;
     csv += `# Background: ${bgType}\n`;
     if (_isLocalFit(state.fitResult)) csv += `# WARNING: ${_localFitCaveat(state.fitResult)}\n`;
     if (unsupportedNames.length) csv += `# WARNING: Not supported by the data (centre, width, uncertainties and At% not reported): ${unsupportedNames.join(', ')}\n`;

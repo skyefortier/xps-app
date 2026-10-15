@@ -1,0 +1,16 @@
+CORRECTNESS REVIEW, ROUND 2, of step 6 of unit 1c ("sealed fit record") in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software.
+
+REPO: this checkout, branch seal-1c-s6 (on seal-1c-s5, itself under review). Step 6 is `git diff seal-1c-s5..HEAD`. Read docs/autofit/codex/seal_1c_step6_r1_prompt.txt for what step 6 is. Round 1 (NO-GO x2; verdicts seal_1c_step6_r1_verdict_run{A,B}.md) found: the schema refusing honest `{ran:false, reason}` starts / required (MAJOR); unchecked nested fields reaching readers before verification — starts counts and lists, software `role`, the background verdict (MAJOR); a non-object seal installed and crashing WeakMap readers, and `seal: false` / `0` / `""` entering the legacy path (MAJOR); a loaded legacy record crashing the Results renderer (MAJOR); record provenance missing for STALE fits and from the PNG chunk (MINOR); tests that did not discriminate (MINOR).
+
+WHAT THIS ROUND CHANGES: `_sealTyped` — the server's typed-form language (fitting._typed) as a page twin, with fitting.py's specs verbatim (`_SEAL_STARTS_T`, `_SEAL_NOT_RUN_T`, `_SEAL_REQUIRED_T`, `_SEAL_CERTIFICATE_T`, `_SEAL_SUPPORT_T`, `_SEAL_STATISTICS_T`, `_SEAL_MOVE_T`) plus the page's own (`_SEAL_SOFTWARE_T`, `_SEAL_BG_VERDICT_T`, `_SEAL_PAGE_T`, `_SEAL_LOCAL_CERT_T`); the schema types every field a reader formats or renders: starts and required as their form OR "not run" (as the server reads them), the certificate, each component's params / area / support, the statistics, the software record (no `role` in O's), the background verdict, the record fields, R's page identity and context (shift, anchors), D's chosen alternative, and for the local O its designation (engine, success, reportable), background, paramMap, nVaried / iterations, support map and certificate. `_savedHasSeal` dispatches on the PRESENCE of `seal`; `_installSavedSeal` holds a non-object record inside an object (`{unreadable}`), read as "not a record". `_fitRecordWellFormed` gates a legacy record kept as `tab.provenance` (both at load and in `_dropRestoredFit`); `_fitRecordRows` reads `role` only as a text. `_sealProvenanceOf`: a readable seal's provenance whatever its state — Results, CSV / XLSX / TSV (stale too) and the PNG chunk. Tests: tests/test_browser_seal_step6.py (34).
+
+ANSWER EACH (cite file:line):
+1. Is every round-1 finding (both runs) resolved? List each with its status.
+2. Is the schema now complete and safe — every field any page reader formats, renders or keys on, typed before verification; nothing an honest seal of any producer (Run Fit, Use this solution, Auto-Fit incl. E, the local engine, Batch, a global method's "not run" evidence) holds refused? Is the page spec identical to the server's where it claims to be?
+3. Can any loaded value (non-object, malformed, hostile text) still crash a reader, inject markup, or reach the legacy machinery?
+4. Provenance: right everywhere §8.3 requires, STALE included?
+5. Do the tests each fail on the defect they name? With the switch off, is everything today's?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.
