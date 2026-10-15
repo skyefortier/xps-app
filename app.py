@@ -31,10 +31,10 @@ DELETE /api/session/<id>    Delete session files
 
 from __future__ import annotations
 
-import ast
 import json
 import logging
 import os
+import re
 import sys
 import threading
 import time
@@ -1447,23 +1447,16 @@ def _register_routes(app: Flask) -> None:
     # explicitly, so it reads 'caller' by construction; the seed itself is compared).
     _COMPARE_APART = ("starts", "software", "seed_source")
 
+    # The fit's own link grammar, LEXICALLY over the whole text (fitting.py: `p<id>_<param>`, `... + <number>` with the
+    # number possibly negative, `... * <number>`): nothing else may appear — no comment, string, call or second name —
+    # so every reading of the text, the comparison's regex included, sees the one master name (Codex 1d rounds 5-7;
+    # an exponent's `e` names no parameter: every parameter name begins with `p<id>_`).
+    _LINK_GRAMMAR = re.compile(r"\s*([A-Za-z_][A-Za-z0-9_]*)\s*(?:[+*]\s*[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?\s*)?")
+
     def _link_master(e):
         # the master parameter of an expression of the fit's own grammar, else None
-        try:
-            body = ast.parse(e, mode="eval").body
-        except (SyntaxError, ValueError, RecursionError, MemoryError):
-            return None
-
-        def number(n):
-            if isinstance(n, ast.UnaryOp) and isinstance(n.op, (ast.USub, ast.UAdd)):
-                n = n.operand
-            return isinstance(n, ast.Constant) and type(n.value) in (int, float)
-        if isinstance(body, ast.Name):
-            return body.id
-        if isinstance(body, ast.BinOp) and isinstance(body.op, (ast.Add, ast.Sub, ast.Mult)) \
-                and isinstance(body.left, ast.Name) and number(body.right):
-            return body.left.id
-        return None
+        m = _LINK_GRAMMAR.fullmatch(e) if isinstance(e, str) else None
+        return m.group(1) if m else None
 
     def _comparable_failure(O):
         # Every SCALE the comparison measures a difference against, finite on BOTH sides, decided before comparing

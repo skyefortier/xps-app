@@ -270,7 +270,8 @@ def test_two_parameters_with_one_synthesized_name_are_refused(client):  # noqa: 
 
 
 @pytest.mark.parametrize("expr", ["'p1_l1' and p1_center", "p1_center + p1_fwhm", "abs(p1_center)", "p1_center + inf",
-                                  "p1_center / 2", "2 * p1_center", "p1_center + 'x'"])
+                                  "p1_center / 2", "2 * p1_center", "p1_center + 'x'",
+                                  "p1_center  # p1_fwhm", "p1_center + 0.5  # p1_fwhm", "p1_center - 0.5"])   # round 7: comments
 def test_a_link_outside_the_fits_grammar_is_refused_on_either_side(client, expr):  # noqa: F811
     a = _record(client)
     pid = a["individual_peaks"][0]["id"]

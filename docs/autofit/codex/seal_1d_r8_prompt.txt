@@ -1,0 +1,15 @@
+CORRECTNESS REVIEW, ROUND 8, of unit 1d ("Re-run this fit") of the sealed fit record in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software.
+
+REPO: this checkout, branch seal-1d, on seal-1c-s8. 1d is `git diff seal-1c-s8..HEAD`. Read docs/autofit/codex/seal_1d_r1_prompt.txt … r7_prompt.txt for what 1d is. Round 7 (both runs NO-GO on one MINOR; verdicts seal_1d_r7_verdict_run{A,B}.md): a comment in a link expression (`p1_center  # p1_fwhm`) is invisible to the ast parse but read by the comparator's regex, so validator and comparator still followed different graphs.
+
+WHAT THIS ROUND CHANGES: the link grammar is now LEXICAL over the whole text (`_LINK_GRAMMAR.fullmatch`, app.py): a name, optionally followed by `+` or `*` and one plain numeric literal (optionally signed, optionally with an exponent), surrounded by whitespace at most — exactly the three forms fitting.py writes (`p<id>_<param>`, `… + <number>`, `… * <number>`; a negative offset is written `+ -0.5`). Nothing else can appear — no comment, string, call, operator or second name — so every reading of the text, the comparator's regex included, sees the one master name (an exponent's `e` names no parameter: every parameter name begins with `p<id>_`). The ast import is removed. Tests add `p1_center  # p1_fwhm`, `p1_center + 0.5  # p1_fwhm` and `p1_center - 0.5` (a form the fit never writes) to the refused expressions on either side; real fits with offsets 1e-05, -2.5e-07, 1e5, 10.9 and -0.5, and all 328 records of seal 1b's run v2, still compare `same`. Mutation-checked: a prefix match instead of the whole-text match fails seven cases.
+
+ANSWER EACH (cite file:line):
+1. Is the round-7 finding resolved?
+2. Is there any remaining input, on either side, that /api/compare-fits compares although a scale or link structure the comparison relies on is non-finite, ambiguous or beyond what it follows, or answers 500? Name the path.
+3. Can the check refuse a response a real fit produces?
+4. Do the new tests fail on the defects they name?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.
