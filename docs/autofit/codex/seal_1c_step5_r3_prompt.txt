@@ -1,0 +1,15 @@
+CORRECTNESS REVIEW, ROUND 3, of step 5 of unit 1c ("sealed fit record") in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software.
+
+REPO: this checkout, branch seal-1c-s5, rebased onto seal-numerics-rule (the owner's 2026-10-15 rule "confirmation by recomputation", under its own review: a cached answer holds only under the server's current numerics, `_cachedVerdict`). Step 5 is `git diff seal-numerics-rule..HEAD`. Read docs/autofit/codex/seal_1c_step5_r1_prompt.txt and seal_1c_step5_r2_prompt.txt for what step 5 is and what round 2 changed; round 2's verdicts (NO-GO x2) are docs/autofit/codex/seal_1c_step5_r2_verdict_run{A,B}.md: the stack's state text was only in hidden dataset labels (MAJOR); CSV / XLSX of a stale seal-only fit formatted a missing statistic (MAJOR); the engine card read a legacy field; an open history panel could miss a verdict after a tab switch; tests too narrow.
+
+WHAT THIS ROUND CHANGES: the stack LEGEND carries a sealed source's state (`_stackSourceStateText`: "fit confirming…", "fit unconfirmed: …", "fit no longer applies (model changed / record does not hold: check)"), repainted by a verdict; CSV / XLSX format no statistic for a stale sealed fit; the engine card from the seal's designation; an open history panel repaints on any verdict and on activation (switch on); `_verifyRecordOnly` reads the numerics-keyed cache. Tests (tests/test_browser_seal_step5.py, 29): the visible legend before and after a verdict, seal-only stale CSV / XLSX, the engine card with a seal-only result, a preview open before its record's verdict, the panel across a tab switch, XLSX result cells.
+
+ANSWER EACH (cite file:line):
+1. Is every round-2 finding (both runs) resolved? List each with its status.
+2. With the switch ON, does every consumer in plan §7's table now read the record for CURRENT / PENDING / UNCONFIRMED, show the state where §5 requires visible text, and fall back to today's labelled live preview for STALE — including a result that holds ONLY its seal (as a loaded one will in step 6)?
+3. With the switch OFF, is everything exactly today's?
+4. Do the tests each fail on the defect they name?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

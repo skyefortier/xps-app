@@ -9297,12 +9297,12 @@ function _ensureVerified(owner, retry = false, fromDeployment = false) {
 // answer (owner live), never attached to a fit operation; the history list repaints when it lands.
 const _sealDetached = new WeakSet();
 function _verifyRecordOnly(owner, seal) {
-  if (!seal || seal.engine !== 'server' || _sealVerdicts.has(seal) || _sealUnreachable.has(seal) || _sealDetached.has(seal)) return null;
+  if (!seal || seal.engine !== 'server' || _cachedVerdict(seal) || _sealUnreachable.has(seal) || _sealDetached.has(seal)) return null;
   _sealDetached.add(seal);
   const checks = seal.producer === 'autoFit' && seal.E ? [[seal.E.R, seal.E.O], [seal.R, seal.O]] : [[seal.R, seal.O]];
   return _settleChecks(checks).then(({ verdict: v }) => {
     _sealDetached.delete(seal);
-    if (!_ownerLive(owner) || _sealVerdicts.has(seal)) return null;
+    if (!_ownerLive(owner) || _cachedVerdict(seal)) return null;
     if (v.unreachable) _sealUnreachable.set(seal, true);
     else _sealVerdicts.set(seal, { state: v.state, check: v.check || null, reason: v.reason || '', software: v.software || null });
     _onSealVerdict(owner, seal);
