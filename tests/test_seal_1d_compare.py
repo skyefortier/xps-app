@@ -200,3 +200,54 @@ def test_no_real_record_is_refused():
             O = json.loads(line)["O"]
             r = c.post("/api/compare-fits", json={"a": O, "b": O})
             assert r.status_code == 200 and r.get_json()["same"], r.get_json()
+
+
+# ── Codex 1d round 5 ─────────────────────────────────────────────────────────────────────────────────────────────────
+@pytest.mark.parametrize("offset", [0.00001, -2.5e-7, 1e5, 10.9])
+def test_a_link_with_an_exponent_the_page_can_send_is_compared_not_refused(client, offset):  # noqa: F811
+    """A real fit's link: the page's linked offset 0.00001 is written `p1_center + 1e-05` — one parameter named."""
+    x, y, specs = SS._well_posed()
+    specs = [dict(s) for s in specs]
+    specs[1].update(constrain_to=specs[0]["id"], splitting=offset, area_ratio=0.5, fix_fwhm=True)   # as peakToBackendSpec sends
+    R, O = _seal(client, x, y, specs, background={"method": "shirley"})
+    exprs = [v["expr"] for ip in O["individual_peaks"] for v in ip["params"].values() if isinstance(v, dict) and v.get("expr")]
+    assert any(e.endswith(" + " + repr(float(offset))) for e in exprs), exprs   # the offset written as Python spells it
+    got = _compare(client, O, copy.deepcopy(O))
+    assert got["same"], (exprs, got)
+
+
+def test_duplicate_component_ids_are_refused(client):  # noqa: F811
+    a = _record(client)
+    h = copy.deepcopy(a)
+    dup = copy.deepcopy(h["individual_peaks"][0])
+    h["individual_peaks"][0]["params"]["fwhm"]["expr"] = "nothing_here * 2"   # hidden behind the duplicate's own expr
+    dup["params"]["fwhm"]["expr"] = f"p{dup['id']}_center"
+    h["individual_peaks"].append(dup)
+    for pair in ((h, a), (a, h), (h, copy.deepcopy(h))):
+        got = _compare(client, *pair, status=400)
+        assert "share an id" in got["error"], got
+
+
+def _resized(o, m):
+    """o with every per-sample array (and each component's curve) stretched to m samples on a unit grid."""
+    n = len(o["energy"])
+    out = copy.deepcopy(o)
+    for k, v in o.items():
+        if isinstance(v, list) and len(v) == n and all(isinstance(e, (int, float)) for e in v):
+            out[k] = [v[i % n] for i in range(m)]
+    out["energy"] = [i / m for i in range(m)]
+    for ip in out["individual_peaks"]:
+        ip["y"] = [ip["y"][i % n] for i in range(m)]
+    return out
+
+
+def test_b_curves_on_as_grid_are_bounded_by_the_longer_side(client):  # noqa: F811
+    """Each side passes its own n x span bound; the comparison measures b's longer curves on a's wide grid."""
+    a = _record(client)
+    n = len(a["energy"])
+    span = 1.7e308 / (2 * n)                                              # a: n x span = 8.5e307, finite
+    a["energy"] = [i * span / (n - 1) for i in range(n)]
+    b = _resized(a, 10 * n)                                               # b: its own grid is the unit interval
+    assert _compare(client, a, a)["same"] is True                         # a alone is comparable
+    got = _compare(client, a, b, status=400)                              # 10 n x a's span overflows
+    assert "on a's grid" in got["error"], got

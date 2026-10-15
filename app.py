@@ -31,8 +31,8 @@ DELETE /api/session/<id>    Delete session files
 
 from __future__ import annotations
 
+import ast
 import json
-import re
 import logging
 import os
 import sys
@@ -1465,6 +1465,9 @@ def _register_routes(app: Flask) -> None:
             if not np.isfinite(np.ptp(x) * max(len(x), 1)) or not np.isfinite(np.nanmax(np.abs(net), initial=0.0)):
                 return "its energy span or signal overflows the comparison's arithmetic"
         names, exprs = set(), {}
+        ids = [str(pk.get("id")) for pk in O.get("individual_peaks") or []]
+        if len(set(ids)) != len(ids):
+            return "two components share an id"                     # a fit never writes one (the server refuses it)
         for pk in O.get("individual_peaks") or []:
             for name, info in (pk.get("params") or {}).items():
                 if not isinstance(info, dict):
@@ -1482,10 +1485,14 @@ def _register_routes(app: Flask) -> None:
         # links form chains, each followed here exactly as the comparison follows it (Codex 1d round 4)
         target = {}
         for key, e in exprs.items():
-            ids = re.findall(r"[A-Za-z_][A-Za-z0-9_]*", e)
-            if len(ids) != 1 or ids[0] not in names:
+            # the expression's NAMES, parsed (a numeric literal such as 1e-05 names nothing; Codex 1d round 5)
+            try:
+                refs = {n.id for n in ast.walk(ast.parse(e, mode="eval")) if isinstance(n, ast.Name)}
+            except (SyntaxError, ValueError, RecursionError, MemoryError):
+                refs = set()
+            if len(refs) != 1 or next(iter(refs)) not in names:
                 return f"a link ({key}: {e[:40]}) is not one a fit writes"
-            target[key] = ids[0]
+            target[key] = next(iter(refs))
         limit = sys.getrecursionlimit() // 4
         for start in target:
             cur, steps, seen = start, 0, {start}
@@ -1534,6 +1541,13 @@ def _register_routes(app: Flask) -> None:
                 form = _comparable_failure(O)
             if form:
                 return _err(f"{name} is not a fit response: {form}")
+        # the comparison measures BOTH sides' component curves on a's grid: a half-maximum width is at most the
+        # longest curve's length x a's span (Codex 1d round 5: b's sample count is not bounded by a's)
+        n_max = max([len(a["energy"]), len(b["energy"])] + [len(pk.get("y") or []) for O in (a, b)
+                                                               for pk in O.get("individual_peaks") or []])
+        with np.errstate(over="ignore", invalid="ignore"):
+            if not np.isfinite(np.ptp(np.asarray(a["energy"], float)) * max(n_max, 1)):
+                return _err("the responses cannot be compared: b's curves on a's grid overflow the comparison's arithmetic")
         try:
             fit = same_fit.fit_differences({k: v for k, v in a.items() if k not in _COMPARE_APART},
                                            {k: v for k, v in b.items() if k not in _COMPARE_APART})

@@ -63,3 +63,13 @@ two-basin construction), starts-only differences, other numerics, malformed side
 sealed server result (not on local, legacy or stale ones); a re-run that reproduces; a forced different
 solution (a stubbed replay reply); a re-run dropped by a replaced fit or a closed tab keeps nothing (an edit only hides its outcome, a tab switch keeps it); the seal,
 the model and the state never change; Cancel.
+
+## Stated limit (Codex 1d rounds 3-5)
+
+`/api/compare-fits` refuses (400), before comparing, any side whose comparison scales are not finite — the energy
+span, the background-subtracted signal, a bound span, the longest curve's length times the record's span — or whose
+links are not as a fit writes them (each naming exactly one parameter of the response, parsed with `ast`; ids unique;
+no chain deeper than the comparison follows). A fit the server accepts with bounds no comparison can measure against
+(a parameter held at bounds of ±1e308) is therefore refused a re-run, with the reason; the page never sends such
+bounds. All 328 records of seal 1b's run v2 compare.
+

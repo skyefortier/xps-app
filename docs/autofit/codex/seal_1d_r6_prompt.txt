@@ -1,0 +1,15 @@
+CORRECTNESS REVIEW, ROUND 6, of unit 1d ("Re-run this fit") of the sealed fit record in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software.
+
+REPO: this checkout, branch seal-1d, on seal-1c-s8. 1d is `git diff seal-1c-s8..HEAD`. Read docs/autofit/codex/seal_1d_r1_prompt.txt … r5_prompt.txt for what 1d is. Round 5 (both runs NO-GO on MINORs only; verdicts seal_1d_r5_verdict_run{A,B}.md): (1) the comparator measures BOTH sides' component curves on a's grid, so b's longer curves could form an infinite width although each side passed its own n x span bound; (2) duplicate component ids let a later component overwrite an earlier link before validation; (3) a REAL link was refused — the page's linked offset 0.00001 is written `p1_center + 1e-05`, and the identifier regex read the exponent's `e` as a second name; and the stated limit that a fit held at bounds of ±1e308 is refused a re-run.
+
+WHAT THIS ROUND CHANGES: (1) a cross-side bound — the longest curve on either side (and either energy array) times a's span must be finite, else 400 "b's curves on a's grid overflow"; (2) a response whose components share an id is refused (a fit never writes one; the server refuses it in requests); (3) a link's names are those of its PARSED expression (`ast`; a numeric literal names nothing), and it must name exactly one parameter of the response; the ±1e308 limit is stated in the plan. Tests: links with offsets 1e-05, -2.5e-07, 1e5 and 10.9 made by real fits (asserting the exponent is in the written expression) compare `same` (mutation: the old regex fails the two exponent cases); duplicate ids refused on a, b and both; a cross-side fixture where each side passes alone and only b's 10 n samples on a's span overflow. All 328 records of seal 1b's run v2 still compare `same` (test_no_real_record_is_refused, run here with SEAL_1B_RECORDS set: 41 passed, 0 skipped in that file).
+
+ANSWER EACH (cite file:line):
+1. Is every round-5 finding resolved, or a stated limit? List each with its status.
+2. Is there any remaining input, on either side, that /api/compare-fits compares although a scale or link structure the comparison relies on is non-finite or beyond what it follows, or answers 500? Name the path.
+3. Can the check refuse a response a real fit produces (any lineshape, link, offset, ratio, lock or background the page can send)?
+4. Do the new tests fail on the defects they name?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.
