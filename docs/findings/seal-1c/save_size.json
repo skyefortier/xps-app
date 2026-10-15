@@ -1,0 +1,1047 @@
+[
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "committed_bytes": 234265,
+  "resaved_name": "p.proj.zip",
+  "resaved_bytes": 812199,
+  "committed_content": 847454,
+  "resaved_content": 3395234,
+  "page_errors": [],
+  "tabs": [
+   {
+    "tab": "C1s Scan",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 66187,
+    "seal_gzip_bytes": 25900
+   },
+   {
+    "tab": "U4f Scan",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 92243,
+    "seal_gzip_bytes": 36160
+   },
+   {
+    "tab": "C1s Scan_0",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 64970,
+    "seal_gzip_bytes": 25545
+   },
+   {
+    "tab": "U4f Scan_0",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 92183,
+    "seal_gzip_bytes": 36095
+   },
+   {
+    "tab": "C1s Scan_1",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 65203,
+    "seal_gzip_bytes": 25694
+   },
+   {
+    "tab": "U4f Scan_1",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 91945,
+    "seal_gzip_bytes": 35709
+   },
+   {
+    "tab": "C1s Scan_2",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 65712,
+    "seal_gzip_bytes": 26049
+   },
+   {
+    "tab": "U4f Scan_2",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 92245,
+    "seal_gzip_bytes": 36308
+   },
+   {
+    "tab": "C1s Scan_3",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 65261,
+    "seal_gzip_bytes": 25727
+   },
+   {
+    "tab": "U4f Scan_3",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 92062,
+    "seal_gzip_bytes": 36238
+   },
+   {
+    "tab": "C1s Scan_4",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 65216,
+    "seal_gzip_bytes": 25694
+   },
+   {
+    "tab": "U4f Scan_4",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 92253,
+    "seal_gzip_bytes": 35886
+   },
+   {
+    "tab": "C1s Scan_5",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 65252,
+    "seal_gzip_bytes": 25815
+   },
+   {
+    "tab": "U4f Scan_5",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 92321,
+    "seal_gzip_bytes": 35660
+   },
+   {
+    "tab": "C1s Scan_6",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 66310,
+    "seal_gzip_bytes": 25963
+   },
+   {
+    "tab": "U4f Scan_6",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 92119,
+    "seal_gzip_bytes": 36117
+   },
+   {
+    "tab": "C1s Scan_7",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 65295,
+    "seal_gzip_bytes": 25710
+   },
+   {
+    "tab": "U4f Scan_7",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 92188,
+    "seal_gzip_bytes": 35707
+   },
+   {
+    "tab": "C1s Scan_8",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 65541,
+    "seal_gzip_bytes": 25801
+   },
+   {
+    "tab": "U4f Scan_8",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 92163,
+    "seal_gzip_bytes": 35758
+   }
+  ]
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "committed_bytes": 197021,
+  "resaved_name": "p.proj.zip",
+  "resaved_bytes": 623560,
+  "committed_content": 673285,
+  "resaved_content": 2582164,
+  "page_errors": [],
+  "tabs": [
+   {
+    "tab": "B1s Scan",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 24432,
+    "seal_gzip_bytes": 7979
+   },
+   {
+    "tab": "U4f Scan",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 94046,
+    "seal_gzip_bytes": 37432
+   },
+   {
+    "tab": "B1s Scan_0",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 24388,
+    "seal_gzip_bytes": 8015
+   },
+   {
+    "tab": "U4f Scan_0",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 93942,
+    "seal_gzip_bytes": 37066
+   },
+   {
+    "tab": "B1s Scan_1",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 24240,
+    "seal_gzip_bytes": 8238
+   },
+   {
+    "tab": "U4f Scan_1",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 93827,
+    "seal_gzip_bytes": 36907
+   },
+   {
+    "tab": "B1s Scan_2",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 24139,
+    "seal_gzip_bytes": 8013
+   },
+   {
+    "tab": "U4f Scan_2",
+    "sealed": true,
+    "state": "unconfirmed",
+    "err": null,
+    "seal_bytes": 94927,
+    "seal_gzip_bytes": 37302
+   },
+   {
+    "tab": "B1s Scan_3",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 24111,
+    "seal_gzip_bytes": 7971
+   },
+   {
+    "tab": "U4f Scan_3",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 94867,
+    "seal_gzip_bytes": 37223
+   },
+   {
+    "tab": "B1s Scan_4",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 24105,
+    "seal_gzip_bytes": 8172
+   },
+   {
+    "tab": "U4f Scan_4",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 93944,
+    "seal_gzip_bytes": 37227
+   },
+   {
+    "tab": "B1s Scan_5",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 24128,
+    "seal_gzip_bytes": 8188
+   },
+   {
+    "tab": "U4f Scan_5",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 94824,
+    "seal_gzip_bytes": 37618
+   },
+   {
+    "tab": "B1s Scan_6",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 24133,
+    "seal_gzip_bytes": 8178
+   },
+   {
+    "tab": "U4f Scan_6",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 94546,
+    "seal_gzip_bytes": 37032
+   },
+   {
+    "tab": "B1s Scan_7",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 24163,
+    "seal_gzip_bytes": 8151
+   },
+   {
+    "tab": "U4f Scan_7",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 95112,
+    "seal_gzip_bytes": 37773
+   },
+   {
+    "tab": "B1s Scan_8",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 24142,
+    "seal_gzip_bytes": 8139
+   },
+   {
+    "tab": "U4f Scan_8",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 94780,
+    "seal_gzip_bytes": 37640
+   }
+  ]
+ },
+ {
+  "project": "8-JT Graphite.proj.zip",
+  "committed_bytes": 271133,
+  "resaved_name": "p.proj.zip",
+  "resaved_bytes": 478810,
+  "committed_content": 965898,
+  "resaved_content": 1910175,
+  "page_errors": [],
+  "tabs": [
+   {
+    "tab": "C1s Scan",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 54167,
+    "seal_gzip_bytes": 20997
+   },
+   {
+    "tab": "C1s Scan_0",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 54317,
+    "seal_gzip_bytes": 20896
+   },
+   {
+    "tab": "C1s Scan_1",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 54224,
+    "seal_gzip_bytes": 20829
+   },
+   {
+    "tab": "C1s Scan_2",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 54611,
+    "seal_gzip_bytes": 21411
+   },
+   {
+    "tab": "C1s Scan_3",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 54509,
+    "seal_gzip_bytes": 21403
+   },
+   {
+    "tab": "C1s Scan_4",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 56336,
+    "seal_gzip_bytes": 22088
+   },
+   {
+    "tab": "C1s Scan_5",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 56547,
+    "seal_gzip_bytes": 22221
+   },
+   {
+    "tab": "C1s Scan_6",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 56371,
+    "seal_gzip_bytes": 22114
+   },
+   {
+    "tab": "C1s Scan_7",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 54111,
+    "seal_gzip_bytes": 20962
+   },
+   {
+    "tab": "C1s Scan_8",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 59672,
+    "seal_gzip_bytes": 22687
+   }
+  ]
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "committed_bytes": 420927,
+  "resaved_name": "p.proj.zip",
+  "resaved_bytes": 910903,
+  "committed_content": 1460625,
+  "resaved_content": 3588665,
+  "page_errors": [],
+  "tabs": [
+   {
+    "tab": "B1s Scan",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 42537,
+    "seal_gzip_bytes": 16483
+   },
+   {
+    "tab": "B1s Scan_0",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 42471,
+    "seal_gzip_bytes": 16264
+   },
+   {
+    "tab": "B1s Scan_1",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 42651,
+    "seal_gzip_bytes": 16449
+   },
+   {
+    "tab": "B1s Scan_2",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 42546,
+    "seal_gzip_bytes": 16454
+   },
+   {
+    "tab": "B1s Scan_3",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 42544,
+    "seal_gzip_bytes": 16341
+   },
+   {
+    "tab": "B1s Scan_4",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 42523,
+    "seal_gzip_bytes": 16357
+   },
+   {
+    "tab": "B1s Scan_5",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 42578,
+    "seal_gzip_bytes": 16511
+   },
+   {
+    "tab": "B1s Scan_6",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 42493,
+    "seal_gzip_bytes": 16354
+   },
+   {
+    "tab": "B1s Scan_7",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 42594,
+    "seal_gzip_bytes": 16438
+   },
+   {
+    "tab": "B1s Scan_8",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 42506,
+    "seal_gzip_bytes": 16443
+   },
+   {
+    "tab": "U4f Scan",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 92132,
+    "seal_gzip_bytes": 35484
+   },
+   {
+    "tab": "U4f Scan_0",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 90261,
+    "seal_gzip_bytes": 36044
+   },
+   {
+    "tab": "U4f Scan_1",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 91926,
+    "seal_gzip_bytes": 35810
+   },
+   {
+    "tab": "U4f Scan_2",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 91921,
+    "seal_gzip_bytes": 35796
+   },
+   {
+    "tab": "U4f Scan_3",
+    "sealed": true,
+    "state": "unconfirmed",
+    "err": null,
+    "seal_bytes": 91924,
+    "seal_gzip_bytes": 35842
+   },
+   {
+    "tab": "U4f Scan_4",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 91895,
+    "seal_gzip_bytes": 35595
+   },
+   {
+    "tab": "U4f Scan_5",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 91708,
+    "seal_gzip_bytes": 35970
+   },
+   {
+    "tab": "U4f Scan_6",
+    "sealed": true,
+    "state": "unconfirmed",
+    "err": null,
+    "seal_bytes": 91928,
+    "seal_gzip_bytes": 36116
+   },
+   {
+    "tab": "U4f Scan_7",
+    "sealed": true,
+    "state": "unconfirmed",
+    "err": null,
+    "seal_bytes": 92008,
+    "seal_gzip_bytes": 35469
+   },
+   {
+    "tab": "U4f Scan_8",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 92177,
+    "seal_gzip_bytes": 35543
+   }
+  ]
+ },
+ {
+  "project": "Cl2p_projfit_test.proj.zip",
+  "committed_bytes": 165342,
+  "resaved_name": "p.proj.zip",
+  "resaved_bytes": 652775,
+  "committed_content": 579124,
+  "resaved_content": 2763353,
+  "page_errors": [],
+  "tabs": [
+   {
+    "tab": "C1s Scan",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 67861,
+    "seal_gzip_bytes": 26540
+   },
+   {
+    "tab": "C1s Scan_0",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 74604,
+    "seal_gzip_bytes": 28635
+   },
+   {
+    "tab": "C1s Scan_1",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 68187,
+    "seal_gzip_bytes": 26332
+   },
+   {
+    "tab": "C1s Scan_2",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 68092,
+    "seal_gzip_bytes": 26161
+   },
+   {
+    "tab": "C1s Scan_3",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 68329,
+    "seal_gzip_bytes": 26271
+   },
+   {
+    "tab": "C1s Scan_4",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 67545,
+    "seal_gzip_bytes": 25980
+   },
+   {
+    "tab": "C1s Scan_5",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 68113,
+    "seal_gzip_bytes": 25845
+   },
+   {
+    "tab": "U4f Scan",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 92389,
+    "seal_gzip_bytes": 36042
+   },
+   {
+    "tab": "U4f Scan_0",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 92441,
+    "seal_gzip_bytes": 35380
+   },
+   {
+    "tab": "U4f Scan_1",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 92375,
+    "seal_gzip_bytes": 35869
+   },
+   {
+    "tab": "U4f Scan_2",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 92414,
+    "seal_gzip_bytes": 35555
+   },
+   {
+    "tab": "U4f Scan_3",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 92055,
+    "seal_gzip_bytes": 35407
+   },
+   {
+    "tab": "U4f Scan_4",
+    "sealed": true,
+    "state": "unconfirmed",
+    "err": null,
+    "seal_bytes": 92139,
+    "seal_gzip_bytes": 35271
+   },
+   {
+    "tab": "U4f Scan_5",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 92290,
+    "seal_gzip_bytes": 35320
+   },
+   {
+    "tab": "Cl2p Scan",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 44549,
+    "seal_gzip_bytes": 15931
+   },
+   {
+    "tab": "Cl2p Scan_0",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 44204,
+    "seal_gzip_bytes": 16153
+   },
+   {
+    "tab": "Cl2p Scan_1",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 44433,
+    "seal_gzip_bytes": 16205
+   }
+  ]
+ },
+ {
+  "project": "Project9_CasaXPS_newfit.proj.zip",
+  "committed_bytes": 140629,
+  "resaved_name": "p.proj.zip",
+  "resaved_bytes": 589182,
+  "committed_content": 496515,
+  "resaved_content": 2488574,
+  "page_errors": [],
+  "tabs": [
+   {
+    "tab": "C1s Scan",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 67834,
+    "seal_gzip_bytes": 26524
+   },
+   {
+    "tab": "C1s Scan_0",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 74604,
+    "seal_gzip_bytes": 28635
+   },
+   {
+    "tab": "C1s Scan_1",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 68123,
+    "seal_gzip_bytes": 26293
+   },
+   {
+    "tab": "C1s Scan_2",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 68092,
+    "seal_gzip_bytes": 26161
+   },
+   {
+    "tab": "C1s Scan_3",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 68329,
+    "seal_gzip_bytes": 26272
+   },
+   {
+    "tab": "C1s Scan_4",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 67517,
+    "seal_gzip_bytes": 25995
+   },
+   {
+    "tab": "C1s Scan_5",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 68113,
+    "seal_gzip_bytes": 25845
+   },
+   {
+    "tab": "U4f Scan",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 92376,
+    "seal_gzip_bytes": 36061
+   },
+   {
+    "tab": "U4f Scan_0",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 92443,
+    "seal_gzip_bytes": 35429
+   },
+   {
+    "tab": "U4f Scan_1",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 92375,
+    "seal_gzip_bytes": 35869
+   },
+   {
+    "tab": "U4f Scan_2",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 92390,
+    "seal_gzip_bytes": 35514
+   },
+   {
+    "tab": "U4f Scan_3",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 91730,
+    "seal_gzip_bytes": 35181
+   },
+   {
+    "tab": "U4f Scan_4",
+    "sealed": true,
+    "state": "unconfirmed",
+    "err": null,
+    "seal_bytes": 92087,
+    "seal_gzip_bytes": 35270
+   },
+   {
+    "tab": "U4f Scan_5",
+    "sealed": true,
+    "state": "unconfirmed",
+    "err": null,
+    "seal_bytes": 92320,
+    "seal_gzip_bytes": 35316
+   }
+  ]
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "committed_bytes": 408104,
+  "resaved_name": "p.proj.zip",
+  "resaved_bytes": 955857,
+  "committed_content": 1455508,
+  "resaved_content": 3922946,
+  "page_errors": [],
+  "tabs": [
+   {
+    "tab": "C1s Scan",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 68316,
+    "seal_gzip_bytes": 26305
+   },
+   {
+    "tab": "C1s Scan_0",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 67419,
+    "seal_gzip_bytes": 25854
+   },
+   {
+    "tab": "C1s Scan_1",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 55172,
+    "seal_gzip_bytes": 20585
+   },
+   {
+    "tab": "C1s Scan_2",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 55582,
+    "seal_gzip_bytes": 20844
+   },
+   {
+    "tab": "C1s Scan_3",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 55337,
+    "seal_gzip_bytes": 20676
+   },
+   {
+    "tab": "C1s Scan_4",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 60600,
+    "seal_gzip_bytes": 23026
+   },
+   {
+    "tab": "C1s Scan_5",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 55143,
+    "seal_gzip_bytes": 20549
+   },
+   {
+    "tab": "C1s Scan_6",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 55496,
+    "seal_gzip_bytes": 21075
+   },
+   {
+    "tab": "C1s Scan_7",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 55308,
+    "seal_gzip_bytes": 20830
+   },
+   {
+    "tab": "C1s Scan_8",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 55152,
+    "seal_gzip_bytes": 20838
+   },
+   {
+    "tab": "U4f Scan",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 92078,
+    "seal_gzip_bytes": 36197
+   },
+   {
+    "tab": "U4f Scan_0",
+    "sealed": true,
+    "state": "unconfirmed",
+    "err": null,
+    "seal_bytes": 91970,
+    "seal_gzip_bytes": 36002
+   },
+   {
+    "tab": "U4f Scan_1",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 92183,
+    "seal_gzip_bytes": 35956
+   },
+   {
+    "tab": "U4f Scan_2",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 92167,
+    "seal_gzip_bytes": 36261
+   },
+   {
+    "tab": "U4f Scan_3",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 92041,
+    "seal_gzip_bytes": 36212
+   },
+   {
+    "tab": "U4f Scan_4",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 92414,
+    "seal_gzip_bytes": 35764
+   },
+   {
+    "tab": "U4f Scan_5",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 92349,
+    "seal_gzip_bytes": 35662
+   },
+   {
+    "tab": "U4f Scan_6",
+    "sealed": true,
+    "state": "current",
+    "err": null,
+    "seal_bytes": 92112,
+    "seal_gzip_bytes": 36107
+   },
+   {
+    "tab": "U4f Scan_7",
+    "sealed": true,
+    "state": "unconfirmed",
+    "err": null,
+    "seal_bytes": 92287,
+    "seal_gzip_bytes": 35936
+   },
+   {
+    "tab": "U4f Scan_8",
+    "sealed": true,
+    "state": "unconfirmed",
+    "err": null,
+    "seal_bytes": 92118,
+    "seal_gzip_bytes": 35760
+   }
+  ]
+ }
+]

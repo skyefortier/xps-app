@@ -56,3 +56,19 @@ The other §10 changes and where each is measured:
 | saves before this release are never current (Q1) | the legacy census above: 121 / 121 load LEGACY or peaks-only, as main restores them |
 | a reloaded fit keeps σ and its scattered-starts detail | `tests/test_browser_export_prefix.py`: a reloaded fit's CSV / XLSX carry the σ main left blank and the not-better χ²ᵣ list main dropped — the only two differences from main's export |
 | larger saves | below |
+
+### Larger saves (`scripts/seal_1c_save_size.py`, commit 10813c2, `save_size.json`)
+
+Each committed project loaded into this branch's page, Run Fit pressed on every spectrum tab with a model (the page's
+default method), each fit's own check awaited, the project saved again:
+
+| | committed (main-era saves) | re-saved, every fit sealed |
+|---|---|---|
+| the seven project files | 1,837,421 B | 5,023,286 B (× 2.73) |
+| their content, uncompressed | 6,478,409 B | 20,651,111 B (× 3.19) |
+| one seal (121) | — | median ≈ 90 KB raw, ≈ 35 KB gzipped; largest 95,112 B / 37,773 B |
+
+All 121 fits sealed with no page error: **111 CURRENT, 10 UNCONFIRMED** right after Run Fit. All 10 unconfirmed are U 4f
+fits holding an LA component (LACX) — the non-bit-reproducible lineshape (1b §1; the separate LA unit logged in
+`docs/autofit/PROGRESS.md`). Until that unit lands, about one fresh fit in twelve on the committed data reads
+"unconfirmed" with its reason and a Check again control.
