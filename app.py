@@ -1452,37 +1452,49 @@ def _register_routes(app: Flask) -> None:
         # and whatever the comparison would traverse (Codex 1d round 3: a scale that overflows to infinity makes
         # every difference vanish; a side the comparison does not read its bounds or links from was compared):
         # the energy span, the background-subtracted signal, every parameter's bound span, and a chain of
-        # parameter links no deeper than the comparison follows (it follows them recursively). Real responses:
-        # open bounds are null, links one level deep (1b's 328 records).
+        # parameter links no deeper than the comparison follows (it follows them recursively), each link naming one
+        # parameter. Real responses: open bounds are null, links one level deep (1b's 328 records).
         try:
             x = np.asarray(O["energy"], float)
             net = np.asarray(O["counts"], float) - np.asarray(O["background_y"], float)
         except (TypeError, ValueError):
             return "its energies, counts or background are not numbers"
         with np.errstate(over="ignore", invalid="ignore"):
-            if not np.isfinite(np.ptp(x)) or not np.isfinite(np.nanmax(np.abs(net), initial=0.0)):
+            # every position scale is a half-maximum width — a sample count (<= n) times a grid step (<= the span) —
+            # so a finite n x span bounds them all (Codex 1d round 4)
+            if not np.isfinite(np.ptp(x) * max(len(x), 1)) or not np.isfinite(np.nanmax(np.abs(net), initial=0.0)):
                 return "its energy span or signal overflows the comparison's arithmetic"
-        exprs = {}
+        names, exprs = set(), {}
         for pk in O.get("individual_peaks") or []:
             for name, info in (pk.get("params") or {}).items():
                 if not isinstance(info, dict):
                     continue
+                key = f"p{pk.get('id')}_{name}"
+                names.add(key)
                 lo, hi = info.get("min"), info.get("max")
                 if lo is not None and hi is not None:
                     with np.errstate(over="ignore", invalid="ignore"):
                         if not np.isfinite(np.float64(hi) - np.float64(lo)):
                             return f"a bound span ({name}) overflows the comparison's arithmetic"
-                exprs[f"p{pk.get('id')}_{name}"] = info.get("expr") or ""
+                if info.get("expr"):
+                    exprs[key] = info["expr"]
+        # a link as a fit writes it names exactly ONE parameter of the response (1b's 328 records: all 630 do), so the
+        # links form chains, each followed here exactly as the comparison follows it (Codex 1d round 4)
+        target = {}
+        for key, e in exprs.items():
+            ids = re.findall(r"[A-Za-z_][A-Za-z0-9_]*", e)
+            if len(ids) != 1 or ids[0] not in names:
+                return f"a link ({key}: {e[:40]}) is not one a fit writes"
+            target[key] = ids[0]
         limit = sys.getrecursionlimit() // 4
-        for start in exprs:                                   # each chain followed iteratively, cycles stopped
-            seen, frontier = {start}, [start]
-            for _depth in range(limit + 1):
-                frontier = [r for f in frontier for r in re.findall(r"[A-Za-z_][A-Za-z0-9_]*", exprs.get(f, ""))
-                            if r in exprs and r not in seen]
-                seen.update(frontier)
-                if not frontier:
-                    break
-            else:
+        for start in target:
+            cur, steps, seen = start, 0, {start}
+            while cur in target and steps <= limit:
+                cur, steps = target[cur], steps + 1
+                if cur in seen:
+                    break                                          # a cycle: the comparison stops it
+                seen.add(cur)
+            if steps > limit:
                 return "a chain of parameter links is deeper than the comparison follows"
         return None
 

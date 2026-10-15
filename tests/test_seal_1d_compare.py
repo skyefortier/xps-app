@@ -145,14 +145,27 @@ def _with_chain(o, n=1100):
     ip = o["individual_peaks"][0]
     tmpl = ip["params"]["center"]
     for i in range(n):                                                  # p<id>_l0 -> p<id>_l1 -> ... (bounds null)
-        ip["params"][f"l{i}"] = {**tmpl, "min": None, "max": None, "vary": False, "expr": f"p{ip['id']}_l{i + 1}"}
+        nxt = f"p{ip['id']}_l{i + 1}" if i < n - 1 else f"p{ip['id']}_center"   # each names one parameter that exists
+        ip["params"][f"l{i}"] = {**tmpl, "min": None, "max": None, "vary": False, "expr": nxt}
 
 
 def _with_signal(o):
     o["counts"][0], o["background_y"][0] = 1e308, -1e308                  # each finite; their difference is not
 
 
+def _with_wide_grid(o):
+    o["energy"][0], o["energy"][-1] = -1e306, 1e306                       # a finite span; x n points it is not
+
+
+def _with_link(o, expr):
+    ip = o["individual_peaks"][0]
+    ip["params"]["extra"] = {**ip["params"]["center"], "min": None, "max": None, "vary": False, "expr": expr}
+
+
 @pytest.mark.parametrize("hostile,words", [
+    (_with_wide_grid, "energy span"),                                       # every half-maximum width is bounded by n x span
+    (lambda o: _with_link(o, f"p{o['individual_peaks'][0]['id']}_center + p{o['individual_peaks'][0]['id']}_fwhm"), "not one a fit writes"),
+    (lambda o: _with_link(o, "nothing_here * 2"), "not one a fit writes"),
     (lambda o: _with_span(o, -(10 ** 308), 10 ** 308), "bound span"),       # integers
     (lambda o: _with_span(o, -1e308, 1e308), "bound span"),                 # floats: their difference is inf, no exception
     (_with_chain, "chain of parameter links"),

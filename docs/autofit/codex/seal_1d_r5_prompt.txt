@@ -1,0 +1,15 @@
+CORRECTNESS REVIEW, ROUND 5, of unit 1d ("Re-run this fit") of the sealed fit record in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software.
+
+REPO: this checkout, branch seal-1d, on seal-1c-s8. 1d is `git diff seal-1c-s8..HEAD`. Read docs/autofit/codex/seal_1d_r1_prompt.txt … r4_prompt.txt for what 1d is. Round 4 (both runs NO-GO on MINORs only; verdicts seal_1d_r4_verdict_run{A,B}.md): the up-front check (`_comparable_failure`, app.py) did not bound the comparator's POSITION scales — each a half-maximum width, a sample count times the median grid step, which can overflow although the energy span is finite; and its breadth-first link walk measured shortest reachability while the comparator follows each path recursively.
+
+WHAT THIS ROUND CHANGES: (1) every half-maximum width is at most n (samples) x the energy span (count <= n, step <= span), so the check requires n x span finite — one bound for every position scale the comparator can form, the returned components' and the reconstructed alternatives' alike. (2) A link must name exactly ONE parameter of the same response (measured: all 630 expressions in seal 1b's 328 records do; anything else is refused as "not one a fit writes"), so the links form chains, and each chain is followed exactly as the comparator follows it (one reference per step, a revisit = a cycle, which the comparator also stops), refused past a quarter of the recursion limit. Tests add: a grid whose span is finite but n x span is not; a link naming two parameters; a link naming none; the 1,100-link chain now ends on a real parameter so its depth is what is refused. All on side a, b and both; every check mutation-checked; all 328 real records still compare (`same`).
+
+ANSWER EACH (cite file:line):
+1. Is every round-4 finding resolved, or a stated limit? List each with its status.
+2. Is there any remaining input, on either side, that /api/compare-fits compares although a scale or link structure the comparison relies on is non-finite or beyond what it follows, or answers 500? Name the path.
+3. Can the check refuse a response a real fit produces (any lineshape, link, lock or background the page can send)?
+4. Do the new tests fail on the defects they name?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.
