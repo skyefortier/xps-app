@@ -781,9 +781,19 @@ def test_a_fit_file_writes_nothing_from_beside_a_seal(browser, server, unreadabl
         pg.evaluate(CAPTURE)
         pg.evaluate("""(unreadable) => { let seal = state.fitResult.seal;
             if (unreadable) { const s = structuredClone(seal); if (unreadable === 'version') s.v = 'something else'; else delete s.O; seal = _makeSeal(s); }
-            state.fitResult = { seal, status: 'POISON', startsModelKey: 'POISON', caveat: 'POISON', engine: 'local',
-                                objective: 'unweighted_residual_variance', weighting: 'POISON', reportable: false, chiReduced: 999.5 };
+            // (a truthy backendResult and rFactor too: the old engine-card and R-status fallbacks read them)
+            const poison = { status: 'POISON', startsModelKey: 'POISON', caveat: 'POISON', engine: 'local',
+                             objective: 'unweighted_residual_variance', weighting: 'POISON', reportable: false, chiReduced: 999.5,
+                             backendResult: { individual_peaks: [], statistics: { reduced_chi_square: 999.5 } },
+                             rFactor: { rPct: 99.9, level: 'red' } };
+            // the status-bar R with and without the poison: the same (it reads the sealed state, never a field beside it)
+            const r = (fr) => { state.fitResult = fr; _updateRFactorUI(fr.rFactor);
+              const e = document.getElementById('sb-runs'); return [e.textContent, e.getAttribute('data-xps-tip')]; };
+            const bare = r(Object.freeze({ seal })), poisoned = r({ seal, ...poison });
+            window.__rStatus = [bare, poisoned];
             tabManager._syncActiveToRecord(); }""", unreadable)
+        r_bare, r_poisoned = pg.evaluate("() => window.__rStatus")
+        assert r_bare == r_poisoned and "99.9" not in r_poisoned[0], (r_bare, r_poisoned)
         name = pg.evaluate("() => (document.getElementById('save-fname').value.trim() || 'spectrum') + '.fit.json'")
         text = _export(pg, "() => _doSaveFit()", name)
         stats = json.loads(text)["fitStatistics"]
@@ -800,5 +810,23 @@ def test_a_fit_file_writes_nothing_from_beside_a_seal(browser, server, unreadabl
         else:
             v = pg.evaluate("() => { const d = _sealView(state.fitResult.seal).designation; return [d.engine, d.weighting]; }")
             assert [stats["engine"], stats["weighting"]] == v and stats["sealState"] == "CURRENT" and got["lmfit"], (stats, got)
+    finally:
+        pg.close()
+
+
+
+def test_a_local_seals_provenance_is_its_records_never_a_field_beside_it(browser, server):  # noqa: F811
+    """Codex step 5 round 8: a READABLE local seal's provenance (Batch Fit's copy, .fit.json) carries status
+    'converged' — a local seal exists only for a converged fit (A0) — never the status beside it."""
+    import json
+    pg = _page(browser, server, "gauss_voigt_linear_avg3_window", local=True)
+    try:
+        got = pg.evaluate("""() => { const seal = state.fitResult.seal;
+            state.fitResult = { seal, status: 'POISON', objective: 'POISON', engine: 'POISON', weighting: 'POISON', chiReduced: 999.5 };
+            tabManager._syncActiveToRecord(); const p = _provenanceOf(_activeTab()), d = _sealView(seal).designation;
+            return { p, d: { objective: d.objective, engine: d.engine, weighting: d.weighting }, chi: _sealView(seal).statistics.chi2r }; }""")
+        p = got["p"]
+        assert p and p["status"] == "converged" and "POISON" not in json.dumps(p) and p["chiReduced"] == got["chi"], got
+        assert {k: p[k] for k in ("objective", "engine", "weighting")} == got["d"], got
     finally:
         pg.close()

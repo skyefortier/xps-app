@@ -14685,12 +14685,19 @@ function _renderRFactorPanel(rf, sealState) {
 function _updateRFactorUI(rf) {
   const el = document.getElementById('sb-runs');
   if (!el) return;
-  // seal step 5: a sealed fit's R is its RECORDED ratio (whatever the caller passed); stale shows none
+  // seal step 5: a sealed fit's R is its RECORDED ratio (whatever the caller passed — a field beside the seal is
+  // never read, Codex step 5 round 8); one not shown as recorded (stale, unreadable) shows none, with the reason
   let sealNote = '';
-  if (_SEAL_AUTHORITATIVE && state.fitResult && state.fitResult.seal && rf === state.fitResult.rFactor) {
+  if (_readsSeal(state.fitResult) && rf === state.fitResult.rFactor) {
     const st = _statsLiveState();
-    if (st !== 'stale') { const shown = _shownStats(state.fitResult); rf = shown.rFactor;
-      if (st !== 'current') sealNote = ' (' + (st === 'pending' ? 'confirming\u2026' : 'unconfirmed') + ')'; }
+    if (st === 'stale' || !_sealedDisplay(state.fitResult)) {
+      el.style.color = 'var(--text3)';
+      el.textContent = 'R: \u2014';
+      el.setAttribute('data-xps-tip', _staleNoteOf(state.fitResult));
+      return;
+    }
+    const shown = _shownStats(state.fitResult); rf = shown.rFactor;
+    if (st !== 'current') sealNote = ' (' + (st === 'pending' ? 'confirming\u2026' : 'unconfirmed') + ')';
   }
   if (rf && state.fitResult && rf === state.fitResult.rFactor && _statsLiveState() === 'stale') {
     // F1: the previous model's R-factor is not shown beside the edited model

@@ -1,0 +1,15 @@
+CORRECTNESS REVIEW, ROUND 9, of step 5 of unit 1c ("sealed fit record") in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software.
+
+REPO: this checkout, branch seal-1c-s5. Step 5 is `git diff ab489b8..HEAD`. Read docs/autofit/codex/seal_1c_step5_r1_prompt.txt … r8_prompt.txt for what step 5 is. Round 8 (both runs NO-GO on MINORs only; verdicts seal_1c_step5_r8_verdict_run{A,B}.md): the status-bar R of a STALE or unreadable sealed fit still depended on a legacy `rFactor` beside the seal ('R: —' with it, blank without); the fit-file test could not catch the old engine-card fallback (no truthy `backendResult` in its fixture) nor the old provenance status (no readable LOCAL seal). Stated coverage limits carried over: PNG drawing coordinates; the stale chart comparison excludes Data and the residual chart.
+
+WHAT THIS ROUND CHANGES: `_updateRFactorUI` decides a sealed fit's R from its state alone — stale or not shown as recorded: 'R: —' with the reason, whatever is beside the seal. Tests: the fit-file test's poisons include a truthy `backendResult` and `rFactor`, and the status-bar R must be identical with and without them; a readable LOCAL seal with poisoned status / objective / engine / weighting / chi2 beside it gives provenance from its record ('converged', the record's designation and chi2r). Mutation-checked: the old engine-card fallback, `status: fr.status`, and round 7's R-status code each fail them.
+
+ANSWER EACH (cite file:line):
+1. Is every round-8 finding resolved, or a stated limit? List each with its status.
+2. With the switch OFF, is everything a user sees, saves or exports exactly today's (stated exceptions as before)?
+3. With the switch ON and a sealed fit in ANY state (readable or not), does any consumer still read a field beside the seal?
+4. Do the new tests fail on the defects they name?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.
