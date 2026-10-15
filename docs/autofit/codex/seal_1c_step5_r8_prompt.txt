@@ -1,0 +1,15 @@
+CORRECTNESS REVIEW, ROUND 8, of step 5 of unit 1c ("sealed fit record") in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software.
+
+REPO: this checkout, branch seal-1c-s5. Step 5 is `git diff ab489b8..HEAD`. Read docs/autofit/codex/seal_1c_step5_r1_prompt.txt … r7_prompt.txt for what step 5 is. Round 7 (both runs NO-GO on MINORs only; verdicts seal_1c_step5_r7_verdict_run{A,B}.md): with the switch ON, an UNREADABLE sealed record (unknown version, or a view that cannot be built) still fell through to legacy fields beside its seal in `_isLocalFit`, `_isUnweightedLocal`, the Results engine card and `_provenanceOf`; `_provenanceOf` copied `fr.status` even beside a readable seal; `_sealDesignation` built the view of a record sealedState calls peaks-only; the fit-file test's unreadable fixture never reached the null-designation path. Stated coverage limits carried over: PNG drawing coordinates; the stale chart comparison excludes Data and the residual chart.
+
+WHAT THIS ROUND CHANGES: `_sealReadableView(seal)` — sealedState's readability gate (version, R, O, context0, pageModel, a view that builds) — is the only way `_sealDesignation` reads a view; a sealed fit with no designation is designated by NOTHING (`_isLocalFit` / `_isUnweightedLocal` false, no caveat, no engine card, no provenance), never by fields beside its seal; a readable local seal's provenance status is 'converged' (a local seal exists only for a converged fit, A0). Test: `.fit.json`, the designation, the Results engine card and the provenance, with poisons claiming a LOCAL, UNWEIGHTED fit beside a readable seal, an unknown-version seal and a seal without O (mutation-checked: restoring the old fallback or the direct view read fails both unreadable cases).
+
+ANSWER EACH (cite file:line):
+1. Is every round-7 finding resolved, or a stated limit? List each with its status.
+2. With the switch OFF, is everything a user sees, saves or exports exactly today's (stated exceptions as before)?
+3. With the switch ON and a sealed fit in ANY state (readable or not), does any consumer still read a field beside the seal?
+4. Do the new tests fail on the defects they name?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

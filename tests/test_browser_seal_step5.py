@@ -768,25 +768,37 @@ def test_the_uncertainty_rules_read_the_records_sigma(browser, server):  # noqa:
         pg.close()
 
 
-@pytest.mark.parametrize("unreadable", [False, True], ids=["readable", "unreadable-record"])
+@pytest.mark.parametrize("unreadable", [None, "version", "no-O"], ids=["readable", "unknown-version", "view-cannot-be-built"])
 def test_a_fit_file_writes_nothing_from_beside_a_seal(browser, server, unreadable):  # noqa: F811
-    """Codex step 5 round 6: `.fit.json` read the legacy status, fit key, caveat, engine and statistic beside a seal
-    (and fell through to them when the record could not be read). A sealed fit's file is its view's or nothing."""
+    """Codex step 5 rounds 6-7: `.fit.json`, the designation (local / unweighted / its caveat), the Results engine card
+    and the provenance read the legacy fields beside a seal (and fell through to them when the record could not be
+    read — an unknown version, or a view that cannot even be built). A sealed fit is its record's or nothing. The
+    poisons claim a LOCAL, UNWEIGHTED fit, so a fallback to them shows."""
     import json
     pg = _page(browser, server)
     try:
         pg.evaluate(VERIFY)
         pg.evaluate(CAPTURE)
         pg.evaluate("""(unreadable) => { let seal = state.fitResult.seal;
-            if (unreadable) { const s = structuredClone(seal); s.v = 'something else'; seal = _makeSeal(s); }
-            state.fitResult = { seal, status: 'POISON', startsModelKey: 'POISON', caveat: 'POISON', engine: 'POISON',
-                                objective: 'POISON', weighting: 'POISON', reportable: 'POISON', chiReduced: 999.5 }; }""", unreadable)
+            if (unreadable) { const s = structuredClone(seal); if (unreadable === 'version') s.v = 'something else'; else delete s.O; seal = _makeSeal(s); }
+            state.fitResult = { seal, status: 'POISON', startsModelKey: 'POISON', caveat: 'POISON', engine: 'local',
+                                objective: 'unweighted_residual_variance', weighting: 'POISON', reportable: false, chiReduced: 999.5 };
+            tabManager._syncActiveToRecord(); }""", unreadable)
         name = pg.evaluate("() => (document.getElementById('save-fname').value.trim() || 'spectrum') + '.fit.json'")
         text = _export(pg, "() => _doSaveFit()", name)
         stats = json.loads(text)["fitStatistics"]
-        assert "POISON" not in text and "999.5" not in text, stats
-        if not unreadable:
+        assert "POISON" not in text and "999.5" not in text and "unweighted" not in text, stats
+        got = pg.evaluate("""() => { renderResults(); const fr = state.fitResult;
+            return { local: _isLocalFit(fr), unweighted: _isUnweightedLocal(fr), label: _fitStatLabel(fr), caveat: _localFitCaveat(fr),
+                     prov: JSON.stringify(_provenanceOf(_activeTab())), designation: _sealDesignation(fr),
+                     lmfit: document.getElementById('results-area').textContent.includes('lmfit') }; }""")
+        assert not got["local"] and not got["unweighted"] and got["caveat"] == "" and got["label"] != "Residual variance", got
+        assert "POISON" not in got["prov"] and "999.5" not in got["prov"], got
+        if unreadable:
+            assert got["designation"] is None and not got["lmfit"], got            # nothing designated, no engine card
+            assert all(stats[k] is None for k in ("engine", "objective", "weighting", "reportable", "caveat", "status")), stats
+        else:
             v = pg.evaluate("() => { const d = _sealView(state.fitResult.seal).designation; return [d.engine, d.weighting]; }")
-            assert [stats["engine"], stats["weighting"]] == v and stats["sealState"] == "CURRENT", stats
+            assert [stats["engine"], stats["weighting"]] == v and stats["sealState"] == "CURRENT" and got["lmfit"], (stats, got)
     finally:
         pg.close()

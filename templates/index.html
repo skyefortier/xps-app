@@ -10137,12 +10137,23 @@ async function runFit(opts = {}) {
 // and (since unit W1, 2026-09-18) the local engine both minimise a
 // counting-noise-weighted chi-square; local results saved by unit A0 were
 // UNWEIGHTED and keep the label "Residual variance", never chi-square.
-function _isUnweightedLocal(fr) { const d = _sealDesignation(fr); return d ? d.objective === 'unweighted_residual_variance' : !!(fr && fr.objective === 'unweighted_residual_variance'); }
+// (a sealed fit is designated by its record alone: an unreadable one by nothing — never by fields beside its seal)
+function _isUnweightedLocal(fr) { const d = _sealDesignation(fr); return d ? d.objective === 'unweighted_residual_variance' : _readsSeal(fr) ? false : !!(fr && fr.objective === 'unweighted_residual_variance'); }
 // seal step 5 (plan §7): a sealed fit's DESIGNATION is its view's — the engine that produced the record, whatever
 // its state (a stale local fit's model is still a local starting point); null for an unsealed or unreadable one.
 function _sealDesignation(fr) {
-  if (!_SEAL_AUTHORITATIVE || !fr || !fr.seal) return null;
-  try { const v = _sealView(fr.seal); return (v && v.designation) || null; } catch (e) { return null; }
+  if (!_readsSeal(fr)) return null;
+  const v = _sealReadableView(fr.seal);
+  return (v && v.designation) || null;
+}
+// The view of a seal that can be READ — sealedState's first gate (a record failing it is PEAKS-ONLY) — else null.
+// A reader that wants a seal's view without judging it goes through here, so an unreadable record designates
+// nothing (Codex step 5 round 7).
+function _sealReadableView(seal) {
+  try {
+    if (!seal || seal.v !== 'xps-seal-1' || !seal.R || !seal.O || !seal.R.context0 || !seal.R.pageModel) return null;
+    return _sealView(seal);
+  } catch (e) { return null; }
 }
 function _fitStatLabel(fr) {
   return _isUnweightedLocal(fr) ? 'Residual variance' : 'χ²ᵣ';
@@ -10164,7 +10175,7 @@ const _LOCAL_FIT_CAVEAT_UNWEIGHTED = 'Local unweighted fit: a starting point, no
 function _isLocalProvenance(p) {
   return !!(p && (p.engine === 'local' || p.objective === 'unweighted_residual_variance' || p.objective === 'poisson_weighted_chi_square'));
 }
-function _isLocalFit(fr) { const d = _sealDesignation(fr); return d ? d.reportable === false : _isLocalProvenance(fr); }
+function _isLocalFit(fr) { const d = _sealDesignation(fr); return d ? d.reportable === false : _readsSeal(fr) ? false : _isLocalProvenance(fr); }
 // The record that governs the active model's designation: its live result,
 // else the provenance it was imported / copied / restored with.
 function _governingProvenance() {
@@ -10221,7 +10232,8 @@ function _provenanceOf(tab) {
   const fr = tab.fitResult;
   if (!_isLocalFit(fr)) return null;
   const d = _sealDesignation(fr);
-  if (d) return { objective: d.objective, engine: d.engine, status: fr.status || null, weighting: d.weighting,
+  // (a local seal exists only for a converged fit, A0: its status is that, never a field beside the seal)
+  if (d) return { objective: d.objective, engine: d.engine, status: 'converged', weighting: d.weighting,
                   chiReduced: _sealView(fr.seal).statistics.chi2r, reportable: false, caveat: d.caveat, derivedFrom: 'local_fit' };
   return { objective: fr.objective || null, engine: fr.engine || 'local', status: fr.status || null,
            weighting: fr.weighting || null, chiReduced: fr.chiReduced ?? null,
@@ -10919,7 +10931,7 @@ function renderResults() {
         <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">RMSE</div>
         <div style="font-family:var(--mono);font-size:16px;color:var(--accent2)">${_stale ? _dash : rmse.toFixed(1)}</div>
       </div>
-      ${(_sealDesignation(state.fitResult) ? _sealDesignation(state.fitResult).engine === 'server' : backendResult) ? `<div style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px">
+      ${(_readsSeal(state.fitResult) ? !!_sealDesignation(state.fitResult) && _sealDesignation(state.fitResult).engine === 'server' : backendResult) ? `<div style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px">
         <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Engine</div>
         <div style="font-family:var(--mono);font-size:11px;color:var(--green)">lmfit</div>
       </div>` : ''}
