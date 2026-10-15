@@ -147,6 +147,56 @@ def software_failure(sw):
     return None
 
 
+def response_form_failure(O, n):
+    """None if ``O`` is of a fit response's FORM — what can be judged without reading its request: the fields and
+    their JSON types, the software record, every array ``n`` numbers, each component's fields, parameters and area
+    — else why not. A record not of this form is ``mismatch`` whatever numerics made it (owner 2026-10-15; Codex
+    rule round 2: checked BEFORE the request is read, so an unreadable request cannot hide it)."""
+    if not isinstance(O, dict):
+        return "the recorded result is not an object"
+    if set(O) != RESPONSE_KEYS:
+        extra, missing = sorted(set(O) - RESPONSE_KEYS), sorted(RESPONSE_KEYS - set(O))
+        return f"the recorded result's fields differ from a response's (extra {extra}, missing {missing})"
+    why = software_failure(O["software"])
+    if why:
+        return why
+    if not isinstance(O["success"], bool) or not isinstance(O["message"], str):
+        return "success / message are not a flag and a text"
+    for k, spec in (("starts", ("null", _STARTS_T)), ("required", ("null", _REQUIRED_T)),
+                    ("certificate", ("null", _CERTIFICATE_T))):
+        if not (_typed(O[k], spec) or (O[k] is not None and _typed(O[k], _NOT_RUN_T) and k != "certificate")):
+            return f"{k} is not of a response's form"
+    if not _typed(O["statistics"], _STATISTICS_T):
+        return "the recorded statistics are not of a response's form"
+    if not _is_number(O["charge_shift_applied"]) or not isinstance(O["random_seed"], int) \
+            or isinstance(O["random_seed"], bool) or not isinstance(O["fit_method"], str) \
+            or not isinstance(O["request_digest"], str) \
+            or not isinstance(O["seed_source"], str) or not isinstance(O["background_verdict"], dict):
+        return "a recorded field is not of its type"
+    nums = lambda v: isinstance(v, list) and len(v) == n and all(_is_number(x) for x in v)   # noqa: E731
+    for k in ("energy", "counts", "background_y", "fitted_y", "fitted_sub", "residuals"):
+        if not nums(O[k]):
+            return f"{k} is not {n} numbers"
+    peaks = O["individual_peaks"]
+    if not isinstance(peaks, list):
+        return "the recorded components are not a list"
+    for ip in peaks:
+        if not isinstance(ip, dict) or set(ip) != _PEAK_KEYS or not isinstance(ip["params"], dict) \
+                or not _typed(ip["support"], _SUPPORT_T) or not nums(ip["y"]):
+            return "a recorded component's fields differ from a response's"
+        for name, rec in ip["params"].items():
+            if name == "area":
+                if not isinstance(rec, dict) or set(rec) != {"value", "stderr"} or not _is_number(rec["value"]) \
+                        or not (rec["stderr"] is None or _is_number(rec["stderr"])):
+                    return "a recorded area is not of a response's form"
+            elif not isinstance(rec, dict) or set(rec) != _PARAM_KEYS or not _is_number(rec["value"]) \
+                    or not (rec["stderr"] is None or _is_number(rec["stderr"])) or not isinstance(rec["vary"], bool) \
+                    or not (rec["expr"] is None or isinstance(rec["expr"], str)) \
+                    or not (rec["min"] is None or _is_number(rec["min"])) or not (rec["max"] is None or _is_number(rec["max"])):
+                return f"{name}: the recorded parameter is not of a response's form"
+    return None
+
+
 def numerics_difference(sw):
     """The numerics fields in which the software record ``sw`` differs from this server's (a field it does not
     declare differs), as text; [] when the same numerics made it."""
@@ -3360,7 +3410,7 @@ def verify_fit(O, *, energy, counts, peak_specs, background_method="shirley", bg
     try:
         if not isinstance(O, dict):
             raise _Mismatch("schema", "the recorded result is not an object")
-        why = software_failure(O.get("software"))
+        why = response_form_failure(O, len(energy) if energy is not None else 0)
         if why:
             raise _Mismatch("schema", why)
         # which numerics made the record: decides only how a recomputation that DIFFERS reads
@@ -3376,8 +3426,8 @@ def verify_fit(O, *, energy, counts, peak_specs, background_method="shirley", bg
     except _Unverifiable as exc:
         return answer("unconfirmed", exc.check, exc.reason)
     except _Mismatch as exc:
-        # a record that is not of a response's FORM is a mismatch whatever made it; a recomputation that differs
-        # under other numerics is a check that cannot be made here
+        # a record not of a response's FORM was refused above, whatever made it; past that, a recomputation that
+        # differs under other numerics is a check that cannot be made here
         if other and exc.check != "schema":
             return answer("unconfirmed", "numerics",
                           f"made under other numerics ({'; '.join(other)}) and the recomputation differs "

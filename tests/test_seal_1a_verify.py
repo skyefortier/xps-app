@@ -729,3 +729,22 @@ def test_a_start_whose_curve_is_nan_is_bound_too(client):
     R2["request"]["peaks"][0]["fwhm"] = 0.0
     v = _verify(client, R2, O)
     assert v["state"] == "mismatch" and v["check"] in ("request_digest", "request"), v
+
+
+@pytest.mark.parametrize("bad", [
+    lambda O: O["statistics"].__setitem__("rmse", "1.0"),                       # a statistic of the wrong type
+    lambda O: O["individual_peaks"][0].__setitem__("params", "x"),              # a component of the wrong form
+    lambda O: O["individual_peaks"][0]["params"]["center"].__setitem__("vary", "yes"),
+])
+def test_a_records_form_is_judged_before_its_request_and_its_numerics(client, sealed, bad):
+    """A record not of a response's form is a mismatch whatever made it — before an unreadable request or a
+    numerics difference can turn it into an unconfirmed recheck (Codex rule round 2)."""
+    R, O = sealed
+    O2 = copy.deepcopy(O)
+    bad(O2)
+    O2["software"]["numerics"] = "2026-10-09"                                     # other numerics
+    O2["background_y"][0] += 1.0                                                  # and a numerical difference
+    unreadable = {**R, "request": {**R["request"], "background": {**R["request"].get("background", {}), "endpoint_avg": 0}}}
+    for req in (R, unreadable):
+        v = _verify(client, req, O2)
+        assert v["state"] == "mismatch" and v["check"] == "schema", v

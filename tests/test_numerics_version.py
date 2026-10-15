@@ -68,6 +68,7 @@ def test_the_history_is_append_only_against_main():
      'raise ValueError(f"A circular constraint: {pretty}")', "fitting"),                         # an error's wording
     ("weights = 1.0 / np.sqrt(np.maximum(y, 1.0))", "weights = 1.0 / np.sqrt(np.maximum(y, 2.0))", "fitting"),   # the verifier
     ('"""Convert a JSON value to a bounded integer index."""', '"""A bounded index."""', "app"),
+    ("_err(\"'peaks' list is empty – provide at least one peak\")", "_err(\"no peaks\")", "app"),   # a refusal's wording
 ])
 def test_text_comments_and_the_verifier_are_not_fitting_math(old, new, where):
     src = FIT if where == "fitting" else APP
@@ -80,6 +81,10 @@ def test_text_comments_and_the_verifier_are_not_fitting_math(old, new, where):
     ("_LN2 = np.log(2.0)", "_LN2 = np.log(2.00001)", "fitting"),                                 # a lineshape constant
     ("    chi2_raw = ((r * weights) ** 2).sum()", "    chi2_raw = ((r * weights) ** 2).sum() * 1.0000001", "fitting"),  # the statistics
     ("            v = max(0, hi + v)  # support negative indexing like Python", "            v = max(0, hi + v + 1)", "app"),  # _parse_int
+    ('return {"converged": False, "residual": None, "reason": "the computed background is not finite"}',
+     'return {"converged": False, "residual": None, "reason": "the background is not finite"}', "fitting"),   # text IN the record
+    ('        warnings.simplefilter("ignore")\n        result = amplitude * norm * np.cos(phase) / denom',
+     '        warnings.simplefilter("always")\n        result = amplitude * norm * np.cos(phase) / denom', "fitting"),   # behaviour, not wording
 ])
 def test_arithmetic_is_fitting_math(old, new, where):
     src = FIT if where == "fitting" else APP

@@ -51,7 +51,7 @@ const ALLOWLIST = {
   _sealBindingMemo: 'B', _sealVerdicts: 'B', _sealUnreachable: 'B',   // seal 1c step 4: WeakMaps keyed by the immutable seal (derived answers; no tab content)
   _sealAttempts: 'A', _sealAttemptSeq: 'A',
   _stagedTxns: 'A', _stagedTxnSeq: 'A',
-  _serverNumerics: 'B', _NUMERICS_IDENTITY_KEYS: 'B',   // owner 2026-10-15: the server's declared numerics (page-wide, not per tab) and the key list   // seal 1c step 4: Auto-Fit's staged verification transactions, WeakMap keyed by the tab record (like _sealAttempts)   // seal 1c step 4: verification attempts in flight, WeakMap keyed by the tab record (like _fitOpByOwner)
+  _serverNumerics: 'B', _NUMERICS_IDENTITY_KEYS: 'B', _numericsEpoch: 'B',   // owner 2026-10-15: the server's declared numerics (page-wide, not per tab) and the key list   // seal 1c step 4: Auto-Fit's staged verification transactions, WeakMap keyed by the tab record (like _sealAttempts)   // seal 1c step 4: verification attempts in flight, WeakMap keyed by the tab record (like _fitOpByOwner)
   BG_LABELS: 'B',            // constant table: background methods' display names (background math, 2026-10-01)
   FP_TIER_META: 'B', FP_STRINGS: 'B', FP_MODEL_LABELS: 'B', FP_ROLE_LABELS: 'B', FP_SHAPE_LABELS: 'B', FP_TIER_RANK: 'B',
   REF_PT_LAYOUT: 'B',        // periodic-table layout table (built by a call at load; read-only)

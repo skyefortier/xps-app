@@ -571,29 +571,123 @@ def test_a_seal_from_other_numerics_that_recomputes_differently_is_unconfirmed(b
         pg.close()
 
 
-def test_an_open_page_rechecks_its_seals_when_the_servers_numerics_change_and_not_for_a_commit(browser, server):  # noqa: F811
+def _answer_under(numerics):
+    """A route handler: the REAL server's answer, as a server of other numerics would label it."""
+    def h(route):
+        r = route.fetch()
+        j = r.json()
+        j["software"] = {**j["software"], "numerics": numerics}
+        route.fulfill(response=r, json=j)
+    return h
+
+
+KEY = "() => _currentServerNumerics()"
+
+
+def test_an_open_page_rechecks_its_seals_when_a_reply_reveals_other_numerics_and_not_for_a_commit(browser, server):  # noqa: F811
     pg = _fitted(browser, server)
     try:
         pg.evaluate(VERIFY)
         assert pg.evaluate(STATE) == ["current", None]
         calls = []
         pg.on("request", lambda r: calls.append(r.url) if r.url.endswith("/api/verify-fit") else None)
-        # a redeployment with the SAME numerics (another commit, checkout and environment): nothing to recheck
-        pg.evaluate("() => { const sw = _pageIdentity().software; _noteServerSoftware({ ...sw, git_commit: 'f'.repeat(40), git_dirty: true, env_sha256: '0'.repeat(64) }); }")
-        pg.wait_for_timeout(500)
-        assert calls == [] and pg.evaluate(STATE) == ["current", None]
-
-        # a redeployment with OTHER numerics, revealed by a reply (a fit's or a check's): the cached answer no
-        # longer applies, the installed seal is checked again by itself and confirmed by recomputation
-        def other_numerics(route):
-            r = route.fetch()
-            j = r.json()
-            j["software"] = {**j["software"], "numerics": "2099-01-01"}
+        # a reply from a redeployment with the SAME numerics (another commit): nothing to recheck
+        def other_commit(route):
+            r = route.fetch(); j = r.json()
+            j["software"] = {**j["software"], "git_commit": "f" * 40, "git_dirty": True}
             route.fulfill(response=r, json=j)
-        pg.route("**/api/verify-fit", other_numerics)
-        pg.evaluate("() => { const sw = _pageIdentity().software; _noteServerSoftware({ ...sw, numerics: '2099-01-01' }); }")
-        assert pg.evaluate(STATE)[0] in ("pending", "current")
-        pg.wait_for_function("() => sealedState(state.fitResult, _activeTab()).state === 'current'", timeout=30000)
-        assert len(calls) >= 1, calls
+        pg.route("**/api/verify-fit", other_commit)
+        pg.evaluate("async () => { await _ensureVerified(_activeTab(), true); }")
+        assert len(calls) == 1 and pg.evaluate(STATE) == ["current", None]
+        pg.unroute("**/api/verify-fit")
+        # a reply from a redeployment with OTHER numerics: the page learns them FROM THE REPLY, and every installed
+        # seal is checked again under them by itself
+        before = pg.evaluate(KEY)
+        pg.route("**/api/verify-fit", _answer_under("2099-01-01"))
+        pg.evaluate("async () => { await _ensureVerified(_activeTab(), true); }")
+        pg.wait_for_function("() => sealedState(state.fitResult, _activeTab()).state === 'current' && !_sealAttempts.has(_activeTab())", timeout=30000)
+        assert pg.evaluate(KEY) != before and "2099-01-01" in pg.evaluate(KEY)
+        assert len(calls) >= 3, calls                     # the check again, then the deployment's own re-check
     finally:
+        pg.unroute_all(behavior="ignoreErrors")
+        pg.close()
+
+
+def test_a_delayed_reply_from_the_previous_deployment_is_ignored(browser, server):  # noqa: F811
+    pg = _fitted(browser, server)
+    try:
+        held, n = [], {"k": 0}
+        def h(route):
+            n["k"] += 1
+            if n["k"] == 1:
+                held.append(route)                        # the first check: answered LATE, by the old deployment
+            else:
+                _answer_under("2099-01-01")(route)
+        pg.route("**/api/verify-fit", h)
+        pg.evaluate("() => { window.__p1 = _ensureVerified(_activeTab(), true); }")
+        pg.wait_for_function("() => true"); pg.wait_for_timeout(500)
+        pg.evaluate("async () => { await _ensureVerified(_activeTab(), true); }")   # the new deployment answers
+        pg.wait_for_function("() => sealedState(state.fitResult, _activeTab()).state === 'current' && !_sealAttempts.has(_activeTab())", timeout=30000)
+        key = pg.evaluate(KEY)
+        assert "2099-01-01" in key
+        held[0].continue_()                               # the old deployment's reply, late (the real numerics)
+        assert pg.evaluate("async () => await window.__p1") is None
+        assert pg.evaluate(KEY) == key and pg.evaluate(STATE) == ["current", None]
+    finally:
+        pg.unroute_all(behavior="ignoreErrors")
+        pg.close()
+
+
+def test_an_unreachable_seal_is_rechecked_when_a_deployment_is_discovered(browser, server):  # noqa: F811
+    pg = _fitted(browser, server)
+    try:
+        pg.route("**/api/verify-fit", lambda route: route.abort())
+        pg.evaluate(VERIFY)
+        assert pg.evaluate(STATE) == ["unconfirmed", "unreachable"]
+        pg.unroute("**/api/verify-fit")
+        pg.route("**/api/verify-fit", _answer_under("2099-01-01"))
+        # another check's reply reveals the deployment (a check of the same record, not through the seal's manager)
+        pg.evaluate("async () => { const s = state.fitResult.seal; await _postVerifyFit(s.R, s.O); }")
+        pg.wait_for_function("() => sealedState(state.fitResult, _activeTab()).state === 'current'", timeout=30000)
+    finally:
+        pg.unroute_all(behavior="ignoreErrors")
+        pg.close()
+
+
+def test_a_fit_reply_reveals_a_deployment(browser, server):  # noqa: F811
+    pg = _fitted(browser, server)
+    try:
+        pg.evaluate(VERIFY)
+        before = pg.evaluate(KEY)
+        def progress(route):
+            r = route.fetch(); j = r.json()
+            if j.get("status") == "done" and isinstance(j.get("result"), dict):
+                j["result"]["software"] = {**j["result"]["software"], "numerics": "2099-01-01"}
+            route.fulfill(response=r, json=j)
+        pg.route("**/api/fit/progress/**", progress)
+        pg.route("**/api/verify-fit", _answer_under("2099-01-01"))
+        pg.evaluate("async () => { await runFit(); }")
+        assert pg.evaluate(KEY) != before and "2099-01-01" in pg.evaluate(KEY)
+    finally:
+        pg.unroute_all(behavior="ignoreErrors")
+        pg.close()
+
+
+def test_answers_under_different_numerics_never_confirm_a_record(browser, server):  # noqa: F811
+    pg = _fitted(browser, server)
+    try:
+        got = pg.evaluate("""() => { const now = _currentServerNumerics();
+            const a = { state: 'consistent', numericsKey: now }, b = { state: 'consistent', numericsKey: now.replace('2026', '2099') };
+            const mixed = _verdictEntry(a, [a, b]), outdated = _verdictEntry(a, [a, { ...b, outdated: true }]), one = _verdictEntry(a, [a, a]);
+            return [mixed.state, mixed.check, outdated, one.state, one.numericsKey === now]; }""")
+        assert got == ["unconfirmed", "numerics", None, "consistent", True], got
+        # a staged commit with an answer under other numerics does not commit
+        got = pg.evaluate("""async () => { const owner = _activeTab(), parts = structuredClone(state.fitResult.seal);
+            const op = _claimFitOp(owner), txn = _beginStaged(owner, op);
+            const v = await _verifyStagedCheck(txn, parts.R, parts.O);
+            txn.answers[0].v = { ...txn.answers[0].v, numericsKey: '["other"]' };
+            return [v.state, _commitStaged(txn, _makeSeal(parts)).committed]; }""")
+        assert got == ["consistent", False], got
+    finally:
+        pg.unroute_all(behavior="ignoreErrors")
         pg.close()

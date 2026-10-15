@@ -10,8 +10,12 @@ numerics whose recomputation differs reads "unconfirmed", where under the same n
 - app.py's ``_normalise_fit_request`` (how a request's fields are read before run_fit) and every app.py
   function it calls, transitively (``_parse_int`` …);
 - as abstract syntax (``ast.dump``) with every docstring removed, and the TEXT of messages removed: the
-  string arguments of ``raise``, of logging calls and of ``warnings.warn`` (wording moves no number).
-  Comments and formatting never count; any other change to the code does, a refactor included.
+  string arguments of ``raise``, of logging calls (``log`` / ``logger`` / ``logging`` .debug … .critical,
+  .exception, .log), of ``warnings.warn`` and of app.py's ``_err`` refusals (wording moves no number).
+  Text that LANDS IN THE RECORD still counts — a background verdict's reason is part of O and the verifier
+  compares it, so changing it changes what a recomputation gives. Comments and formatting never count; any
+  other change to the code does, a refactor included (record a refactor that moves no number as an
+  equivalence).
 
 tests/fixtures/numerics_manifest.json is the HISTORY of entries, oldest first:
   {"numerics", "math_sha256"}                       — a version and the math it names;
@@ -38,13 +42,15 @@ MANIFEST = os.path.join(ROOT, "tests", "fixtures", "numerics_manifest.json")
 EXCLUDED = {
     "NUMERICS_VERSION", "NUMERICS_IDENTITY_KEYS", "_NUMERICS_KEYS_SINCE_2026_10_15", "RECORD_KEYS", "fit_record",
     "_git_state", "_env_sha256", "_software_identity", "SOFTWARE", "log", "software_failure", "numerics_difference",
+    "response_form_failure",
     "RESPONSE_KEYS", "_PEAK_KEYS", "_PARAM_KEYS", "NOT_BIT_STABLE_SHAPES", "_Mismatch", "_Unverifiable",
     "_exact_float", "_is_number", "_same", "_as_json", "_non_finite", "_ID_T", "_MOVE_T", "_NOT_RUN_T",
     "_STARTS_T", "_REQUIRED_T", "_CERTIFICATE_T", "_SUPPORT_T", "_STATISTICS_T", "_typed",
     "_non_finite_request", "verify_fit", "_verify", "_verify_relations",
 }
 APP_ROOT = "_normalise_fit_request"
-_LOG_NAMES = {"log", "logger", "logging", "warnings"}
+_LOG_OBJECTS = {"log", "logger", "logging"}
+_LOG_METHODS = {"debug", "info", "warning", "warn", "error", "exception", "critical", "log"}
 
 
 def _names(node):
@@ -87,7 +93,10 @@ class _Normalise(ast.NodeTransformer):
     def visit_Call(self, node):
         self.generic_visit(node)
         f = node.func
-        if isinstance(f, ast.Attribute) and isinstance(f.value, ast.Name) and f.value.id in _LOG_NAMES:
+        message = (isinstance(f, ast.Attribute) and isinstance(f.value, ast.Name) and
+                   ((f.value.id in _LOG_OBJECTS and f.attr in _LOG_METHODS) or (f.value.id == "warnings" and f.attr == "warn"))) \
+            or (isinstance(f, ast.Name) and f.id == "_err")
+        if message:
             for a in node.args + [k.value for k in node.keywords]:
                 self._blank_text(a)
         return node

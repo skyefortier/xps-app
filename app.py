@@ -1408,6 +1408,11 @@ def _register_routes(app: Flask) -> None:
                             "software": fitting.SOFTWARE})
         energy = np.asarray(raw_e, dtype=float)
         counts = np.asarray(raw_c, dtype=float)
+        # the record's FORM first (owner 2026-10-15): a record not of a response's form is a mismatch whatever
+        # numerics made it, before its request is read
+        form = fitting.response_form_failure(body["O"], len(raw_e))
+        if form:
+            return jsonify({"state": "mismatch", "check": "schema", "reason": form, "software": fitting.SOFTWARE})
         def mismatch(reason):
             # a request this server cannot read, from a record made under OTHER numerics, is a recheck that cannot be
             # made here (owner 2026-10-15), never "the record does not hold"

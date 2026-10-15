@@ -8371,6 +8371,7 @@ function _fitHttpError(status, msg, prefix) {
 }
 async function _serverFitJob(fitReq, guard) {
   guard = guard || {};
+  const startEpoch = typeof _numericsEpoch === 'number' ? _numericsEpoch : undefined;   // the server's numerics when the fit started (owner 2026-10-15)
   const op = guard.op || null;
   const SUP = { _abandoned: 'superseded' };
   let jobId = null;
@@ -8439,7 +8440,7 @@ async function _serverFitJob(fitReq, guard) {
       }
       if (gone()) return superseded();
       misses = 0;
-      if (rec.status === 'done') { if (rec.result && typeof rec.result === 'object') _noteServerSoftware(rec.result.software); return rec.result; }
+      if (rec.status === 'done') { if (rec.result && typeof rec.result === 'object') _noteServerSoftware(rec.result.software, startEpoch); return rec.result; }
       if (rec.status === 'error') throw _fitHttpError(rec.http_status || 500, rec.error);
       if (rec.status === 'cancelled') throw _fitHttpError(409, 'The fit was stopped on the server before it finished. Run it again.');
       if (Number.isFinite(rec.heartbeat_age_sec) && rec.heartbeat_age_sec > FIT_HEARTBEAT_LOST_SEC) {
@@ -9057,20 +9058,29 @@ const _sealVerdicts = new WeakMap();
 const _sealUnreachable = new WeakMap();
 const _sealAttempts = new WeakMap();
 let _sealAttemptSeq = 0;
+// A check's reply, tagged with the numerics it was answered under and whether it is OUTDATED: sent before the
+// server's declared numerics last changed and answered under other ones (a delayed reply from the previous
+// deployment) — never cached and never moving the page's notion of the server back (owner 2026-10-15; Codex rule
+// round 2).
 async function _postVerifyFit(R, O) {
+  const sentEpoch = _numericsEpoch;
   const resp = await fetch('/api/verify-fit', { method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ R: { request: R.request, energies: R.energies, counts: R.counts }, O }) });
   if (!resp.ok) throw Object.assign(new Error('verify-fit HTTP ' + resp.status), { httpStatus: resp.status });
   const v = await resp.json();
-  if (v && typeof v === 'object') _noteServerSoftware(v.software);
-  return v;
+  if (!v || typeof v !== 'object') return v;
+  const fresh = _noteServerSoftware(v.software, sentEpoch);
+  return { ...v, numericsKey: _numericsKey(v.software), outdated: !fresh };
 }
 // Owner 2026-10-15: a cached answer holds only under the NUMERICS that gave it (fitting.NUMERICS_IDENTITY_KEYS) —
 // never the commit. The page learns the server's numerics from its own meta tag and from every reply (a fit, a
-// check); when they change (a deployment with other numerics while the page is open), every cached answer
-// given under the old ones is ignored and every installed seal is checked again.
+// check). A reply sent under the current numerics and answered under OTHER ones is a deployment: the epoch moves,
+// every cached answer and "unreachable" mark of the old one stops applying, and every installed seal is checked
+// again (superseding an attempt in flight). A reply sent BEFORE the epoch moved and answered under other numerics
+// is outdated (returns false).
 const _NUMERICS_IDENTITY_KEYS = ['numerics', 'seed_derivation', 'python', 'numpy', 'scipy', 'lmfit', 'asteval', 'machine', 'os', 'blas'];
 let _serverNumerics;   // undefined: not yet read from the page; null: the page declares none
+let _numericsEpoch = 0;
 function _numericsKey(sw) {
   return sw && typeof sw === 'object' ? JSON.stringify(_NUMERICS_IDENTITY_KEYS.map(k => (k in sw ? sw[k] : null))) : null;
 }
@@ -9078,23 +9088,43 @@ function _currentServerNumerics() {
   if (_serverNumerics === undefined) _serverNumerics = _numericsKey(_pageIdentity().software);
   return _serverNumerics;
 }
-function _noteServerSoftware(sw) {
+function _noteServerSoftware(sw, sentEpoch) {
   const k = _numericsKey(sw);
-  if (!k) return;
-  const before = _currentServerNumerics();
+  if (!k) return true;
+  const now = _currentServerNumerics();
+  if (now === k) return true;
+  if (sentEpoch !== undefined && sentEpoch !== _numericsEpoch) return false;   // a reply from before the last change
   _serverNumerics = k;
-  if (before === null || before === k) return;
-  // other numerics now: every installed seal's check starts again (the old answers no longer apply)
+  _numericsEpoch++;
+  if (now === null) return true;                                                // the page declared none: nothing cached under any
+  // other numerics now: every installed seal's check starts again, superseding any attempt of the old deployment
   if (typeof tabManager !== 'undefined' && tabManager) {
-    for (const t of tabManager.tabs) if (!t.isStack && _ownerLive(t)) { _ensureVerified(t); _onSealVerdict(t, null); }
+    for (const t of tabManager.tabs) if (!t.isStack && _ownerLive(t)) { _ensureVerified(t, true); _onSealVerdict(t, null); }
   }
+  return true;
+}
+// "The server could not be reached" for a seal, under the current numerics epoch (not cached as an answer).
+function _markUnreachable(seal) { _sealUnreachable.set(seal, _numericsEpoch); }
+function _isUnreachable(seal) { return _sealUnreachable.get(seal) === _numericsEpoch; }
+// The answer to cache from one or several checks' outcomes: every answer must be current (none outdated) and all
+// under ONE numerics, the current; checks answered under different numerics (a deployment between them) read
+// UNCONFIRMED with that reason — never confirmed by a mix. Null when there is nothing to cache.
+function _verdictEntry(verdict, outcomes) {
+  const answered = outcomes.filter(o => o && !o.unreachable);
+  if (answered.some(o => o.outdated)) return null;
+  const keys = [...new Set(answered.map(o => o.numericsKey))];
+  if (keys.length > 1)
+    return { state: 'unconfirmed', check: 'numerics', reason: 'the checks of this fit were answered under different numerics (a deployment in progress) — check again',
+             numericsKey: _currentServerNumerics() };
+  return { state: verdict.state, check: verdict.check || null, reason: verdict.reason || '', software: verdict.software || null,
+           numericsKey: keys.length ? keys[0] : _currentServerNumerics() };
 }
 // The cached answer for a seal, when it was given under the numerics the server declares now.
 function _cachedVerdict(seal) {
   const v = _sealVerdicts.get(seal);
   if (!v) return null;
   const now = _currentServerNumerics();
-  return (now === null || _numericsKey(v.software) === now) ? v : null;
+  return (now === null || v.numericsKey === now) ? v : null;
 }
 // One check's OUTCOME: the server's answer, or { unreachable: true } (never thrown: a failed check must not hide
 // another check's answer — steps 3-4 Codex round 1).
@@ -9157,11 +9187,13 @@ function _commitStaged(txn, seal) {
   const checks = seal.producer === 'autoFit' && seal.E ? [[seal.E.R, seal.E.O], [seal.R, seal.O]] : [[seal.R, seal.O]];
   const vs = checks.map(([R, O]) => { const a = txn.answers.find(x => _jsonEqual(x.R, R) && _jsonEqual(x.O, O)); return a ? a.v : undefined; });
   if (vs.some(v => v === undefined)) return { committed: false };
-  _stagedTxns.delete(txn.owner);
   const agg = _aggregateVerdicts(vs);
-  if (agg.unreachable) _sealUnreachable.set(seal, true);
-  else _sealVerdicts.set(seal, { state: agg.state, check: agg.check || null, reason: agg.reason || '', software: agg.software || null });
-  return { committed: true, verdict: agg };
+  const entry = agg.unreachable ? null : _verdictEntry(agg, vs);
+  if (!agg.unreachable && (!entry || entry.numericsKey !== _currentServerNumerics())) return { committed: false };   // outdated / mixed / old numerics
+  _stagedTxns.delete(txn.owner);
+  if (agg.unreachable) _markUnreachable(seal);
+  else _sealVerdicts.set(seal, entry);
+  return { committed: true, verdict: entry || agg };
 }
 // PRODUCER-BOUND (kind 'producer', under the fit's operation `op`) or BACKGROUND (kind 'background': load, activation,
 // reinstall, retry — never claims a fit operation).
@@ -9169,7 +9201,6 @@ function _verifySeal(owner, seal, kind = 'background', op = null) {
   if (!seal || seal.engine !== 'server') return null;
   const attemptId = ++_sealAttemptSeq;
   _sealAttempts.set(owner, { seal, attemptId, kind, op });
-  _sealUnreachable.delete(seal);
   const checks = seal.producer === 'autoFit' && seal.E ? [[seal.E.R, seal.E.O], [seal.R, seal.O]] : [[seal.R, seal.O]];
   const attach = () => {
     const cur = _sealAttempts.get(owner);
@@ -9180,13 +9211,15 @@ function _verifySeal(owner, seal, kind = 'background', op = null) {
     if (kind === 'producer' && (!_fitOpCurrent(op) || !_ownerActive(owner))) return false;   // superseded or switched: recovered by _ensureVerified
     return true;
   };
-  return _settleChecks(checks).then(({ verdict: v }) => {
+  return _settleChecks(checks).then(({ verdict: v, outcomes }) => {
     if (!attach()) return null;
-    if (v.unreachable) { _sealUnreachable.set(seal, true); _onSealVerdict(owner, seal); return null; }
+    if (v.unreachable) { _markUnreachable(seal); _onSealVerdict(owner, seal); return null; }
+    const entry = _verdictEntry(v, outcomes);
+    if (!entry) return null;                       // an outdated reply: the deployment's own re-check answers instead
     _sealUnreachable.delete(seal);
-    _sealVerdicts.set(seal, { state: v.state, check: v.check || null, reason: v.reason || '', software: v.software || null });
+    _sealVerdicts.set(seal, entry);
     _onSealVerdict(owner, seal);
-    return v;
+    return entry;
   });
 }
 // Every BACKGROUND trigger (load, activation, reinstall, a discarded or failed operation): a seal with no cached
@@ -9199,7 +9232,7 @@ function _ensureVerified(owner, retry = false) {
   if (!retry) {                                    // a background trigger: never a second attempt, never a repeat
     const cur = _sealAttempts.get(owner);
     if (cur && cur.seal === seal) return null;
-    if (_cachedVerdict(seal) || _sealUnreachable.has(seal)) return null;
+    if (_cachedVerdict(seal) || _isUnreachable(seal)) return null;
   }
   return _verifySeal(owner, seal, 'background');   // "check again" supersedes an attempt in flight (the latest attaches)
 }
@@ -9233,7 +9266,7 @@ function sealedState(fr, owner) {
     if (v.state === 'mismatch') return { state: 'stale', check: v.check, reason: 'the server\'s check failed: ' + v.reason, view };
     return { state: 'unconfirmed', check: v.check, reason: v.reason, view };
   }
-  if (_sealUnreachable.has(seal)) return { state: 'unconfirmed', check: 'unreachable', reason: 'the server could not be reached to check this fit', view };
+  if (_isUnreachable(seal)) return { state: 'unconfirmed', check: 'unreachable', reason: 'the server could not be reached to check this fit', view };
   return { state: 'pending', check: null, reason: 'confirming…', view };
 }
 
