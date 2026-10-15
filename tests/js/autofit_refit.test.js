@@ -23,7 +23,8 @@ function extractFn(name) {
 const constLine = n => { const l = lines.find(x => x.startsWith('const ' + n)); assert.ok(l, n); return l; };
 const POLL_SRC = [constLine('FIT_POLL_MS'), constLine('FIT_POLL_TRANSPORT_RETRIES'), constLine('FIT_HEARTBEAT_LOST_SEC'),
   'const _runningFitJobs = new Set(); let _fitOpSeq = 0; const _fitOpByOwner = new WeakMap(); let _fitSpinnerOp = null;',
-  ...['_cancelFitJob', '_fitHttpError', '_newFitOp', '_installFitOp', '_claimFitOp', '_fitOpOutdated', '_fitOpCurrent', '_hideFitSpinnerFor', '_serverFitJob'].map(extractFn)].join('\n');
+  ...['_cancelFitJob', '_fitHttpError', '_newFitOp', '_installFitOp', '_claimFitOp', '_fitOpOutdated', '_fitOpCurrent', '_hideFitSpinnerFor', '_serverFitJob'].map(extractFn),
+  'const _noteServerSoftware = () => {};   // owner 2026-10-15: the verdict cache\'s numerics (not exercised here)'].join('\n');
 const KEY_SRC = lines.slice(lines.findIndex(l => l.startsWith('const _STARTS_MODEL_FIELDS')), lines.findIndex(l => l.startsWith('const _STARTS_UI_FIELDS')) + 1).join('\n') + '\n' + lines.find(l => l.startsWith('const _SEAL_CTX_FIELDS')) + '\n' + lines.find(l => l.startsWith('const LEGACY_ENDPOINT_AVG'));
 
 // replies: one per fit, in order; hooks: per-upload side effects (1-based)

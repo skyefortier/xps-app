@@ -21,6 +21,11 @@ TAMPER = """(src) => { const s = structuredClone(state.fitResult.seal); (new Fun
   state.fitResult = { ...state.fitResult, seal: _makeSeal(s) }; }"""
 
 
+def _fake(pg, body):
+    """A fabricated server answer, as the server writes one: with the software that answered (this server's)."""
+    return json.dumps({**body, "software": pg.evaluate("() => _pageIdentity().software")})
+
+
 def _fitted(browser, server, scenario="asymgl_linked_smart"):  # noqa: F811
     pg = browser.new_page(viewport={"width": 1500, "height": 950})
     pg.errors = []
@@ -231,8 +236,8 @@ def test_check_again_always_starts_a_new_attempt(browser, server):  # noqa: F811
     pg = _fitted(browser, server)
     try:
         import json as _json
-        pg.route("**/api/verify-fit", lambda route: route.fulfill(status=200, content_type="application/json",
-                 body=_json.dumps({"state": "unconfirmed", "check": "numerics", "reason": "made under other numerics and the recomputation differs"})))
+        fake = _fake(pg, {"state": "unconfirmed", "check": "numerics", "reason": "made under other numerics and the recomputation differs"})
+        pg.route("**/api/verify-fit", lambda route: route.fulfill(status=200, content_type="application/json", body=fake))
         pg.evaluate(VERIFY)
         assert pg.evaluate(STATE) == ["unconfirmed", "numerics"]
         pg.unroute("**/api/verify-fit")
@@ -382,6 +387,7 @@ def _route_by_fit(pg, actions):
     actions: {'E': a, 'R': a}, a in 'continue' | 'abort' | 'hold' | dict (a reply body)."""
     import json as _json
     dig = pg.evaluate("() => ({ E: state.fitResult.seal.E.O.request_digest, R: state.fitResult.seal.O.request_digest })")
+    fakes = {w: _fake(pg, a) for w, a in actions.items() if isinstance(a, dict)}
     held = []
 
     def handle(route):
@@ -394,7 +400,7 @@ def _route_by_fit(pg, actions):
         elif a == "hold":
             held.append(route)
         else:
-            route.fulfill(status=200, content_type="application/json", body=_json.dumps(a))
+            route.fulfill(status=200, content_type="application/json", body=fakes[which])
     pg.route("**/api/verify-fit", handle)
     return held
 
@@ -455,7 +461,7 @@ def test_auto_fit_with_an_unreachable_check_waits_for_the_outstanding_one(browse
             if partner == "continue":
                 held[0].continue_()
             else:
-                held[0].fulfill(status=200, content_type="application/json", body=json.dumps(partner))
+                held[0].fulfill(status=200, content_type="application/json", body=_fake(pg, partner))
             pg.evaluate("async () => { await window.__p; }")
             assert pg.evaluate(STATE) == expect, partner
         finally:
@@ -478,7 +484,7 @@ def test_check_again_supersedes_an_attempt_in_flight(browser, server):  # noqa: 
         held[1].continue_()
         pg.evaluate("async () => { await window.__p2; }")
         assert pg.evaluate(STATE) == ["current", None]
-        held[0].fulfill(status=200, content_type="application/json", body=json.dumps(MISMATCH))   # the superseded reply
+        held[0].fulfill(status=200, content_type="application/json", body=_fake(pg, MISMATCH))   # the superseded reply
         assert pg.evaluate("async () => await window.__p1") is None
         assert pg.evaluate(STATE) == ["current", None]
     finally:
@@ -561,5 +567,33 @@ def test_a_seal_from_other_numerics_that_recomputes_differently_is_unconfirmed(b
         pg.evaluate(VERIFY)
         st = pg.evaluate("() => { const s = sealedState(state.fitResult, _activeTab()); return [s.state, s.check, s.reason]; }")
         assert st[:2] == ["unconfirmed", "numerics"] and "2026-10-09" in st[2], st
+    finally:
+        pg.close()
+
+
+def test_an_open_page_rechecks_its_seals_when_the_servers_numerics_change_and_not_for_a_commit(browser, server):  # noqa: F811
+    pg = _fitted(browser, server)
+    try:
+        pg.evaluate(VERIFY)
+        assert pg.evaluate(STATE) == ["current", None]
+        calls = []
+        pg.on("request", lambda r: calls.append(r.url) if r.url.endswith("/api/verify-fit") else None)
+        # a redeployment with the SAME numerics (another commit, checkout and environment): nothing to recheck
+        pg.evaluate("() => { const sw = _pageIdentity().software; _noteServerSoftware({ ...sw, git_commit: 'f'.repeat(40), git_dirty: true, env_sha256: '0'.repeat(64) }); }")
+        pg.wait_for_timeout(500)
+        assert calls == [] and pg.evaluate(STATE) == ["current", None]
+
+        # a redeployment with OTHER numerics, revealed by a reply (a fit's or a check's): the cached answer no
+        # longer applies, the installed seal is checked again by itself and confirmed by recomputation
+        def other_numerics(route):
+            r = route.fetch()
+            j = r.json()
+            j["software"] = {**j["software"], "numerics": "2099-01-01"}
+            route.fulfill(response=r, json=j)
+        pg.route("**/api/verify-fit", other_numerics)
+        pg.evaluate("() => { const sw = _pageIdentity().software; _noteServerSoftware({ ...sw, numerics: '2099-01-01' }); }")
+        assert pg.evaluate(STATE)[0] in ("pending", "current")
+        pg.wait_for_function("() => sealedState(state.fitResult, _activeTab()).state === 'current'", timeout=30000)
+        assert len(calls) >= 1, calls
     finally:
         pg.close()

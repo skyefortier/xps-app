@@ -1409,6 +1409,15 @@ def _register_routes(app: Flask) -> None:
         energy = np.asarray(raw_e, dtype=float)
         counts = np.asarray(raw_c, dtype=float)
         def mismatch(reason):
+            # a request this server cannot read, from a record made under OTHER numerics, is a recheck that cannot be
+            # made here (owner 2026-10-15), never "the record does not hold"
+            O = body.get("O")
+            sw = O.get("software") if isinstance(O, dict) else None
+            if fitting.software_failure(sw) is None and fitting.numerics_difference(sw):
+                return jsonify({"state": "unconfirmed", "check": "numerics",
+                                "reason": f"made under other numerics ({'; '.join(fitting.numerics_difference(sw))}) "
+                                          f"and this server cannot read its request ({reason})",
+                                "software": fitting.SOFTWARE})
             return jsonify({"state": "mismatch", "check": "request", "reason": reason, "software": fitting.SOFTWARE})
         try:
             fit_args, error = _normalise_fit_request(req, energy, counts)

@@ -261,6 +261,50 @@ def test_a_record_without_a_software_record_is_a_mismatch(client, sealed, sw):
     assert v["state"] == "mismatch" and v["check"] == "schema", (sw, v)
 
 
+@pytest.mark.parametrize("change", ({"git_dirty": "broken"}, {"git_commit": {"a": 1}}, {"env_sha256": []},
+                                    {"git_commit": 123}, {"machine": 64}))
+def test_a_software_record_with_a_mistyped_field_is_a_mismatch(client, sealed, change):
+    R, O = sealed
+    v = _verify(client, R, {**O, "software": {**O["software"], **change}})
+    assert v["state"] == "mismatch" and v["check"] == "schema", (change, v)
+
+
+@pytest.mark.parametrize("drop", ("git_commit", "git_dirty", "env_sha256"))
+def test_a_software_record_missing_an_information_field_is_a_mismatch(client, sealed, drop):
+    R, O = sealed
+    v = _verify(client, R, {**O, "software": {k: x for k, x in O["software"].items() if k != drop}})
+    assert v["state"] == "mismatch" and v["check"] == "schema", (drop, v)
+
+
+def test_a_record_made_before_the_fuller_identity_recomputing_exactly_is_confirmed(client, sealed):
+    R, O = sealed
+    old = {k: x for k, x in O["software"].items() if k not in ("asteval", "machine", "os", "blas")}
+    assert _verify(client, R, {**O, "software": old})["state"] == "consistent"
+    O2 = copy.deepcopy({**O, "software": old})
+    O2["residuals"][0] += 1e-6
+    v = _verify(client, R, O2)
+    assert v["state"] == "unconfirmed" and v["check"] == "numerics" and "machine (not recorded)" in v["reason"], v
+
+
+def test_a_record_not_of_a_responses_form_is_a_mismatch_whatever_numerics_made_it(client, sealed):
+    R, O = sealed
+    O2 = copy.deepcopy(O)
+    O2["software"]["numerics"] = "2026-10-09"
+    O2["statistics"]["rmse"] = "1.0"                         # a string where a number belongs
+    v = _verify(client, R, O2)
+    assert v["state"] == "mismatch" and v["check"] == "schema", v
+
+
+def test_a_request_this_server_cannot_read_reads_by_the_numerics_that_made_it(client, sealed):
+    R, O = sealed
+    bad = {**R, "request": {**R["request"], "background": {**R["request"].get("background", {}), "endpoint_avg": 0}}}
+    v = _verify(client, bad, O)                                # the same numerics: the record does not hold
+    assert v["state"] == "mismatch" and v["check"] == "request", v
+    O2 = {**O, "software": {**O["software"], "numerics": "2026-10-09"}}
+    v = _verify(client, bad, O2)                               # other numerics: a recheck that cannot be made here
+    assert v["state"] == "unconfirmed" and v["check"] == "numerics" and "cannot read its request" in v["reason"], v
+
+
 def test_a_record_paired_with_another_request_is_a_mismatch(client, sealed):
     R, O = sealed
     cases = [

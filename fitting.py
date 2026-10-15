@@ -49,11 +49,17 @@ SEED_TAG = "xps-fit-seed-v2"                      # _request_seed's derivation t
 # (levels-only averaging, certified backgrounds, full-precision upload, seed v2), deployed then;
 # "2026-10-13" — the reported statistics formed from the returned arrays (seal 1a′, V6.6).
 NUMERICS_VERSION = "2026-10-13"
-# The fields of a software record that define the NUMBERS a fit computes (owner 2026-10-15, consistent with Q4):
-# the numerics version, the seed derivation and the numerical libraries. The rest — the git commit, whether the
-# checkout was clean, the environment digest — is recorded and shown as INFORMATION only: a seal is confirmed
-# by recomputation, whatever commit made it.
-NUMERICS_IDENTITY_KEYS = ("numerics", "seed_derivation", "python", "numpy", "scipy", "lmfit")
+# The fields of a software record that DECLARE the numerics a fit was computed with (owner 2026-10-15, consistent
+# with Q4): the numerics version, the seed derivation, the numerical libraries (lmfit evaluates linked
+# parameters through asteval), the machine architecture, the operating system release and numpy's BLAS backend
+# (Apple Accelerate states no version of its own: the OS release names it). A declared compatibility identity,
+# not a proof of identical arithmetic. The rest — the git commit, whether the checkout was clean, the
+# environment digest — is recorded and shown as INFORMATION only: a seal is confirmed by recomputation,
+# whatever commit made it. The identity decides only how a recomputation that DIFFERS reads (verify_fit).
+NUMERICS_IDENTITY_KEYS = ("numerics", "seed_derivation", "python", "numpy", "scipy", "lmfit", "asteval",
+                          "machine", "os", "blas")
+# Declared since 2026-10-15: a record made before lacks them, and so reads as made under other numerics.
+_NUMERICS_KEYS_SINCE_2026_10_15 = ("asteval", "machine", "os", "blas")
 # The fields every fit response RECORDS (owner 2026-10-10); fit_record() copies them.
 RECORD_KEYS = ("fit_method", "random_seed", "seed_source", "background_verdict", "certificate", "software")
 
@@ -96,6 +102,7 @@ def _software_identity() -> dict[str, Any]:
     (``/api/verify-fit``) compares it whole with the fit's."""
     import os
     import platform
+    from importlib import metadata
     import lmfit
     import scipy
     commit, dirty = _git_state(os.path.dirname(os.path.abspath(__file__)))
@@ -103,9 +110,48 @@ def _software_identity() -> dict[str, Any]:
         env = _env_sha256()
     except Exception:
         env = None
+    try:
+        asteval_v = metadata.version("asteval")
+    except Exception:
+        asteval_v = "unknown"
+    try:
+        b = np.show_config(mode="dicts")["Build Dependencies"]["blas"]
+        blas = f"{b.get('name', 'unknown')} {b.get('version', 'unknown')}"
+    except Exception:
+        blas = "unknown"
     return {"git_commit": commit, "git_dirty": dirty, "python": platform.python_version(),
             "numpy": np.__version__, "scipy": scipy.__version__, "lmfit": lmfit.__version__,
+            "asteval": asteval_v, "machine": platform.machine() or "unknown",
+            "os": f"{platform.system()} {platform.release()}", "blas": blas,
             "numerics": NUMERICS_VERSION, "seed_derivation": SEED_TAG, "env_sha256": env}
+
+
+def software_failure(sw):
+    """None if ``sw`` is a software record as a fit records it, else why not (seal, owner 2026-10-15): an
+    object; every numerics field declared since 2026-10-10 a string (the later ones a string when present);
+    the information fields of their types — the commit a string or null, the checkout state a flag or
+    null, the environment digest a string or null."""
+    if not isinstance(sw, dict):
+        return "the recorded software is not an object"
+    for k in NUMERICS_IDENTITY_KEYS:
+        if k in _NUMERICS_KEYS_SINCE_2026_10_15 and k not in sw:
+            continue
+        if not isinstance(sw.get(k), str):
+            return f"the recorded software's {k} is not a text"
+    if not (sw.get("git_commit") is None or isinstance(sw.get("git_commit"), str)) or "git_commit" not in sw:
+        return "the recorded software's commit is not a text or null"
+    if not (sw.get("git_dirty") is None or isinstance(sw.get("git_dirty"), bool)) or "git_dirty" not in sw:
+        return "the recorded software's checkout state is not a flag or null"
+    if not (sw.get("env_sha256") is None or isinstance(sw.get("env_sha256"), str)) or "env_sha256" not in sw:
+        return "the recorded software's environment digest is not a text or null"
+    return None
+
+
+def numerics_difference(sw):
+    """The numerics fields in which the software record ``sw`` differs from this server's (a field it does not
+    declare differs), as text; [] when the same numerics made it."""
+    return [f"{k} {sw.get(k, '(not recorded)')} (here {SOFTWARE.get(k)})"
+            for k in NUMERICS_IDENTITY_KEYS if sw.get(k) != SOFTWARE.get(k)]
 
 
 SOFTWARE = _software_identity()
@@ -3297,10 +3343,10 @@ def verify_fit(O, *, energy, counts, peak_specs, background_method="shirley", bg
     ``{"state": "consistent" | "mismatch" | "unconfirmed", "check", "reason", "software"}``.
     The record is ALWAYS recomputed (owner 2026-10-15): another git commit, checkout state or environment
     is information only, and a recomputation that matches is ``consistent`` whatever produced it.
-    ``mismatch`` = the recomputation differs under the SAME numerics (``NUMERICS_IDENTITY_KEYS``): the
-    record does not hold. ``unconfirmed`` = it cannot be judged exactly here: the recomputation differs
-    and the record was made under OTHER numerics (check ``numerics``, naming the fields and the failed
-    check), O holds a non-finite number, or one of the two EVALUATION identities (a recorded curve / the
+    ``mismatch`` = the record is not of a response's form (``schema``, the software record included), or
+    the recomputation differs under the SAME numerics (``NUMERICS_IDENTITY_KEYS``): the record does not
+    hold. ``unconfirmed`` = it cannot be judged exactly here: the recomputation differs and the record was
+    made under OTHER numerics (check ``numerics``, naming the fields and the failed check), O holds a non-finite number, or one of the two EVALUATION identities (a recorded curve / the
     model sum is this server's evaluation of the parameters) failed on a request with a lineshape that is
     not evaluated bit-identically (``NOT_BIT_STABLE_SHAPES``, owner Q7); every relation of the recorded
     arrays stays exact. CONSISTENT is consistency under
@@ -3314,11 +3360,11 @@ def verify_fit(O, *, energy, counts, peak_specs, background_method="shirley", bg
     try:
         if not isinstance(O, dict):
             raise _Mismatch("schema", "the recorded result is not an object")
-        sw = O.get("software")
-        if not isinstance(sw, dict) or not all(isinstance(sw.get(k), str) for k in NUMERICS_IDENTITY_KEYS):
-            raise _Mismatch("schema", "the recorded software is not a software record")
+        why = software_failure(O.get("software"))
+        if why:
+            raise _Mismatch("schema", why)
         # which numerics made the record: decides only how a recomputation that DIFFERS reads
-        other = [f"{k} {sw.get(k)} (here {SOFTWARE.get(k)})" for k in NUMERICS_IDENTITY_KEYS if sw.get(k) != SOFTWARE.get(k)]
+        other = numerics_difference(O["software"])
         bad = _non_finite(O)
         if bad:
             return answer("unconfirmed", "non_finite",
@@ -3330,7 +3376,9 @@ def verify_fit(O, *, energy, counts, peak_specs, background_method="shirley", bg
     except _Unverifiable as exc:
         return answer("unconfirmed", exc.check, exc.reason)
     except _Mismatch as exc:
-        if other:
+        # a record that is not of a response's FORM is a mismatch whatever made it; a recomputation that differs
+        # under other numerics is a check that cannot be made here
+        if other and exc.check != "schema":
             return answer("unconfirmed", "numerics",
                           f"made under other numerics ({'; '.join(other)}) and the recomputation differs "
                           f"({exc.check}: {exc.reason})")

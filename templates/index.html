@@ -8439,7 +8439,7 @@ async function _serverFitJob(fitReq, guard) {
       }
       if (gone()) return superseded();
       misses = 0;
-      if (rec.status === 'done') return rec.result;
+      if (rec.status === 'done') { if (rec.result && typeof rec.result === 'object') _noteServerSoftware(rec.result.software); return rec.result; }
       if (rec.status === 'error') throw _fitHttpError(rec.http_status || 500, rec.error);
       if (rec.status === 'cancelled') throw _fitHttpError(409, 'The fit was stopped on the server before it finished. Run it again.');
       if (Number.isFinite(rec.heartbeat_age_sec) && rec.heartbeat_age_sec > FIT_HEARTBEAT_LOST_SEC) {
@@ -9061,7 +9061,40 @@ async function _postVerifyFit(R, O) {
   const resp = await fetch('/api/verify-fit', { method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ R: { request: R.request, energies: R.energies, counts: R.counts }, O }) });
   if (!resp.ok) throw Object.assign(new Error('verify-fit HTTP ' + resp.status), { httpStatus: resp.status });
-  return resp.json();
+  const v = await resp.json();
+  if (v && typeof v === 'object') _noteServerSoftware(v.software);
+  return v;
+}
+// Owner 2026-10-15: a cached answer holds only under the NUMERICS that gave it (fitting.NUMERICS_IDENTITY_KEYS) —
+// never the commit. The page learns the server's numerics from its own meta tag and from every reply (a fit, a
+// check); when they change (a deployment with other numerics while the page is open), every cached answer
+// given under the old ones is ignored and every installed seal is checked again.
+const _NUMERICS_IDENTITY_KEYS = ['numerics', 'seed_derivation', 'python', 'numpy', 'scipy', 'lmfit', 'asteval', 'machine', 'os', 'blas'];
+let _serverNumerics;   // undefined: not yet read from the page; null: the page declares none
+function _numericsKey(sw) {
+  return sw && typeof sw === 'object' ? JSON.stringify(_NUMERICS_IDENTITY_KEYS.map(k => (k in sw ? sw[k] : null))) : null;
+}
+function _currentServerNumerics() {
+  if (_serverNumerics === undefined) _serverNumerics = _numericsKey(_pageIdentity().software);
+  return _serverNumerics;
+}
+function _noteServerSoftware(sw) {
+  const k = _numericsKey(sw);
+  if (!k) return;
+  const before = _currentServerNumerics();
+  _serverNumerics = k;
+  if (before === null || before === k) return;
+  // other numerics now: every installed seal's check starts again (the old answers no longer apply)
+  if (typeof tabManager !== 'undefined' && tabManager) {
+    for (const t of tabManager.tabs) if (!t.isStack && _ownerLive(t)) { _ensureVerified(t); _onSealVerdict(t, null); }
+  }
+}
+// The cached answer for a seal, when it was given under the numerics the server declares now.
+function _cachedVerdict(seal) {
+  const v = _sealVerdicts.get(seal);
+  if (!v) return null;
+  const now = _currentServerNumerics();
+  return (now === null || _numericsKey(v.software) === now) ? v : null;
 }
 // One check's OUTCOME: the server's answer, or { unreachable: true } (never thrown: a failed check must not hide
 // another check's answer — steps 3-4 Codex round 1).
@@ -9166,7 +9199,7 @@ function _ensureVerified(owner, retry = false) {
   if (!retry) {                                    // a background trigger: never a second attempt, never a repeat
     const cur = _sealAttempts.get(owner);
     if (cur && cur.seal === seal) return null;
-    if (_sealVerdicts.has(seal) || _sealUnreachable.has(seal)) return null;
+    if (_cachedVerdict(seal) || _sealUnreachable.has(seal)) return null;
   }
   return _verifySeal(owner, seal, 'background');   // "check again" supersedes an attempt in flight (the latest attaches)
 }
@@ -9194,7 +9227,7 @@ function sealedState(fr, owner) {
     return { state: 'peaks-only', check: 'schema', reason: 'the saved fit record cannot be read (' + (e && e.message) + ')', view: null };
   }
   if (seal.engine === 'local') return { state: 'current', check: null, reason: '', view };   // its own exact check (§2.3)
-  const v = _sealVerdicts.get(seal);
+  const v = _cachedVerdict(seal);
   if (v) {
     if (v.state === 'consistent') return { state: 'current', check: null, reason: '', view };
     if (v.state === 'mismatch') return { state: 'stale', check: v.check, reason: 'the server\'s check failed: ' + v.reason, view };

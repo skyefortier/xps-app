@@ -308,7 +308,8 @@ test('the refresh re-renders Results only when its rendered state differs', () =
 // as a finished job, and runs the poll loop's short waits at once (the
 // 2-minute Auto-Fit timer is left pending, as before).
 const POLL_SRC = [constLine('FIT_POLL_MS'), constLine('FIT_POLL_TRANSPORT_RETRIES'), constLine('FIT_HEARTBEAT_LOST_SEC'),
-  'const _runningFitJobs = new Set(); let _fitOpSeq = 0; const _fitOpByOwner = new WeakMap(); let _fitSpinnerOp = null;', ...['_cancelFitJob', '_fitHttpError', '_newFitOp', '_installFitOp', '_claimFitOp', '_fitOpOutdated', '_fitOpCurrent', '_hideFitSpinnerFor', '_serverFitJob'].map(extractFn)].join('\n');
+  'const _runningFitJobs = new Set(); let _fitOpSeq = 0; const _fitOpByOwner = new WeakMap(); let _fitSpinnerOp = null;', ...['_cancelFitJob', '_fitHttpError', '_newFitOp', '_installFitOp', '_claimFitOp', '_fitOpOutdated', '_fitOpCurrent', '_hideFitSpinnerFor', '_serverFitJob'].map(extractFn),
+  'const _noteServerSoftware = () => {};   // owner 2026-10-15: the verdict cache\'s numerics (not exercised here)'].join('\n');
 function pollify(deps) {
   const inner = deps.fetch;
   let reply = null;

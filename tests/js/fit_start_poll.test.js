@@ -44,7 +44,8 @@ function make(fetch) {
   const src = [constLine('FIT_POLL_MS'), constLine('FIT_POLL_TRANSPORT_RETRIES'), constLine('FIT_HEARTBEAT_LOST_SEC'),
     'const _runningFitJobs = new Set(); let _fitOpSeq = 0; const _fitOpByOwner = new WeakMap(); let _fitSpinnerOp = null;',
     extractFn('_cancelFitJob'), extractFn('_fitHttpError'), extractFn('_newFitOp'), extractFn('_installFitOp'), extractFn('_claimFitOp'), extractFn('_fitOpCurrent'),
-    extractFn('_readFitReply'), extractFn('_serverFitJob')].join('\n');
+    extractFn('_readFitReply'), extractFn('_serverFitJob'),
+    'const _noteServerSoftware = () => {};   // owner 2026-10-15: the verdict cache\'s numerics (not exercised here)'].join('\n');
   return new Function('fetch', 'setTimeout', 'DOMException', src + '\nreturn { _serverFitJob, _runningFitJobs, _claimFitOp };')(
     fetch, f => f(), class extends Error { constructor(m, n) { super(m); this.name = n; } });
 }
@@ -152,7 +153,8 @@ function makeAsync(fetch) {
   const src = [constLine('FIT_POLL_MS'), constLine('FIT_POLL_TRANSPORT_RETRIES'), constLine('FIT_HEARTBEAT_LOST_SEC'),
     'const _runningFitJobs = new Set(); let _fitOpSeq = 0; const _fitOpByOwner = new WeakMap(); let _fitSpinnerOp = null;',
     extractFn('_cancelFitJob'), extractFn('_fitHttpError'), extractFn('_newFitOp'), extractFn('_installFitOp'), extractFn('_claimFitOp'), extractFn('_fitOpCurrent'),
-    extractFn('_readFitReply'), extractFn('_serverFitJob')].join('\n');
+    extractFn('_readFitReply'), extractFn('_serverFitJob'),
+    'const _noteServerSoftware = () => {};   // owner 2026-10-15: the verdict cache\'s numerics (not exercised here)'].join('\n');
   return new Function('fetch', 'setTimeout', 'DOMException', src + '\nreturn { _serverFitJob, _claimFitOp };')(
     fetch, f => { setImmediate(f); return 0; }, class extends Error {});   // yield to the event loop between polls
 }
@@ -271,7 +273,7 @@ test('the Auto-Fit modal race: a Run Fit pressed while the confirmation is open 
   };
   const src = constants + '\n' + [
     'const _runningFitJobs = new Set(); let _fitOpSeq = 0; const _fitOpByOwner = new WeakMap(); let _fitSpinnerOp = null;',
-    ...AF_FNS.map(extractFn)].join('\n');
+    ...AF_FNS.map(extractFn), 'const _noteServerSoftware = () => {};'].join('\n');
   const api = new Function(...Object.keys(deps), src + '\nreturn { runAutoFitC1sGraphite, _claimFitOp, _fitOpCurrent };')(...Object.values(deps));
   const af = api.runAutoFitC1sGraphite();             // Auto-Fit pressed: the modal is open
   await new Promise(r => setImmediate(r));
@@ -341,7 +343,7 @@ test('an Auto-Fit REFUSED by its preflight leaves a running Run Fit alone: not c
     };
     const src = constants + '\n' + [constLine('FIT_POLL_MS'), constLine('FIT_POLL_TRANSPORT_RETRIES'), constLine('FIT_HEARTBEAT_LOST_SEC'),
       'const _runningFitJobs = new Set(); let _fitOpSeq = 0; const _fitOpByOwner = new WeakMap(); let _fitSpinnerOp = null;',
-      ...AF_FNS.map(extractFn)].join('\n');
+      ...AF_FNS.map(extractFn), 'const _noteServerSoftware = () => {};'].join('\n');
     const api = new Function(...Object.keys(deps), src +
       '\nreturn { runAutoFitC1sGraphite, _claimFitOp, _fitOpCurrent, _serverFitJob, _hideFitSpinnerFor, takeSpinner: op => { _fitSpinnerOp = op; }, spinner: () => _fitSpinnerOp };')(...Object.values(deps));
     // a Run Fit is running on the tab: it claimed its operation, owns the spinner, its job is being polled
