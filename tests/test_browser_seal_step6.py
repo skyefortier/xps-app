@@ -24,6 +24,8 @@ B64 = """async (name) => { const b = new Uint8Array(await window.__blobs[name].a
   for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]); return btoa(s); }"""
 STATE = "(name) => { const t = name ? tabManager.tabs.find(x => x.name === name) : _activeTab(); const fr = t === _activeTab() ? state.fitResult : t.fitResult; const s = sealedState(fr, t); return [s.state, s.check]; }"
 # every loaded seal checked: start what is not started, then wait for the attempts in flight (the loader's own)
+# wait for the attempts in flight WITHOUT starting any (what the loader started must suffice)
+WAIT = """async () => { for (let k = 0; k < 600 && tabManager.tabs.some(t => _sealAttempts.has(t)); k++) await new Promise(r => setTimeout(r, 50)); }"""
 SETTLE = """async () => { for (const t of tabManager.tabs) if (!t.isStack) _ensureVerified(t);
   for (let k = 0; k < 600 && tabManager.tabs.some(t => _sealAttempts.has(t)); k++) await new Promise(r => setTimeout(r, 50)); }"""
 
@@ -110,7 +112,7 @@ def test_a_zip_project_of_five_tabs_reloads_every_seal_current_without_activatin
         calls = pg.evaluate("() => tabManager.tabs.length")
         assert calls == 5
         # every tab is verified by the loader itself (background attempts), inactive ones included
-        pg.evaluate(SETTLE)
+        pg.evaluate(WAIT)                                  # the loader's own checks only (inactive tabs included)
         got = pg.evaluate("""() => tabManager.tabs.map(t => { const fr = t === _activeTab() ? state.fitResult : t.fitResult;
             const s = sealedState(fr, t); return [t.name, s.state, s.check, s.reason]; })""")
         assert all(g[1] == "current" for g in got), got
@@ -168,19 +170,39 @@ def test_an_auto_fit_round_trips_current_with_both_checks(browser, server):  # n
         pg.evaluate("() => { window._showAutoFitConfirmModal = () => Promise.resolve(true); }")
         pg.evaluate("async () => { await runAutoFitC1sGraphite(); }")
         assert pg.evaluate("() => state.fitResult.seal.producer") == "autoFit"
-        # keep only the Auto-Fit tab (the project's others are legacy fits)
         pg.evaluate("""() => { for (const t of tabManager.tabs.slice()) if (t !== _activeTab()) tabManager.closeTab(t.id); }""")
         name, text = _save_project(pg)
+        e_digest = json.loads(text)["tabs"][0]["fitResult"]["seal"]["E"]["O"]["request_digest"]
     finally:
         pg.close()
-    pg = _load_project(browser, server, name, text)
-    try:
-        calls = []
-        pg.on("request", lambda r: calls.append(r.url) if r.url.endswith("/api/verify-fit") else None)
-        pg.evaluate(SETTLE)
-        assert pg.evaluate(STATE, None) == ["current", None]
-    finally:
-        pg.close()
+    for fail_e in (False, True):
+        pg = browser.new_page(viewport={"width": 1500, "height": 950})
+        pg.errors = []
+        try:
+            calls = []
+
+            def make(fail_e):
+                def h(route):
+                    body = json.loads(route.request.post_data)
+                    calls.append(body["O"]["request_digest"])
+                    if fail_e and body["O"]["request_digest"] == e_digest:
+                        route.fulfill(status=200, content_type="application/json",
+                                      body=json.dumps({"state": "mismatch", "check": "components", "reason": "test",
+                                                       "software": pg.evaluate("() => _pageIdentity().software")}))
+                    else:
+                        route.continue_()
+                return h
+            h = make(fail_e)
+            pg.route("**/api/verify-fit", h)               # registered BEFORE the load: the loader's own checks
+            pg.goto(server + "/", wait_until="load")
+            pg.evaluate(ON)
+            pg.evaluate("(text) => _loadProjectJSON(JSON.parse(text), 'p.proj.json')", text)
+            pg.evaluate(WAIT)
+            assert len(calls) == 2 and e_digest in calls, calls          # the anchor fit's and the final fit's
+            assert pg.evaluate(STATE, None) == (["stale", "components"] if fail_e else ["current", None])
+        finally:
+            pg.unroute_all(behavior="ignoreErrors")
+            pg.close()
 
 
 @pytest.mark.parametrize("edit,check", [
@@ -295,6 +317,17 @@ def test_the_view_states_its_provenance_and_results_and_exports_show_it(browser,
             return { pv: v.provenance, shown: el && el.getAttribute('data-provenance'), text: el && el.textContent }; }""")
         pv = got["pv"]
         assert pv["state"] in ("ATTESTED", "INCOMPLETE") and (pv["state"] == "ATTESTED") == (pv["missing"] == []), pv
+        # each requirement on its own: a complete record is ATTESTED; removing one item names exactly it
+        cases = pg.evaluate("""() => { const base = structuredClone(state.fitResult.seal);
+            base.O.software = { ...base.O.software, git_commit: 'a'.repeat(40), git_dirty: false, env_sha256: 'b'.repeat(64) };
+            base.R.page = { software: base.R.page.software, page: { page_sha256: 'c', reference_sha256: 'd' } };
+            const run = f => { const s = structuredClone(base); f(s); return _sealProvenance(s); };
+            return [run(s => {}), run(s => { s.O.software.git_dirty = true; }), run(s => { s.O.software.git_commit = 'abc'; }),
+                    run(s => { s.O.software.env_sha256 = null; }), run(s => { s.R.page.page.page_sha256 = null; }),
+                    run(s => { s.R.page.page.reference_sha256 = ''; })]; }""")
+        assert cases[0] == {"state": "ATTESTED", "missing": []}, cases[0]
+        assert [c["missing"] for c in cases[1:]] == [["a clean checkout"], ["the software commit"], ["the environment digest"],
+                                                     ["the page digest"], ["the reference-data digest"]], cases
         assert got["shown"] == pv["state"] and "Record provenance" in got["text"], got
         pg.evaluate("() => exportFitTable('csv')")
         pg.wait_for_function("() => !!window.__blobs['fit_results.csv']")
@@ -310,6 +343,17 @@ def test_switch_off_saves_and_loads_as_today(browser, server):  # noqa: F811
         name, text = _save_project(pg)
         fr = json.loads(text)["tabs"][0]["fitResult"]
         assert "seal" not in fr and "chiReduced" in fr and "provenance" not in json.loads(text)["tabs"][0]
+    finally:
+        pg.close()
+    pg = browser.new_page(viewport={"width": 1500, "height": 950})
+    pg.errors = []
+    pg.on("pageerror", lambda e: pg.errors.append(str(e)))
+    try:
+        pg.goto(server + "/", wait_until="load")                       # the switch as shipped: off
+        pg.evaluate("(text) => _loadProjectJSON(JSON.parse(text), 'p.proj.json')", text)
+        got = pg.evaluate("() => ({ seal: !!(state.fitResult && state.fitResult.seal), chi: state.fitResult && state.fitResult.chiReduced, frozen: Object.isFrozen(state.fitResult) })")
+        assert got["seal"] is False and isinstance(got["chi"], (int, float)) and got["frozen"] is False, got
+        assert pg.errors == [], pg.errors
     finally:
         pg.close()
 
@@ -359,7 +403,7 @@ def test_honest_not_run_evidence_is_readable(browser, server, src):  # noqa: F81
     ("d.tabs[0].fitResult.seal.O.starts.n_same_as_fit = '<img src=x onerror=alert(1)>'", "scattered-starts"),
     ("d.tabs[0].fitResult.seal.O.software.role = 42", "software"),
     ("d.tabs[0].fitResult.seal.O.background_verdict.residual = 'x'", "background verdict"),
-    ("d.tabs[0].fitResult.seal.O.individual_peaks[0].support = { f: 'x' }", "components"),
+    ("d.tabs[0].fitResult.seal.O.individual_peaks[0].support.f = 'x'", "components"),       # only the named field
     ("d.tabs[0].fitResult.seal.R.page = { software: { role: 7 }, page: null }", "page identity"),
     ("d.tabs[0].fitResult.seal.D = { chosenAlternative: { shiftName: '<b>' } }", "D is malformed"),
 ])
@@ -428,5 +472,101 @@ def test_a_stale_fit_keeps_its_record_provenance_in_results_and_exports(browser,
         pg.wait_for_function("() => !!window.__chunk")
         chunk = json.loads(pg.evaluate("() => window.__chunk"))
         assert chunk["sealState"].startswith("STALE") and chunk["provenance"]["state"] in ("ATTESTED", "INCOMPLETE"), chunk
+    finally:
+        pg.close()
+
+
+# ── Codex step 6 round 2 ──
+@pytest.mark.parametrize("src,why", [
+    ("d.tabs[0].fitResult.seal.engine = { toString: 0 }", "engine"),
+    ("d.tabs[0].fitResult.seal.R.pageModel[0].id = { toString: 0 }", "start model"),
+    ("d.tabs[0].fitResult.seal.R.pageModel[0].center = '284.8'", "start model"),
+    ("d.tabs[0].fitResult.seal.O.individual_peaks[0].params = {}", "components"),
+    ("d.tabs[0].fitResult.seal.O.background_verdict.effect = { method: 'shirley', window: [{ toString: 0 }] }", "background verdict"),
+])
+def test_a_hostile_or_untyped_value_is_peaks_only_and_loading_completes(browser, server, src, why):  # noqa: F811
+    pg = _fitted(browser, server)
+    try:
+        name, text = _save_project(pg)
+    finally:
+        pg.close()
+    pg = _load_tampered(browser, server, text, src)
+    try:
+        st = pg.evaluate("() => { renderResults(); updatePlot(); const s = sealedState(state.fitResult, _activeTab()); return [s.state, s.reason]; }")
+        assert st[0] == "peaks-only" and (why in st[1] or "cannot be read" in st[1]), st
+        assert pg.errors == [], pg.errors
+    finally:
+        pg.close()
+
+
+@pytest.mark.parametrize("mutate", [
+    lambda r: r.__setitem__("certificate", {"check": {"toString": 0}}),
+    lambda r: r.__setitem__("backgroundVerdict", {"method": "shirley", "effect": {"method": "shirley", "window": [{"toString": 0}]},
+                                                  "check": "defining_statement", "converged": True, "residual": None, "reason": ""}),
+])
+def test_a_legacy_record_a_renderer_cannot_read_is_not_kept(browser, server, mutate):  # noqa: F811
+    pg = _fitted(browser, server)
+    try:
+        name, text = _save_project(pg)
+    finally:
+        pg.close()
+    data = json.loads(text)
+    rec = {"engine": "server", "fitMethod": "least_squares", "seed": 7, "seedSource": "request",
+           "backgroundVerdict": None, "certificate": None, "software": None}
+    mutate(rec)
+    data["tabs"][0]["fitResult"] = {"chiReduced": 2.0, "record": rec}
+    pg = _page(browser, server)
+    try:
+        pg.evaluate("(text) => _loadProjectJSON(JSON.parse(text), 'p.proj.json')", json.dumps(data))
+        assert pg.evaluate("() => _activeTab().provenance") is None
+        assert pg.evaluate("(r) => _fitRecordRows(r).length", rec) >= 1        # the renderer is total too
+        assert pg.errors == [], pg.errors
+    finally:
+        pg.close()
+
+
+def test_a_global_methods_fit_round_trips(browser, server):  # noqa: F811
+    pg = _page(browser, server)
+    try:
+        _setup(pg, SCENARIOS["gauss_voigt_linear_avg3_window"])
+        pg.evaluate("() => { document.getElementById('fit-method').value = 'differential_evolution'; }")
+        pg.evaluate("async () => { await runFit(); }")
+        assert pg.evaluate("() => state.fitResult.seal.O.starts === null || state.fitResult.seal.O.starts.ran === false")
+        pg.evaluate(SETTLE)
+        assert pg.evaluate(STATE, None) == ["current", None]
+        name, text = _save_project(pg)
+    finally:
+        pg.close()
+    pg = _load_project(browser, server, name, text)
+    try:
+        pg.evaluate(SETTLE)
+        assert pg.evaluate(STATE, None) == ["current", None]
+    finally:
+        pg.close()
+
+
+def test_a_batch_fit_round_trips(browser, server):  # noqa: F811
+    pg = _page(browser, server)
+    try:
+        ids = pg.evaluate("""() => {
+            const mk = (amp, off) => { const be = [], inten = [];
+                for (let i = 0; i < 80; i++) { const x = 520 + i * 0.25; be.push(x);
+                    inten.push(1000 + off + amp * Math.exp(-Math.pow(x - 530, 2) / (2 * 0.9 * 0.9)) + 37 * Math.sin(i)); }
+                return { be, inten }; };
+            const s = mk(8000, 0); tabManager.createTab('SRC', s.be, s.inten); const srcId = tabManager.activeId;
+            document.getElementById('bg-type').value = 'linear';
+            addPeak({ center: 530, fwhm: 2, amplitude: 8000 });
+            const t = mk(5000, 200); tabManager.createTab('TGT', t.be, t.inten); const tgtId = tabManager.activeId;
+            tabManager.activateTab(srcId); return { srcId, tgtId }; }""")
+        pg.evaluate("() => showPropagateModal()")
+        pg.evaluate("(id) => { const c = document.querySelector('.prop-chk[data-id=\"' + id + '\"]'); if (c) c.checked = true; }", ids["tgtId"])
+        pg.evaluate("async () => { await runPropagation(); }")
+        assert pg.evaluate("(id) => tabManager._getTab(id).fitResult.seal.producer", ids["tgtId"]) == "batch"
+        name, text = _save_project(pg)
+    finally:
+        pg.close()
+    pg = _load_project(browser, server, name, text)
+    try:
+        assert pg.evaluate(STATE, "TGT") == ["current", None]
     finally:
         pg.close()

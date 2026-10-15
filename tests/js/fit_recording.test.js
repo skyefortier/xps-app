@@ -18,7 +18,7 @@ function extractFn(name) {
   }
   assert.fail('unbalanced ' + name);
 }
-const H = new Function('document', ['_fitRecordFrom', '_pageSoftware', '_localFitRecord', '_isFitRecord', '_fitRecordRows', '_fitRecordTextLines', '_b64Utf8', '_recordParts', '_fitRecordXlsxRows'].map(extractFn).join('\n') +
+const H = new Function('document', ['_fitRecordFrom', '_pageSoftware', '_localFitRecord', '_isFitRecord', '_fitRecordRows', '_fitRecordRowsUnchecked', '_fitRecordTextLines', '_b64Utf8', '_recordParts', '_fitRecordXlsxRows'].map(extractFn).join('\n') +
   '\nreturn { _fitRecordFrom, _localFitRecord, _isFitRecord, _fitRecordRows, _fitRecordTextLines, _fitRecordXlsxRows, _recordParts };')(
   { querySelector: () => ({ getAttribute: () => JSON.stringify({ git_commit: 'b'.repeat(40), numerics: '2026-10-09' }) }) });
 

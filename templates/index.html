@@ -7162,7 +7162,9 @@ function _localRecordOf(R, O) {
 const _sealSchemaMemo = new WeakMap();
 function _sealSchemaFailure(seal) {
   if (seal && typeof seal === 'object' && _sealSchemaMemo.has(seal)) return _sealSchemaMemo.get(seal);
-  const why = _sealSchemaFailureUncached(seal);
+  let why;
+  try { why = _sealSchemaFailureUncached(seal); }
+  catch (e) { why = 'the record cannot be read (' + (e && e.name) + ')'; }   // total: no loaded value escapes as an exception
   if (seal && typeof seal === 'object') _sealSchemaMemo.set(seal, why);
   return why;
 }
@@ -7189,6 +7191,7 @@ function _sealTyped(v, spec) {
     if (kind === 'null') return v === null || _sealTyped(v, inner);
     if (kind === 'list') return Array.isArray(v) && v.every(e => _sealTyped(e, inner));
     if (kind === 'map') return !!v && typeof v === 'object' && !Array.isArray(v) && Object.values(v).every(e => _sealTyped(e, inner));
+    if (kind === 'or') return spec.slice(1).some(x => _sealTyped(v, x));
     return false;
   }
   if (spec && typeof spec === 'object') {
@@ -7222,19 +7225,28 @@ const _SEAL_STATISTICS_T = { chi_square: 'num', reduced_chi_square: 'num', r_fac
 const _SEAL_SOFTWARE_T = { git_commit: ['null', 'str'], git_dirty: ['null', 'bool'], env_sha256: ['null', 'str'],
   numerics: 'str', seed_derivation: 'str', python: 'str', numpy: 'str', scipy: 'str', lmfit: 'str',
   '?asteval': 'str', '?machine': 'str', '?os': 'str', '?blas': 'str', '?role': 'str' };
-const _SEAL_BG_VERDICT_T = { method: ['null', 'str'], effect: ['null', ['map', 'any']], check: 'str', converged: ['null', 'bool'],
+// fitting._BG_EFFECT_T (the page's _bgEffect writes the same form)
+const _SEAL_BG_EFFECT_T = { method: 'str', '?window': ['list', 'int'], '?k': 'int', '?anchors': ['list', ['list', 'num']] };
+const _SEAL_BG_VERDICT_T = { method: ['null', 'str'], effect: ['null', _SEAL_BG_EFFECT_T], check: 'str', converged: ['null', 'bool'],
   residual: ['null', 'num'], reason: 'str' };
 const _SEAL_PAGE_T = { software: ['null', _SEAL_SOFTWARE_T], page: ['null', ['map', ['null', 'str']]] };
 const _SEAL_LOCAL_CERT_T = { certified: 'bool', restarts: ['null', 'int'], moved: 'bool', centre_moves: ['list', _SEAL_MOVE_T],
   largest_centre_move: ['null', _SEAL_MOVE_T], check: 'str' };
+const _SEAL_PEAK_NUM_FIELDS = ['center', 'fwhm', 'amplitude'];
 function _sealSchemaFailureUncached(seal) {
   const isObj = x => !!x && typeof x === 'object' && !Array.isArray(x);
   const nums = (a, n) => Array.isArray(a) && (n === undefined || a.length === n) && a.every(x => typeof x === 'number');
-  const models = a => Array.isArray(a) && a.every(isObj) && !_peaksLoadError(a);
+  const scalar = x => x === null || x === undefined || ['string', 'number', 'boolean'].includes(typeof x);
+  // a model: objects whose id / link / colour are scalars the loaders accept, whose name and shape are text, whose
+  // centre / width / amplitude are numbers, and whose other fit fields (_SEAL_MODEL_FIELDS) are scalars
+  const models = a => Array.isArray(a) && a.every(p => isObj(p) && scalar(p.id) && scalar(p.linked) && scalar(p.color) &&
+      (p.name === undefined || typeof p.name === 'string') && typeof p.shape === 'string' &&
+      _SEAL_PEAK_NUM_FIELDS.every(k => typeof p[k] === 'number') && _SEAL_MODEL_FIELDS.every(k => scalar(p[k]))) &&
+    !_peaksLoadError(a);
   if (!isObj(seal) || Object.hasOwn(seal, 'unreadable')) return 'not a record';
   if (seal.v !== 'xps-seal-1') return 'an unknown record version';
   const PRODUCERS = { server: ['runFit', 'useSolution', 'autoFit'], local: ['local', 'batch'] };
-  if (!Object.hasOwn(PRODUCERS, seal.engine) || !PRODUCERS[seal.engine].includes(seal.producer)) return 'an unknown engine or producer';
+  if (typeof seal.engine !== 'string' || typeof seal.producer !== 'string' || !Object.hasOwn(PRODUCERS, seal.engine) || !PRODUCERS[seal.engine].includes(seal.producer)) return 'an unknown engine or producer';
   const rFail = R => {
     if (!isObj(R)) return 'no R';
     if (!models(R.pageModel)) return 'R\'s start model is not a list of peaks with valid ids and colours';
@@ -7254,7 +7266,7 @@ function _sealSchemaFailureUncached(seal) {
         if (!nums(O[k], n)) return 'O.' + k + ' is not the samples\' length';
       if (typeof O.message !== 'string') return 'O\'s message is malformed';
       if (!Array.isArray(O.individual_peaks) || !O.individual_peaks.every(ip => isObj(ip) && _sealTyped(ip.id, 'id') &&
-          typeof ip.shape === 'string' && nums(ip.y, n) && isObj(ip.params) && _sealTyped(ip.support, _SEAL_SUPPORT_T) &&
+          typeof ip.shape === 'string' && nums(ip.y, n) && isObj(ip.params) && Object.hasOwn(ip.params, 'area') && _sealTyped(ip.support, _SEAL_SUPPORT_T) &&
           Object.entries(ip.params).every(([k, r]) => k === 'area'
             ? _sealTyped(r, { value: 'num', stderr: ['null', 'num'] })
             : _sealTyped(r, { value: 'num', stderr: ['null', 'num'], vary: 'bool', expr: ['null', 'str'], min: ['null', 'num'], max: ['null', 'num'] }))))
@@ -7274,8 +7286,9 @@ function _sealSchemaFailureUncached(seal) {
     }
     if (O.engine !== 'local' || O.success !== true || O.reportable !== false) return 'the local O\'s designation is malformed';
     if (!nums(O.energies, n) || !nums(O.net, n) || !nums(O.weights, n) || !nums(O.modelSum, n)) return 'the local O\'s arrays are malformed';
-    if (!_sealTyped(O.background, { values: 'any', bgType: ['null', 'str'], converged: 'bool', certificate: ['null', ['map', 'any']],
-                                    effect: ['null', ['map', 'any']] }) || !nums(O.background.values, n))
+    if (!_sealTyped(O.background, { values: 'any', bgType: ['null', 'str'], converged: 'bool',
+                                    certificate: ['null', { converged: 'bool', residual: ['null', 'num'], reason: ['null', 'str'], '?scale': ['null', 'num'] }],
+                                    effect: ['null', _SEAL_BG_EFFECT_T] }) || !nums(O.background.values, n))
       return 'the local O\'s background is malformed';
     if (!models(O.model) || !_sealTyped(O.paramMap, ['list', { id: 'id', param: 'str' }]) || !Array.isArray(O.curves) ||
         O.curves.length !== O.model.length || !O.curves.every(c => nums(c, n)) || !nums(O.areas, O.model.length))
@@ -9882,7 +9895,17 @@ function _b64Utf8(text) {
 }
 function _isFitRecord(x) { return !!x && typeof x === 'object' && (x.engine === 'server' || x.engine === 'local'); }
 // one line per item, for the exports: [[label, text], …]
+// Total (seal step 6, Codex round 2): a record read from a file is summarised, or said not to be — never a throw
+// out of a renderer.
 function _fitRecordRows(rec) {
+  try { return _fitRecordRowsUnchecked(rec); }
+  catch (e) {
+    let json = '';
+    try { json = JSON.stringify(rec); } catch (e2) { json = '(not representable)'; }
+    return [['Fit record', 'the record could not be summarised'], ['Fit record (JSON)', json]];
+  }
+}
+function _fitRecordRowsUnchecked(rec) {
   if (!_isFitRecord(rec)) return [];
   const rows = [['Fit method', (rec.engine === 'local' ? 'local engine (' + rec.fitMethod + ')' : String(rec.fitMethod))]];
   if (rec.seed !== null && rec.seed !== undefined) rows.push(['Random seed', rec.seed + (rec.seedSource ? ' (' + rec.seedSource + ')' : '')]);
@@ -12040,7 +12063,8 @@ function _loadedTabProvenance(x) {
 // A fit record (`fitResult.record`, `_fitRecordFrom` / `_localFitRecord`) of the form its renderer reads.
 function _fitRecordWellFormed(r) {
   return _isFitRecord(r) && _sealTyped(r, { engine: 'str', fitMethod: ['null', 'str'], seed: ['null', 'int'], seedSource: ['null', 'str'],
-    backgroundVerdict: ['null', _SEAL_BG_VERDICT_T], certificate: ['null', ['map', 'any']], software: ['null', _SEAL_SOFTWARE_T] });
+    backgroundVerdict: ['null', _SEAL_BG_VERDICT_T], certificate: ['null', ['or', _SEAL_CERTIFICATE_T, _SEAL_LOCAL_CERT_T]],
+    software: ['null', _SEAL_SOFTWARE_T] });
 }
 function _dropRestoredFit(rec, reason) {
   if (_SEAL_AUTHORITATIVE && rec.fitResult && _fitRecordWellFormed(rec.fitResult.record))
