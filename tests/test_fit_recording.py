@@ -5,6 +5,7 @@ software (git commit, Python and the numerical libraries). The server accepts th
 HTTP, so a fit can be re-run with the same draws: re-running with the reported seed reproduces
 it within rounding (tests/fit_equality.py)."""
 import io
+import importlib.metadata
 import platform
 
 import lmfit
@@ -61,8 +62,9 @@ def test_the_response_records_method_seed_background_certificate_and_software(bg
                   "numerics": fitting.NUMERICS_VERSION, "seed_derivation": "xps-fit-seed-v2",
                   "env_sha256": fitting._env_sha256(),      # the installed environment (seal 1a′)
                   # the declared numerics identity (owner 2026-10-15): asteval, the machine, the OS, numpy's BLAS
-                  "asteval": sw["asteval"], "machine": platform.machine(), "os": f"{platform.system()} {platform.release()}",
-                  "blas": sw["blas"]}
+                  "asteval": importlib.metadata.version("asteval"), "machine": platform.machine(),
+                  "os": f"{platform.system()} {platform.release()}",
+                  "blas": " ".join(np.show_config(mode="dicts")["Build Dependencies"]["blas"].get(k, "unknown") for k in ("name", "version"))}
     assert all(isinstance(sw[k], str) and sw[k] for k in fitting.NUMERICS_IDENTITY_KEYS)
     assert fitting.fit_record(r) == {k: r[k] for k in fitting.RECORD_KEYS}
     assert isinstance(sw["git_commit"], str) and len(sw["git_commit"]) == 40 and isinstance(sw["git_dirty"], bool)

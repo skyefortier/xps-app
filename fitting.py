@@ -162,6 +162,8 @@ def response_form_failure(O, n):
         return why
     if not isinstance(O["success"], bool) or not isinstance(O["message"], str):
         return "success / message are not a flag and a text"
+    if not _typed(O["background_verdict"], _BG_VERDICT_T):
+        return "the recorded background verdict is not of a response's form"
     for k, spec in (("starts", ("null", _STARTS_T)), ("required", ("null", _REQUIRED_T)),
                     ("certificate", ("null", _CERTIFICATE_T))):
         if not (_typed(O[k], spec) or (O[k] is not None and _typed(O[k], _NOT_RUN_T) and k != "certificate")):
@@ -182,7 +184,8 @@ def response_form_failure(O, n):
         return "the recorded components are not a list"
     for ip in peaks:
         if not isinstance(ip, dict) or set(ip) != _PEAK_KEYS or not isinstance(ip["params"], dict) \
-                or not _typed(ip["support"], _SUPPORT_T) or not nums(ip["y"]):
+                or not _typed(ip["support"], _SUPPORT_T) or not nums(ip["y"]) or not _typed(ip["id"], _ID_T) \
+                or not isinstance(ip["shape"], str) or "area" not in ip["params"]:
             return "a recorded component's fields differ from a response's"
         for name, rec in ip["params"].items():
             if name == "area":
@@ -3332,6 +3335,10 @@ _REQUIRED_T = {"ran": "true", "required": ("null", "bool"), "f": ("null", "num")
 _CERTIFICATE_T = {"certified": "bool", "restarts": "int", "moved": "bool", "optimiser_flag": "bool",
                   "centre_moves": ("list", _MOVE_T), "largest_centre_move": ("null", _MOVE_T)}
 _SUPPORT_T = {"f": ("null", "num"), "delta_chi2": "num", "supported": "bool", "?follows": _ID_T}
+# the background verdict (_background_verdict) and the effect it records (_background_effect)
+_BG_EFFECT_T = {"method": "str", "?window": ("list", "int"), "?k": "int", "?anchors": ("list", ("list", "num"))}
+_BG_VERDICT_T = {"method": ("null", "str"), "effect": _BG_EFFECT_T, "check": "str", "converged": "bool",
+                 "residual": ("null", "num"), "reason": "str"}
 _STATISTICS_T = {"chi_square": "num", "reduced_chi_square": "num", "r_factor": ("null", "num"), "n_data": "int",
                  "n_free_params": "int", "aic": "num", "bic": "num", "rmse": "num"}
 

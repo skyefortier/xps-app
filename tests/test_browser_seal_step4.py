@@ -691,3 +691,73 @@ def test_answers_under_different_numerics_never_confirm_a_record(browser, server
     finally:
         pg.unroute_all(behavior="ignoreErrors")
         pg.close()
+
+
+def test_a_staged_pair_answered_under_different_numerics_never_commits(browser, server):  # noqa: F811
+    pg = _autofitted(browser, server)
+    try:
+        n = {"k": 0}
+        def h(route):
+            n["k"] += 1
+            if n["k"] == 1:
+                route.continue_()                         # the anchor fit's check: this server's numerics
+            else:
+                _answer_under("2099-01-01")(route)        # the final fit's check: another deployment's
+        pg.route("**/api/verify-fit", h)
+        got = pg.evaluate("""async () => { const owner = _activeTab(), parts = structuredClone(state.fitResult.seal);
+            const op = _claimFitOp(owner), txn = _beginStaged(owner, op);
+            const a = await _verifyStagedCheck(txn, parts.E.R, parts.E.O), b = await _verifyStagedCheck(txn, parts.R, parts.O);
+            const seal = _makeSeal(parts);
+            return [a && a.state, b && b.state, _commitStaged(txn, seal).committed, _sealVerdicts.has(seal)]; }""")
+        assert got[2] is False and got[3] is False, got
+    finally:
+        pg.unroute_all(behavior="ignoreErrors")
+        pg.close()
+
+
+def test_a_return_to_earlier_numerics_does_not_revive_an_earlier_confirmation(browser, server):  # noqa: F811
+    pg = _fitted(browser, server)
+    try:
+        pg.evaluate(VERIFY)                                # confirmed under this server's numerics (A)
+        a = pg.evaluate(KEY)
+        n = {"k": 0}
+        def h(route):
+            n["k"] += 1
+            if n["k"] == 1:
+                _answer_under("2099-01-01")(route)        # B answers: a deployment is discovered
+            else:
+                route.continue_()                         # its re-check reaches an A worker
+        pg.route("**/api/verify-fit", h)
+        pg.evaluate("async () => { await _ensureVerified(_activeTab(), true); }")
+        pg.wait_for_function("() => !_sealAttempts.has(_activeTab())", timeout=30000)
+        st = pg.evaluate(STATE)
+        assert st[0] != "current" or pg.evaluate(KEY) != a, st          # never A's earlier answer revived
+        assert st == ["unconfirmed", "numerics"], st                       # two numerics answering: a split
+        # "check again" starts afresh: the next answers settle the numerics and confirm by recomputation
+        pg.evaluate("async () => { await _ensureVerified(_activeTab(), true); }")
+        pg.wait_for_function("() => sealedState(state.fitResult, _activeTab()).state === 'current' && !_sealAttempts.has(_activeTab())", timeout=30000)
+    finally:
+        pg.unroute_all(behavior="ignoreErrors")
+        pg.close()
+
+
+def test_alternating_workers_are_bounded_and_read_unconfirmed(browser, server):  # noqa: F811
+    pg = _fitted(browser, server)
+    try:
+        pg.evaluate(VERIFY)
+        n = {"k": 0}
+        def h(route):
+            n["k"] += 1
+            if n["k"] % 2:
+                _answer_under("2099-01-01")(route)
+            else:
+                route.continue_()
+        pg.route("**/api/verify-fit", h)
+        pg.evaluate("async () => { await _ensureVerified(_activeTab(), true); }")
+        pg.wait_for_timeout(3000)
+        assert n["k"] <= 3, n                                # no endless re-checking
+        assert pg.evaluate(STATE) == ["unconfirmed", "numerics"]
+        assert "more than one numerics" in pg.evaluate("() => sealedState(state.fitResult, _activeTab()).reason")
+    finally:
+        pg.unroute_all(behavior="ignoreErrors")
+        pg.close()

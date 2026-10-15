@@ -1402,17 +1402,17 @@ def _register_routes(app: Flask) -> None:
         if not isinstance(raw_e, list) or not isinstance(raw_c, list) or len(raw_e) != len(raw_c) or not raw_e \
                 or not all(fitting._is_number(v) for v in raw_e + raw_c):
             return _err("R.energies and R.counts must be equal-length arrays of finite numbers")
+        # the record's FORM first (owner 2026-10-15): a record not of a response's form is a mismatch whatever
+        # numerics made it, before its request or its saved data are read
+        form = fitting.response_form_failure(body["O"], len(raw_e))
+        if form:
+            return jsonify({"state": "mismatch", "check": "schema", "reason": form, "software": fitting.SOFTWARE})
         if any(fitting._exact_float(v) is None or not np.isfinite(fitting._exact_float(v)) for v in raw_e + raw_c):
             return jsonify({"state": "unconfirmed", "check": "non_finite",
                             "reason": "the saved data hold a number no finite float represents; it cannot be verified exactly",
                             "software": fitting.SOFTWARE})
         energy = np.asarray(raw_e, dtype=float)
         counts = np.asarray(raw_c, dtype=float)
-        # the record's FORM first (owner 2026-10-15): a record not of a response's form is a mismatch whatever
-        # numerics made it, before its request is read
-        form = fitting.response_form_failure(body["O"], len(raw_e))
-        if form:
-            return jsonify({"state": "mismatch", "check": "schema", "reason": form, "software": fitting.SOFTWARE})
         def mismatch(reason):
             # a request this server cannot read, from a record made under OTHER numerics, is a recheck that cannot be
             # made here (owner 2026-10-15), never "the record does not hold"

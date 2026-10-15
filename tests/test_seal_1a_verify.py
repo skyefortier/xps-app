@@ -172,7 +172,7 @@ TAMPER = [
     ("stderr text", _set(["individual_peaks", 0, "params", "center", "stderr"], "0.1"), "schema"),
     ("vary as a number", _set(["individual_peaks", 0, "params", "center", "vary"], 1), "schema"),
     ("seed as a float", _set(["random_seed"], lambda s: float(s)), "schema"),
-    ("verdict converged as a number", _set(["background_verdict", "converged"], 1), "background"),
+    ("verdict converged as a number", _set(["background_verdict", "converged"], 1), "schema"),   # its form, judged first (rule round 3)
     ("statistics n_data as a flag", _set(["statistics", "n_free_params"], True), "schema"),
     ("statistics empty", _set(["statistics"], {}), "schema"),
     ("support empty", _set(["individual_peaks", 1, "support"], {}), "schema"),
@@ -748,3 +748,31 @@ def test_a_records_form_is_judged_before_its_request_and_its_numerics(client, se
     for req in (R, unreadable):
         v = _verify(client, req, O2)
         assert v["state"] == "mismatch" and v["check"] == "schema", v
+
+
+@pytest.mark.parametrize("bad", [
+    lambda O: O["individual_peaks"][0].__setitem__("id", {"a": 1}),
+    lambda O: O["individual_peaks"][0].__setitem__("shape", 3),
+    lambda O: O["individual_peaks"][0]["params"].pop("area"),
+    lambda O: O["background_verdict"].__setitem__("converged", "yes"),
+    lambda O: O["background_verdict"]["effect"].__setitem__("k", "3"),
+])
+def test_every_independently_checkable_field_is_judged_as_form(client, sealed, bad):
+    R, O = sealed
+    O2 = copy.deepcopy(O)
+    bad(O2)
+    O2["software"]["numerics"] = "2026-10-09"
+    unreadable = {**R, "request": {**R["request"], "background": {**R["request"].get("background", {}), "endpoint_avg": 0}}}
+    for req in (R, unreadable):
+        v = _verify(client, req, O2)
+        assert v["state"] == "mismatch" and v["check"] == "schema", v
+
+
+def test_the_form_is_judged_before_the_saved_datas_finiteness(client, sealed):
+    R, O = sealed
+    O2 = copy.deepcopy(O)
+    O2["statistics"]["rmse"] = "1.0"
+    body = json.dumps({"R": {**R, "energies": R["energies"]}, "O": O2}).replace(str(R["energies"][0]), "1e400", 1)
+    r = client.post("/api/verify-fit", data=body, content_type="application/json")
+    v = r.get_json()
+    assert v["state"] == "mismatch" and v["check"] == "schema", v

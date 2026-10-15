@@ -1,0 +1,15 @@
+CORRECTNESS REVIEW, ROUND 4, of a rule change in the "sealed fit record" verifier of a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software.
+
+REPO: this checkout, branch seal-numerics-rule; the unit is `git diff seal-1c-page..HEAD`. Read docs/autofit/codex/seal_numerics_rule_r1_prompt.txt (the OWNER RULE, 2026-10-15), r2_prompt.txt and r3_prompt.txt (what each round changed). Round 3 (NO-GO x2; verdicts seal_numerics_rule_r3_verdict_run{A,B}.md) found: a staged pair answered under two numerics could commit (MAJOR); several workers of different deployments could revive an earlier epoch's confirmation or recheck without end (MAJOR); the form check missing component id / shape / area and the background verdict's types (MINOR); the saved data's finiteness judged before the form (MINOR); tests not exercising a real staged pair, A → B → A, or alternating workers (MINOR); the recording test checking asteval / BLAS against themselves (MINOR); `_precision_words` wording counted (MINOR, a stated limit: such text reaches the record or a message the digest does not classify; an equivalence entry re-baselines it without a bump).
+
+WHAT THIS ROUND CHANGES: SERVER — `response_form_failure` types each component's id (`_ID_T`) and shape, requires its area, and types the background verdict and its effect (`_BG_VERDICT_T`, `_BG_EFFECT_T`); /api/verify-fit judges the form before the saved data's finiteness. PAGE — cached answers carry their EPOCH (an earlier epoch's answer is never read again, whatever numerics return); the new numerics SETTLE when a reply sent under them comes back under them; a second change before that is a SPLIT (`_numericsSplit`): nothing is cached or rechecked automatically and the server's seals read UNCONFIRMED "the server is answering under more than one numerics (a deployment in progress) — check again"; "check again" clears it (one automatic change per settlement); a staged commit needs EVERY answer under the current numerics, none outdated, before aggregation. Tests: tests/test_seal_1a_verify.py (each independently checkable field as form; form before finiteness), tests/test_browser_seal_step4.py (a real staged anchor/final pair under two numerics never commits; B discovered then an A worker answering → split, never A's earlier confirmation, then "check again" confirms; alternating workers bounded and unconfirmed), tests/test_fit_recording.py (asteval / BLAS from importlib and numpy's config).
+
+ANSWER EACH (cite file:line):
+1. Is every round-3 finding (both runs) resolved, or a stated limit? List each with its status.
+2. Across deployments and mixed workers, can the page now show a confirmation that no current-numerics recomputation gave, keep rechecking without bound, or leave a seal stuck where "check again" cannot recover it?
+3. Is the server's form check complete for every field a recomputation does not need?
+4. Do the tests each fail on the defect they name? Any regression?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

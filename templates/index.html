@@ -9081,6 +9081,12 @@ async function _postVerifyFit(R, O) {
 const _NUMERICS_IDENTITY_KEYS = ['numerics', 'seed_derivation', 'python', 'numpy', 'scipy', 'lmfit', 'asteval', 'machine', 'os', 'blas'];
 let _serverNumerics;   // undefined: not yet read from the page; null: the page declares none
 let _numericsEpoch = 0;
+// After a change, the new numerics are SETTLED once a reply sent under them comes back under them. A second change
+// before that (workers of two deployments answering in turn) is a SPLIT: nothing is cached or rechecked
+// automatically, and the server's seals read UNCONFIRMED with that reason until "check again" (bounded: one
+// automatic change per settlement — Codex rule round 3).
+let _numericsSettled = true;
+let _numericsSplit = false;
 function _numericsKey(sw) {
   return sw && typeof sw === 'object' ? JSON.stringify(_NUMERICS_IDENTITY_KEYS.map(k => (k in sw ? sw[k] : null))) : null;
 }
@@ -9092,10 +9098,20 @@ function _noteServerSoftware(sw, sentEpoch) {
   const k = _numericsKey(sw);
   if (!k) return true;
   const now = _currentServerNumerics();
-  if (now === k) return true;
+  if (_numericsSplit) return false;                                              // a split: nothing is taken until "check again"
+  if (now === k) {
+    if (sentEpoch === undefined || sentEpoch === _numericsEpoch) _numericsSettled = true;
+    return true;
+  }
   if (sentEpoch !== undefined && sentEpoch !== _numericsEpoch) return false;   // a reply from before the last change
+  if (!_numericsSettled) {                                                       // a second change before the first settled
+    _numericsSplit = true;
+    if (typeof tabManager !== 'undefined' && tabManager) for (const t of tabManager.tabs) if (!t.isStack && _ownerLive(t)) _onSealVerdict(t, null);
+    return false;
+  }
   _serverNumerics = k;
   _numericsEpoch++;
+  _numericsSettled = false;
   if (now === null) return true;                                                // the page declared none: nothing cached under any
   // other numerics now: every installed seal's check starts again, superseding any attempt of the old deployment
   if (typeof tabManager !== 'undefined' && tabManager) {
@@ -9115,16 +9131,17 @@ function _verdictEntry(verdict, outcomes) {
   const keys = [...new Set(answered.map(o => o.numericsKey))];
   if (keys.length > 1)
     return { state: 'unconfirmed', check: 'numerics', reason: 'the checks of this fit were answered under different numerics (a deployment in progress) — check again',
-             numericsKey: _currentServerNumerics() };
+             numericsKey: _currentServerNumerics(), epoch: _numericsEpoch };
   return { state: verdict.state, check: verdict.check || null, reason: verdict.reason || '', software: verdict.software || null,
-           numericsKey: keys.length ? keys[0] : _currentServerNumerics() };
+           numericsKey: keys.length ? keys[0] : _currentServerNumerics(), epoch: _numericsEpoch };
 }
 // The cached answer for a seal, when it was given under the numerics the server declares now.
 function _cachedVerdict(seal) {
   const v = _sealVerdicts.get(seal);
   if (!v) return null;
   const now = _currentServerNumerics();
-  return (now === null || v.numericsKey === now) ? v : null;
+  // an answer holds only in the epoch that gave it (a later return to the same numerics does not revive it)
+  return (now === null || (v.numericsKey === now && v.epoch === _numericsEpoch)) ? v : null;
 }
 // One check's OUTCOME: the server's answer, or { unreachable: true } (never thrown: a failed check must not hide
 // another check's answer — steps 3-4 Codex round 1).
@@ -9187,6 +9204,9 @@ function _commitStaged(txn, seal) {
   const checks = seal.producer === 'autoFit' && seal.E ? [[seal.E.R, seal.E.O], [seal.R, seal.O]] : [[seal.R, seal.O]];
   const vs = checks.map(([R, O]) => { const a = txn.answers.find(x => _jsonEqual(x.R, R) && _jsonEqual(x.O, O)); return a ? a.v : undefined; });
   if (vs.some(v => v === undefined)) return { committed: false };
+  // every answer of the transaction under the CURRENT numerics, none outdated — or nothing commits
+  const now = _currentServerNumerics();
+  if (vs.some(v => !v.unreachable && (v.outdated || (now !== null && v.numericsKey !== now)))) return { committed: false };
   const agg = _aggregateVerdicts(vs);
   const entry = agg.unreachable ? null : _verdictEntry(agg, vs);
   if (!agg.unreachable && (!entry || entry.numericsKey !== _currentServerNumerics())) return { committed: false };   // outdated / mixed / old numerics
@@ -9229,6 +9249,7 @@ function _verifySeal(owner, seal, kind = 'background', op = null) {
 function _ensureVerified(owner, retry = false) {
   const fr = _fitResultOf(owner), seal = fr && fr.seal;
   if (!seal || seal.engine !== 'server') return null;
+  if (retry && _numericsSplit) { _numericsSplit = false; _numericsSettled = true; }   // "check again" starts afresh after a split
   if (!retry) {                                    // a background trigger: never a second attempt, never a repeat
     const cur = _sealAttempts.get(owner);
     if (cur && cur.seal === seal) return null;
@@ -9266,6 +9287,7 @@ function sealedState(fr, owner) {
     if (v.state === 'mismatch') return { state: 'stale', check: v.check, reason: 'the server\'s check failed: ' + v.reason, view };
     return { state: 'unconfirmed', check: v.check, reason: v.reason, view };
   }
+  if (_numericsSplit) return { state: 'unconfirmed', check: 'numerics', reason: 'the server is answering under more than one numerics (a deployment in progress) — check again', view };
   if (_isUnreachable(seal)) return { state: 'unconfirmed', check: 'unreachable', reason: 'the server could not be reached to check this fit', view };
   return { state: 'pending', check: null, reason: 'confirming…', view };
 }
