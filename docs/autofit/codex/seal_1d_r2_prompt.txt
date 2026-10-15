@@ -1,0 +1,19 @@
+CORRECTNESS REVIEW, ROUND 2, of unit 1d ("Re-run this fit") of the sealed fit record in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software.
+
+REPO: this checkout, branch seal-1d, on seal-1c-s8 (unit 1c steps 2-8; step 8 GO x2 at round 2, then one test-only fixture change: tests/test_browser_find_peaks_full_window.py sets the status-bar R as the page itself does). 1d is `git diff seal-1c-s8..HEAD`. Read docs/autofit/codex/seal_1d_r1_prompt.txt for what 1d is. Round 1 (both runs NO-GO; verdicts seal_1d_r1_verdict_run{A,B}.md) found:
+- MAJOR (both): a re-run was not state-neutral — `_serverFitJob` noted the reply's software, so a re-run meeting other numerics advanced the page's numerics epoch, invalidated cached verdicts and restarted every seal's check.
+- MAJOR (B): the endpoint compared the record's numerics with the worker answering the comparison, not with the re-run's own recorded identity (a rolling deployment can split them).
+- MINOR: a JSON integer no float represents (10**400) passed the form check and gave HTTP 500; a comparison reply arriving after the fit was replaced was still kept against the old seal; the plan said an edit or a tab switch discards a re-run, which the code did not do; tests did not exercise these.
+
+WHAT THIS ROUND CHANGES: the re-run passes `noteSoftware: false` to `_serverFitJob`, which then notes nothing (the page's numerics are learned from ordinary checks, never from a re-run); the endpoint reports the numerics as the record's identity against the re-run's (`a.software` vs `b.software`, every NUMERICS_IDENTITY_KEYS field); every number on both sides must be one a float represents (`_floats_only`, a RecursionError refused too) or the side is refused (400); ownership (tab live, same seal installed) is checked again after the last reply, before an outcome is kept; the plan states that an edit or a tab switch does NOT drop a re-run — its outcome is a fact about the record, shown only beside that seal displayed as recorded. Tests: a re-run whose fit reply carries other numerics leaves the epoch, the numerics, the state and the verification requests untouched and reports "Re-run under other numerics (… (re-run …))"; a comparison answered after the fit was replaced keeps nothing; 10**400 in energy or a bound refused on either side; numerics against the re-run's own identity. Each fix mutation-checked.
+
+ANSWER EACH (cite file:line):
+1. Is every round-1 finding resolved, or a stated limit? List each with its status.
+2. Can a re-run now change anything outside its own outcome — a seal's state, a cached verdict, the page's numerics, the model, a save or an export?
+3. Can an outcome be kept or shown for a fit it was not made for?
+4. Is every malformed or hostile input to /api/compare-fits refused (4xx) rather than compared or answered 500?
+5. Do the new tests fail on the defects they name?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.
