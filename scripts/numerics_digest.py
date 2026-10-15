@@ -45,7 +45,7 @@ EXCLUDED = {
     "response_form_failure",
     "RESPONSE_KEYS", "_PEAK_KEYS", "_PARAM_KEYS", "NOT_BIT_STABLE_SHAPES", "_Mismatch", "_Unverifiable",
     "_exact_float", "_is_number", "_same", "_as_json", "_non_finite", "_ID_T", "_MOVE_T", "_NOT_RUN_T",
-    "_STARTS_T", "_REQUIRED_T", "_CERTIFICATE_T", "_SUPPORT_T", "_STATISTICS_T", "_typed", "_BG_EFFECT_T", "_BG_VERDICT_T",
+    "_STARTS_T", "_REQUIRED_T", "_CERTIFICATE_T", "_SUPPORT_T", "_STATISTICS_T", "_typed", "_BG_EFFECT_T", "_BG_VERDICT_T", "_bg_effect_form_failure",
     "_non_finite_request", "verify_fit", "_verify", "_verify_relations",
 }
 APP_ROOT = "_normalise_fit_request"

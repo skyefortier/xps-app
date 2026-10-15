@@ -676,11 +676,14 @@ def test_a_fit_reply_reveals_a_deployment(browser, server):  # noqa: F811
 def test_answers_under_different_numerics_never_confirm_a_record(browser, server):  # noqa: F811
     pg = _fitted(browser, server)
     try:
-        got = pg.evaluate("""() => { const now = _currentServerNumerics();
-            const a = { state: 'consistent', numericsKey: now }, b = { state: 'consistent', numericsKey: now.replace('2026', '2099') };
-            const mixed = _verdictEntry(a, [a, b]), outdated = _verdictEntry(a, [a, { ...b, outdated: true }]), one = _verdictEntry(a, [a, a]);
-            return [mixed.state, mixed.check, outdated, one.state, one.numericsKey === now]; }""")
-        assert got == ["unconfirmed", "numerics", None, "consistent", True], got
+        # an outcome counts only if SENT in the current epoch and ANSWERED under the current numerics (invariant 1)
+        got = pg.evaluate("""() => { const now = _currentServerNumerics(), e = _numericsEpoch;
+            const a = { state: 'consistent', numericsKey: now, sentEpoch: e, counts: true };
+            const other = { ...a, numericsKey: now.replace('2026', '2099'), counts: false };
+            const earlier = { ...a, sentEpoch: e - 1 };
+            const one = _verdictEntry(a, [a, a]);
+            return [_verdictEntry(a, [a, other]), _verdictEntry(a, [a, earlier]), one.state, one.numericsKey === now, one.epoch === e]; }""")
+        assert got == [None, None, "consistent", True, True], got
         # a staged commit with an answer under other numerics does not commit
         got = pg.evaluate("""async () => { const owner = _activeTab(), parts = structuredClone(state.fitResult.seal);
             const op = _claimFitOp(owner), txn = _beginStaged(owner, op);
@@ -733,8 +736,20 @@ def test_a_return_to_earlier_numerics_does_not_revive_an_earlier_confirmation(br
         st = pg.evaluate(STATE)
         assert st[0] != "current" or pg.evaluate(KEY) != a, st          # never A's earlier answer revived
         assert st == ["unconfirmed", "numerics"], st                       # two numerics answering: a split
-        # "check again" starts afresh: the next answers settle the numerics and confirm by recomputation
-        pg.evaluate("async () => { await _ensureVerified(_activeTab(), true); }")
+        # "check again" starts afresh — and while its answer is outstanding the EARLIER confirmation is not shown
+        held = []
+        pg.unroute("**/api/verify-fit")
+        pg.route("**/api/verify-fit", lambda route: held.append(route))
+        pg.evaluate("() => { window.__p = _ensureVerified(_activeTab(), true); }")
+        pg.wait_for_timeout(500)
+        assert pg.evaluate(STATE)[0] != "current", pg.evaluate(STATE)
+        pg.unroute("**/api/verify-fit")                      # later checks go straight to the server (and the held one goes on)
+        for r in held:
+            try:
+                r.continue_()
+            except Exception:
+                pass                                          # already let through by the unroute
+        pg.evaluate("async () => { await window.__p; }")
         pg.wait_for_function("() => sealedState(state.fitResult, _activeTab()).state === 'current' && !_sealAttempts.has(_activeTab())", timeout=30000)
     finally:
         pg.unroute_all(behavior="ignoreErrors")
@@ -758,6 +773,73 @@ def test_alternating_workers_are_bounded_and_read_unconfirmed(browser, server): 
         assert n["k"] <= 3, n                                # no endless re-checking
         assert pg.evaluate(STATE) == ["unconfirmed", "numerics"]
         assert "more than one numerics" in pg.evaluate("() => sealedState(state.fitResult, _activeTab()).reason")
+    finally:
+        pg.unroute_all(behavior="ignoreErrors")
+        pg.close()
+
+
+
+def test_two_seals_with_alternating_workers_are_bounded(browser, server):  # noqa: F811
+    pg = _fitted(browser, server)
+    try:
+        pg.evaluate("""() => { const src = _activeTab(); tabManager._syncActiveToRecord();
+            const t = tabManager.createTab('copy', src.rawBE.slice(), src.rawIntensity.slice()); tabManager.activateTab(src.id);
+            t.peaks = structuredClone(src.peaks); t.ui = { ...src.ui }; t.ccShift = src.ccShift;
+            t.manualAnchors = structuredClone(src.manualAnchors || []); t.fitResult = { seal: src.fitResult.seal }; }""")
+        pg.evaluate(VERIFY)
+        n = {"k": 0}
+        def h(route):
+            n["k"] += 1
+            if n["k"] % 2:
+                _answer_under("2099-01-01")(route)
+            else:
+                route.continue_()
+        pg.route("**/api/verify-fit", h)
+        pg.evaluate("async () => { await _ensureVerified(_activeTab(), true); }")
+        pg.wait_for_timeout(4000)
+        assert n["k"] <= 6, n                               # bounded: one automatic change, then a split
+        assert pg.evaluate("() => _numericsSplit") is True
+        assert pg.evaluate(STATE) == ["unconfirmed", "numerics"]
+        k = n["k"]
+        pg.evaluate("() => { for (const t of tabManager.tabs) _ensureVerified(t); }")   # background triggers: none under a split
+        pg.wait_for_timeout(500)
+        assert n["k"] == k, n
+    finally:
+        pg.unroute_all(behavior="ignoreErrors")
+        pg.close()
+
+
+def test_a_staged_answer_from_an_earlier_epoch_never_commits(browser, server):  # noqa: F811
+    pg = _autofitted(browser, server)
+    try:
+        got = pg.evaluate("""async () => { const owner = _activeTab(), parts = structuredClone(state.fitResult.seal);
+            const op = _claimFitOp(owner), txn = _beginStaged(owner, op);
+            await _verifyStagedCheck(txn, parts.E.R, parts.E.O);
+            // a deployment is discovered and settled meanwhile, then the same numerics as before come back
+            const sw = _pageIdentity().software;
+            _noteServerSoftware({ ...sw, numerics: '2099-01-01' }, _numericsEpoch); _numericsAllowance = 1;
+            _noteServerSoftware(sw, _numericsEpoch);
+            await _verifyStagedCheck(txn, parts.R, parts.O);                 // the final check, in the latest epoch
+            const seal = _makeSeal(parts);
+            return [_commitStaged(txn, seal).committed, _sealVerdicts.has(seal)]; }""")
+        assert got == [False, False], got
+    finally:
+        pg.unroute_all(behavior="ignoreErrors")
+        pg.close()
+
+
+def test_a_split_overrides_a_cached_confirmation_and_refuses_commits(browser, server):  # noqa: F811
+    pg = _fitted(browser, server)
+    try:
+        pg.evaluate(VERIFY)
+        assert pg.evaluate(STATE) == ["current", None]
+        got = pg.evaluate("""async () => { const owner = _activeTab(), parts = structuredClone(state.fitResult.seal);
+            const op = _claimFitOp(owner), txn = _beginStaged(owner, op);
+            await _verifyStagedCheck(txn, parts.R, parts.O);
+            _numericsAllowance = 0; _noteServerSoftware({ ..._pageIdentity().software, numerics: '2099-01-01' }, _numericsEpoch);   // a split
+            const st = sealedState(state.fitResult, owner);
+            return [_numericsSplit, st.state, st.check, _commitStaged(txn, _makeSeal(parts)).committed]; }""")
+        assert got == [True, "unconfirmed", "numerics", False], got
     finally:
         pg.unroute_all(behavior="ignoreErrors")
         pg.close()

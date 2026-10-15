@@ -164,6 +164,9 @@ def response_form_failure(O, n):
         return "success / message are not a flag and a text"
     if not _typed(O["background_verdict"], _BG_VERDICT_T):
         return "the recorded background verdict is not of a response's form"
+    why = _bg_effect_form_failure(O["background_verdict"]["effect"])
+    if why:
+        return why
     for k, spec in (("starts", ("null", _STARTS_T)), ("required", ("null", _REQUIRED_T)),
                     ("certificate", ("null", _CERTIFICATE_T))):
         if not (_typed(O[k], spec) or (O[k] is not None and _typed(O[k], _NOT_RUN_T) and k != "certificate")):
@@ -3337,6 +3340,19 @@ _CERTIFICATE_T = {"certified": "bool", "restarts": "int", "moved": "bool", "opti
 _SUPPORT_T = {"f": ("null", "num"), "delta_chi2": "num", "supported": "bool", "?follows": _ID_T}
 # the background verdict (_background_verdict) and the effect it records (_background_effect)
 _BG_EFFECT_T = {"method": "str", "?window": ("list", "int"), "?k": "int", "?anchors": ("list", ("list", "num"))}
+
+
+def _bg_effect_form_failure(e):
+    """The effect's exact form as _background_effect writes it (Codex rule round 4): per method, its fields and
+    nothing else — a two-integer window and k for a windowed method, k for the manual line, two-number anchors for
+    a manual background, nothing for none."""
+    if not _typed(e, _BG_EFFECT_T):
+        return "the recorded background effect is not of a response's form"
+    m, keys = e["method"], set(e) - {"method"}
+    want = {"none": set(), "manual": {"anchors"}, "manual-line": {"k"}}.get(m, {"window", "k"})
+    if keys != want or ("window" in e and len(e["window"]) != 2) or ("anchors" in e and any(len(a) != 2 for a in e["anchors"])):
+        return "the recorded background effect is not of a response's form"
+    return None
 _BG_VERDICT_T = {"method": ("null", "str"), "effect": _BG_EFFECT_T, "check": "str", "converged": "bool",
                  "residual": ("null", "num"), "reason": "str"}
 _STATISTICS_T = {"chi_square": "num", "reduced_chi_square": "num", "r_factor": ("null", "num"), "n_data": "int",

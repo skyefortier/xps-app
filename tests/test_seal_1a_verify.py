@@ -776,3 +776,20 @@ def test_the_form_is_judged_before_the_saved_datas_finiteness(client, sealed):
     r = client.post("/api/verify-fit", data=body, content_type="application/json")
     v = r.get_json()
     assert v["state"] == "mismatch" and v["check"] == "schema", v
+
+
+
+@pytest.mark.parametrize("effect", [
+    {"method": "smart", "window": [], "k": 1},
+    {"method": "smart", "window": [0, 1, 2], "k": 1},
+    {"method": "manual", "anchors": [[1]]},
+    {"method": "smart", "k": 1},
+    {"method": "none", "k": 1},
+])
+def test_the_background_effect_is_judged_in_its_exact_form(client, sealed, effect):
+    R, O = sealed
+    O2 = copy.deepcopy(O)
+    O2["background_verdict"]["effect"] = effect
+    O2["software"]["numerics"] = "2026-10-09"
+    v = _verify(client, R, O2)
+    assert v["state"] == "mismatch" and v["check"] == "schema", (effect, v)
