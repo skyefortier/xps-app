@@ -21,6 +21,7 @@ POST /api/upload            Upload a data file; returns session_id + preview dat
 POST /api/background        Compute background for a session
 POST /api/fit               Run peak fitting; returns full result
 POST /api/verify-fit        Recompute a recorded fit from its request; consistent / mismatch / unconfirmed
+POST /api/compare-fits      Seal 1d, "Re-run this fit": are two fit responses the same fit (same_fit's rules)?
 GET  /api/peak-shapes       List available lineshape names
 GET  /api/elements          List built‑in spin‑orbit element presets
 GET  /api/xps-reference     Validated periodic-table reference dataset (data/xps/)
@@ -45,6 +46,7 @@ from werkzeug.utils import secure_filename
 
 import fitting
 import parser as xps_parser
+import same_fit
 import vgd_parser
 from xps_reference import XPSReferenceError, load_reference_cached
 
@@ -1435,6 +1437,43 @@ def _register_routes(app: Flask) -> None:
         except Exception:
             app.logger.exception("verification failed")
             return _err("Internal verification error — see server log.", 500)
+
+    # ── "Re-run this fit" (seal 1d, 2026-10-15): the comparison of a record with its re-run ──
+    # ONE reading of "the same fit": same_fit's rules (the tests' own comparator). The FIT is compared without its
+    # scattered starts (judged on their own line, owner 2026-10-15), its software record (information; the numerics
+    # are reported on their own, the 2026-10-15 rule) and its seed SOURCE (a re-run passes the recorded seed
+    # explicitly, so it reads 'caller' by construction; the seed itself is compared).
+    _COMPARE_APART = ("starts", "software", "seed_source")
+
+    @app.post("/api/compare-fits")
+    @_require_json
+    def compare_fits():
+        try:
+            body = request.get_json(silent=True)
+        except RecursionError:
+            body = None
+        if not isinstance(body, dict) or not isinstance(body.get("a"), dict) or not isinstance(body.get("b"), dict):
+            return _err("request body must be {a, b}: two fit responses")
+        a, b = body["a"], body["b"]
+        for name, O in (("a", a), ("b", b)):
+            n = len(O["energy"]) if isinstance(O.get("energy"), list) else 0
+            form = fitting.response_form_failure(O, n) if n else "it has no energies"
+            if form:
+                return _err(f"{name} is not a fit response: {form}")
+        try:
+            fit = same_fit.fit_differences({k: v for k, v in a.items() if k not in _COMPARE_APART},
+                                           {k: v for k, v in b.items() if k not in _COMPARE_APART})
+            starts = [p for p in same_fit.fit_differences({k: v for k, v in a.items() if k not in ("software", "seed_source")},
+                                                         {k: v for k, v in b.items() if k not in ("software", "seed_source")})
+                      if p.startswith("starts") or p.startswith("response: keys")]
+        except Exception:
+            app.logger.exception("comparison failed")
+            return _err("Internal comparison error — see server log.", 500)
+        sw = a.get("software")
+        numerics = fitting.numerics_difference(sw) if isinstance(sw, dict) else ["the record names no software"]
+        return jsonify({"same": not fit, "problems": fit[:20], "n_problems": len(fit),
+                        "starts": {"same": not starts, "problems": starts[:20]},
+                        "numerics": {"same": not numerics, "differing": numerics}, "software": fitting.SOFTWARE})
 
     # ── Long fits via start-then-poll (unit 2, 2026-09-27) ───────────────────
     # The public URL ends a proxied request at ~100 s (Cloudflare 524; 88 s

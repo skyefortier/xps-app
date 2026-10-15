@@ -9696,6 +9696,74 @@ function _componentArea(p, grid) {
 }
 // What an export writes about a sealed fit's state (plan §5): the state and, until confirmed, why — '' for an
 // unsealed fit (today's lines), and the record it carries (the view's for a sealed fit).
+// ── Seal 1d: "Re-run this fit" (docs/superpowers/plans/2026-10-15-seal-1d-rerun.md) ──
+// The proof of a record's acceptance, on demand: the record's own request, its own seed, refitted by the server and
+// compared with the record by ONE comparator (the server's same_fit, /api/compare-fits). Never automatic, never a
+// currency verdict, never installed: its outcome is a runtime fact about that seal (not saved). The scattered starts
+// are judged on their own line (owner 2026-10-15).
+const _rerunOutcomes = new WeakMap();   // seal -> { status: 'running', ctrl } | { status: 'done', ... } | { status: 'failed', reason }
+function _canRerun(fr) { return !!_sealedDisplay(fr) && fr.seal.engine === 'server'; }
+async function rerunSealedFit() {
+  if (_autoFitBlocks()) return;
+  const owner = _activeTab(), fr = state.fitResult;
+  if (!_canRerun(fr)) return;
+  const seal = fr.seal, R = seal.R, O = seal.O;
+  if ((_rerunOutcomes.get(seal) || {}).status === 'running') return;
+  const ctrl = new AbortController();
+  _rerunOutcomes.set(seal, { status: 'running', ctrl });
+  _repaintRerun(seal);
+  let outcome = null;
+  try {
+    const sessionId = await uploadToBackend(R.energies, R.counts, ctrl.signal);
+    const O2 = await _serverFitJob({ ...structuredClone(R.request), session_id: sessionId, seed: O.random_seed }, {
+      signal: ctrl.signal,
+      // a closed tab, or another fit installed in its place: nothing to say about this one any more
+      abandoned: () => (!_ownerLive(owner) || !_fitResultOf(owner) || _fitResultOf(owner).seal !== seal) ? 'replaced' : null,
+    });
+    if (O2 && O2._abandoned) outcome = null;
+    else if (!O2 || O2.success !== true) outcome = { status: 'failed', reason: 'the re-run did not converge' + (O2 && O2.message ? ' (' + O2.message + ')' : '') };
+    else {
+      const resp = await fetch('/api/compare-fits', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                                      body: JSON.stringify({ a: O, b: O2 }), signal: ctrl.signal });
+      const c = await resp.json();
+      outcome = resp.ok && c && typeof c.same === 'boolean'
+        ? { status: 'done', same: c.same, problems: c.problems || [], nProblems: c.n_problems || 0, starts: c.starts, numerics: c.numerics,
+            chi2r: O2.statistics && O2.statistics.reduced_chi_square }
+        : { status: 'failed', reason: (c && c.error) || ('the comparison failed (HTTP ' + resp.status + ')') };
+    }
+  } catch (e) {
+    outcome = e && e.name === 'AbortError' ? null : { status: 'failed', reason: (e && e.message) || 'the server could not be reached' };
+  }
+  if (outcome) _rerunOutcomes.set(seal, outcome); else _rerunOutcomes.delete(seal);
+  _repaintRerun(seal);
+}
+function _cancelRerun() {
+  const seal = state.fitResult && state.fitResult.seal, o = seal && _rerunOutcomes.get(seal);
+  if (o && o.status === 'running') o.ctrl.abort(new DOMException('cancelled', 'AbortError'));
+}
+function _repaintRerun(seal) {
+  if (state.fitResult && state.fitResult.seal === seal && typeof renderResults === 'function') renderResults();
+}
+// The control and the outcome, beside a sealed server fit shown as recorded (nothing for a stale, legacy or local one).
+function _rerunHtml(fr) {
+  if (!_canRerun(fr)) return '';
+  const o = _rerunOutcomes.get(fr.seal), af = fr.seal.producer === 'autoFit' ? ' (the final fit; its anchor fit is evidence, not re-run)' : '';
+  const running = o && o.status === 'running';
+  let html = `<div class="seal-rerun" data-rerun="${o ? o.status : ''}" style="font-size:11px;line-height:1.5;color:var(--text2);margin:-2px 0 10px">` +
+    (running ? `Re-running this fit&hellip; <button class="btn btn-sm" onclick="_cancelRerun()">Cancel</button>`
+             : `<button class="btn btn-sm seal-rerun-btn" onclick="rerunSealedFit()" title="Refit this record's own request with its own seed on the server and compare the two fits (rounding-scale rules). It proves the recorded acceptance; it never replaces the fit.">Re-run this fit</button>`);
+  if (o && o.status === 'failed') html += `<div class="seal-rerun-outcome">Re-run failed: ${_escHtml(o.reason)}.</div>`;
+  if (o && o.status === 'done') {
+    const first = o.problems.length ? ' (' + _escHtml(o.problems[0]) + (o.nProblems > 1 ? '; ' + (o.nProblems - 1) + ' more' : '') + ')' : '';
+    const fit = o.same ? 'reproduced within rounding' + af + '.' : 'a different solution' + first + ' \u2014 this fit is not unique (not stale)' + af + '.';
+    html += `<div class="seal-rerun-outcome" data-same="${o.same ? 1 : 0}">` +
+      (o.numerics && !o.numerics.same ? 'Re-run under other numerics (' + _escHtml(o.numerics.differing.join('; ')) + '): ' + fit : 'Re-run: ' + fit) + '</div>';
+    if (o.starts) html += `<div class="seal-rerun-starts" data-same="${o.starts.same ? 1 : 0}">Scattered starts on re-run: ` +
+      (o.starts.same ? 'the same.' : 'differ (' + _escHtml(o.starts.problems[0] || '') + ').') + '</div>';
+  }
+  return html + '</div>';
+}
+
 // Plan §5 (step 8): what a sealed fit's ACCEPTANCE is — the optimiser's convergence, its certificate, the scattered
 // starts and the required-component check as the producer recorded them; the server's check recomputes the
 // statistics and curves, not these claims. And what an UNSEALED fit is: saved before this release (Q1) — shown as
@@ -11215,6 +11283,7 @@ function renderResults() {
     ${_stale ? '' : _renderRFactorPanel(_shown.rFactor, _shown.sealState, _isLegacyFit(state.fitResult))}
     ${_sealProvenanceOf(state.fitResult) ? `<div class="seal-provenance" data-provenance="${_sealProvenanceOf(state.fitResult).state}" style="font-size:10px;color:var(--text3);margin:-6px 0 8px">Record provenance: ${_escHtml(_sealProvenanceText(_sealProvenanceOf(state.fitResult)))}</div>` : ''}
     ${_sealedDisplay(state.fitResult) ? `<div class="seal-not-proven" style="font-size:10px;color:var(--text3);margin:-4px 0 8px">Acceptance (convergence, its certificate, scattered starts, required checks): ${_SEAL_NOT_PROVEN}.</div>` : ''}
+    ${_rerunHtml(state.fitResult)}
     <table class="results-table">
       <thead><tr>
         <th>Peak</th><th>Center (eV)</th><th>FWHM (eV)</th><th>Area</th><th>%</th>
