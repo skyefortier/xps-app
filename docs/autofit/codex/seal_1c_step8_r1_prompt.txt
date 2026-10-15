@@ -1,0 +1,18 @@
+CORRECTNESS REVIEW, ROUND 1, of step 8 of unit 1c ("sealed fit record") in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software.
+
+REPO: this checkout, branch seal-1c-s8, on seal-1c-s7 (step 7, in review). Step 8 is `git diff seal-1c-s7..HEAD`. The plan is docs/superpowers/plans/2026-10-14-seal-1c-page.md: §5 (the states and their presentation matrix), §10 (visible changes, "each measured in §12 step 8 on the committed fits"), §12 step 8 ("State wording, release measurements").
+
+WHAT STEP 8 IS:
+1. Wording (templates/index.html): a sealed fit shown as recorded says its ACCEPTANCE (convergence, certificate, scattered starts, required checks) is "as recorded — not proven" (Results line; the starts summary; the certificate notice) — the server's check recomputes statistics and curves, not those claims. An UNSEALED fit (saved before this release, Q1; LEGACY) is shown as today and says "saved before sealed records — re-run this fit to confirm": header suffix + tooltip, a Results note (also when today's machinery restores it stale), the R panel and status-bar R qualified, every export's appended state line ("# Fit state: LEGACY: …", and the PNG record chunk). Its SAVES are untouched (`_exportFitState` is used only by exports; the legacy census requires re-saves to equal main's). One predicate `_isLegacyFit(fr)` = a result without a seal.
+2. Release measurements (docs/findings/seal-1c/README.md, generators scripts/seal_1c_release_measure.js and scripts/seal_1c_save_size.py, outputs release_measure.json and save_size.json): one recorded server reply per committed target (seal 1b's records) read as main reads it vs as the record says — only χ² moves (main's χ²ᵣ × max(1, n − 3·peaks) is wrong on 113 of 202, ≤ 2.9 %); RMSE, R, curves and areas agree to rounding; project saves grow × 2.73 (≈ 35 KB gzipped per seal); a fresh Run Fit on all 121 committed fits gives 111 CURRENT and 10 UNCONFIRMED, all LA.
+3. Tests: tests/test_browser_seal_step8.py; JS expectations updated where an unsealed result object now reads LEGACY (fit_acceptance, local_lm_descent, stale_statistics), the harness readers read the wording constants from the page itself.
+
+ANSWER EACH (cite file:line):
+1. Does the presentation match plan §5's matrix for every state (CURRENT, PENDING, UNCONFIRMED, STALE, LEGACY, PEAKS-ONLY) on every surface the step touches? Is anything labelled "as recorded" that is not shown as recorded, or a LEGACY fit ever shown as CURRENT?
+2. Do any SAVES (project, spectrum, .fit.json) of a legacy fit change? Do exports keep every existing line, row and column in place (the owner's 2026-10-10 append-only rule)?
+3. Are the measurements sound — does each script measure what the findings claim, on the inputs named, with nothing that would make main's and the record's readings differ for a reason other than the one stated? Are the findings' numbers those the outputs hold?
+4. Do the tests fail on the defects they name? Do the JS expectation changes weaken any assertion?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.
