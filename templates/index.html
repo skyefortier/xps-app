@@ -9640,9 +9640,8 @@ function _sealStatsState(fr, owner) {
 }
 // The statistics a reader shows: a sealed fit's RECORDED ones (the R panel's ratio never recomputed), else the
 // result's own fields.
-// A result the SEALED readers own: the switch on and a seal present (Codex step 5 round 6: never the seal alone —
-// with the switch off a seal rides beside today's result and changes nothing).
-function _readsSeal(fr) { return _SEAL_AUTHORITATIVE && !!fr && !!fr.seal; }
+// A result the SEALED readers own: one with a seal (step 7 removed the switch that gated them — Codex step 5 round 6).
+function _readsSeal(fr) { return !!fr && !!fr.seal; }
 function _shownStats(fr) {
   const s = fr && _sealedDisplay(fr);
   if (s) return { chiReduced: s.view.statistics.chi2r, rmse: s.view.statistics.rmse, rFactor: s.view.rPanel,

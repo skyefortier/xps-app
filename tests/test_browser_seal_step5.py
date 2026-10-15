@@ -169,23 +169,25 @@ def test_an_unsealed_legacy_fit_is_drawn_as_before(browser, server):  # noqa: F8
         pg.close()
 
 
-def test_switch_off_draws_todays_stored_curves_beside_a_seal(browser, server):  # noqa: F811
-    """Codex step 5 round 6: with the switch off a seal rides beside today's result and changes NOTHING drawn — the
-    chart and the stack draw today's stored curves (made distinguishable here: shifted by 1000 / 99), never a
-    recomputation chosen because a seal is present."""
+def test_an_unsealed_fit_draws_its_stored_curves(browser, server):  # noqa: F811
+    """Codex step 5 round 6 (with the switch then off: a seal beside today's result changed nothing drawn). Step 7
+    removed the switch; its counterpart is a result WITHOUT a seal (a save from before this release): the chart and
+    the stack draw its stored curves (made distinguishable here: shifted by 1000 / 99), never a recomputation."""
     pg = _page(browser, server)
     try:
-        pg.evaluate("() => { _SEAL_AUTHORITATIVE = false; }")
-        got = pg.evaluate("""() => { const fr0 = state.fitResult, src = _activeTab();
-            state.fitResult = { ...fr0, fittedY: fr0.fittedY.map(v => v + 1000), bgIntensity: fr0.bgIntensity.map(v => v + 99) };
+        got = pg.evaluate("""() => { const v = _sealView(state.fitResult.seal), src = _activeTab();
+            const bg = v.background.map(x => x + 99);
+            state.fitResult = { be: v.energies.slice(), bgIntensity: bg, bgSubtracted: v.counts.map((c, i) => c - bg[i]),
+                                fittedY: v.fittedY.map(x => x + 1000), chiReduced: v.statistics.chi2r, rmse: v.statistics.rmse,
+                                startsModelKey: _startsLiveKey() };
             tabManager._syncActiveToRecord(); updatePlot();
-            const ds = state.chart.data.datasets, env = ds.find(d => d.label === 'Fit'), bg = ds.find(d => d.label === 'Background');
+            const ds = state.chart.data.datasets, env = ds.find(d => d.label === 'Fit'), bgd = ds.find(d => d.label === 'Background');
             const fr = state.fitResult, eq = (a, b) => a.length === b.length && a.every((x, i) => Object.is(x, b[i]));
-            const chart = { env: eq(env.data.map(p => p.y), fr.fittedY), bg: eq(bg.data.map(p => p.y), Array.from(fr.bgIntensity)) };
+            const chart = { env: eq(env.data.map(p => p.y), fr.fittedY), bg: eq(bgd.data.map(p => p.y), fr.bgIntensity) };
             const stack = tabManager.createStackTab(); _addSpectrumToStack(stack, src.id);
             const rd = _buildEntryRenderData(stack.entries[0]);
-            return { seal: !!fr.seal, chart, stack: { env: eq(rd.fittedY, fr.fittedY), bg: eq(rd.bg, Array.from(fr.bgIntensity)) } }; }""")
-        assert got == {"seal": True, "chart": {"env": True, "bg": True}, "stack": {"env": True, "bg": True}}, got
+            return { seal: !!fr.seal, chart, stack: { env: eq(rd.fittedY, fr.fittedY), bg: eq(rd.bg, fr.bgIntensity) } }; }""")
+        assert got == {"seal": False, "chart": {"env": True, "bg": True}, "stack": {"env": True, "bg": True}}, got
     finally:
         pg.close()
 
