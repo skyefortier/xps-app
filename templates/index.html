@@ -10367,7 +10367,8 @@ function _sealDesignation(fr) {
 // nothing (Codex step 5 round 7).
 function _sealReadableView(seal) {
   try {
-    if (!seal || seal.v !== 'xps-seal-1' || !seal.R || !seal.O || !seal.R.context0 || !seal.R.pageModel) return null;
+    // step 6: sealedState's first gate is the typed schema (it subsumes the step-5 presence checks)
+    if (!seal || _sealSchemaFailure(seal)) return null;
     return _sealView(seal);
   } catch (e) { return null; }
 }
