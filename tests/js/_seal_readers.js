@@ -10,7 +10,6 @@ const SEAL_READER_FNS = ['_readsSeal', '_sealedDisplay', '_sealComponent', '_sea
 const fs = require('node:fs'), path = require('node:path');
 const PAGE = fs.readFileSync(path.join(__dirname, '../../templates/index.html'), 'utf8');
 const pageConst = name => { const m = PAGE.match(new RegExp('^const ' + name + ' = (.*);$', 'm')); if (!m) throw new Error(name); return 'var ' + name + ' = ' + m[1] + ';'; };
-const SEAL_READER_CONSTS = ['var _sealIds = new WeakMap(); var _sealIdSeq = 0;', pageConst('_SEAL_NOT_PROVEN'), pageConst('_LEGACY_FIT_NOTE')].join('
-');
+const SEAL_READER_CONSTS = ['var _sealIds = new WeakMap(); var _sealIdSeq = 0;', pageConst('_SEAL_NOT_PROVEN'), pageConst('_LEGACY_FIT_NOTE')].join('\n');
 module.exports = (extractFn) => [SEAL_READER_CONSTS, ...SEAL_READER_FNS.map(extractFn)].join('\n');
 module.exports.SEAL_READER_FNS = SEAL_READER_FNS;
