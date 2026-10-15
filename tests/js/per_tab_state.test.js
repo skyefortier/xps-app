@@ -54,7 +54,8 @@ const ALLOWLIST = {
   _serverNumerics: 'B', _NUMERICS_IDENTITY_KEYS: 'B', _numericsEpoch: 'B', _numericsAllowance: 'B', _numericsSplit: 'B', _checksInFlight: 'B',   // owner 2026-10-15: the server's declared numerics, epoch, allowance and split (page-wide, not per tab)
   _sealDetached: 'B',   // seal 1c step 5: WeakSet of snapshot records with a detached check in flight (keyed by the immutable seal)
   _sealSchemaMemo: 'B',
-  _SEAL_MOVE_T: 'B', _SEAL_NOT_RUN_T: 'B', _SEAL_STARTS_T: 'B', _SEAL_REQUIRED_T: 'B', _SEAL_CERTIFICATE_T: 'B', _SEAL_SUPPORT_T: 'B', _SEAL_STATISTICS_T: 'B', _SEAL_SOFTWARE_T: 'B', _SEAL_BG_VERDICT_T: 'B', _SEAL_PAGE_T: 'B', _SEAL_LOCAL_CERT_T: 'B', _SEAL_BG_EFFECT_T: 'B', _SEAL_PEAK_NUM_FIELDS: 'B', _SEAL_EFFECT_FIELDS: 'B',   // seal 1c step 6: the typed-form specs (constant tables, fitting.py's)   // seal 1c step 6: WeakMap memo seal -> its schema verdict (derived, keyed by the immutable seal)
+  _SEAL_MOVE_T: 'B', _SEAL_NOT_RUN_T: 'B', _SEAL_STARTS_T: 'B', _SEAL_REQUIRED_T: 'B', _SEAL_CERTIFICATE_T: 'B', _SEAL_SUPPORT_T: 'B', _SEAL_STATISTICS_T: 'B', _SEAL_SOFTWARE_T: 'B', _SEAL_BG_VERDICT_T: 'B', _SEAL_PAGE_T: 'B', _SEAL_LOCAL_CERT_T: 'B', _SEAL_BG_EFFECT_T: 'B', _SEAL_PEAK_NUM_FIELDS: 'B', _SEAL_EFFECT_FIELDS: 'B', _droppedLegacyFits: 'B',   // seal 1c step 8: WeakMap tab -> why its legacy fit was dropped (runtime, never saved)
+    // seal 1c step 6: the typed-form specs (constant tables, fitting.py's)   // seal 1c step 6: WeakMap memo seal -> its schema verdict (derived, keyed by the immutable seal)
   _sealIds: 'B', _sealIdSeq: 'B',   // seal 1c step 5: a display identity per immutable seal (repaint signature; no tab content)
   BG_LABELS: 'B',            // constant table: background methods' display names (background math, 2026-10-01)
   FP_TIER_META: 'B', FP_STRINGS: 'B', FP_MODEL_LABELS: 'B', FP_ROLE_LABELS: 'B', FP_SHAPE_LABELS: 'B', FP_TIER_RANK: 'B',

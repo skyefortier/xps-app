@@ -1,0 +1,20 @@
+CORRECTNESS REVIEW, ROUND 2, of step 8 of unit 1c ("sealed fit record") in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software.
+
+REPO: this checkout, branch seal-1c-s8, on seal-1c-s7 (step 7, GO x2). Step 8 is `git diff seal-1c-s7..HEAD`. Read docs/autofit/codex/seal_1c_step8_r1_prompt.txt for what step 8 is. Round 1 (both runs NO-GO; verdicts seal_1c_step8_r1_verdict_run{A,B}.md) found:
+- MAJOR: a legacy fit without a record (all 121 committed fits) exported its PNG with no state (the qualifier sat inside the record branch).
+- MINOR: a legacy fit restored STALE kept the plain stale header (no qualifier, no tooltip); a legacy fit dropped to PEAKS-ONLY said nothing in Results or exports.
+- MINOR: the findings' seal-size medians were wrong (they are 68,123 B / 26,293 B); the χ² median should be stated over the 113 affected fits.
+- MINOR: tests — the saves test checked only absent strings and omitted spectrum saves; no PNG / XLSX, certificate, PENDING / UNCONFIRMED or stale-legacy-header coverage.
+
+WHAT THIS ROUND CHANGES: the PNG chunk carries the state whether or not the fit holds a record (`{sealState}` alone for a recordless legacy fit; the image itself is untouched); the stale header of a legacy fit gains the qualifier and its tooltip; a legacy fit the restore drops to peaks only is noted in a runtime WeakMap (`_droppedLegacyFits`, set in `_dropRestoredFit`, never saved, ended the first time the tab shows a fit) and says so in Results ("The saved fit of this model was not restored (reason). It was saved before sealed records — …") and in the state line of the exports that run without a fit (TSV, PNG: "PEAKS-ONLY: …"); the findings corrected (medians; the χ² error over the 113 affected fits: median 1.02 %, max 2.9 %, the other 89 equal to rounding) and the size table stated as the refit-and-resave workflow, not isolated seal overhead. Tests: PNG, XLSX, CSV and TSV of a legacy fit with and without a record; the stale legacy header; the dropped legacy fit (Results, TSV, PNG) and its end after a fit; the three saves of a legacy fit identical when saved twice and free of state wording (main-equality itself is the census's, 121 / 121); PENDING and UNCONFIRMED acceptance wording; the certificate notice's label. Each fix mutation-checked.
+
+ANSWER EACH (cite file:line):
+1. Is every round-1 finding resolved, or a stated limit? List each with its status.
+2. Does any surface now show LEGACY / PEAKS-ONLY wording for a fit it does not describe (a sealed fit, a fit made after the drop, another tab's), or keep it after the tab shows a fit? Can the marker reach a save?
+3. Do saves stay main's (project, spectrum, .fit.json), and do exports keep every existing line, row and column in place?
+4. Are the corrected findings the outputs' numbers?
+5. Do the new tests fail on the defects they name?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

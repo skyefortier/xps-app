@@ -36,7 +36,7 @@ Output: `release_measure.json`.
 
 | what is shown | main | the record | difference on the 202 committed fits |
 |---|---|---|---|
-| χ² | χ²ᵣ × max(1, n − 3·peaks) | the server's χ² | wrong on the 113 fits whose free parameters ≠ 3 × peaks (links, locks, held or extra shape parameters): median 0.59 %, max 2.9 %; 60 fits > 1 %, none > 10 % |
+| χ² | χ²ᵣ × max(1, n − 3·peaks) | the server's χ² | wrong on the 113 fits whose free parameters ≠ 3 × peaks (links, locks, held or extra shape parameters): on those 113 median 1.02 %, max 2.9 %; 60 fits > 1 %, none > 10 % (on the other 89 equal to rounding, ≤ 1.4e-16) |
 | RMSE | over the reply's residuals | the server's | ≤ 9.3e-16 relative (rounding) |
 | R-factor | `_computeRFactor` on the page's background (1b: bit-identical to the server's) | the server's | ≤ 9.8e-15 percentage points |
 | component curves (865) | `evalPeakArray` on the fit's grid | the recorded curves | ≤ 8.0e-16 of the component's height (LA), ≤ 4e-16 for every other shape |
@@ -66,7 +66,11 @@ default method), each fit's own check awaited, the project saved again:
 |---|---|---|
 | the seven project files | 1,837,421 B | 5,023,286 B (× 2.73) |
 | their content, uncompressed | 6,478,409 B | 20,651,111 B (× 3.19) |
-| one seal (121) | — | median ≈ 90 KB raw, ≈ 35 KB gzipped; largest 95,112 B / 37,773 B |
+| one seal (121) | — | median 68,123 B raw, 26,293 B gzipped; largest 95,112 B / 37,773 B |
+
+This is the student's workflow — a project from before this release, every fit pressed again and saved — not the
+seal's overhead on an otherwise identical save (the re-saved fits are new fits, and a sealed fit's save carries its
+seal instead of the legacy fields).
 
 All 121 fits sealed with no page error: **111 CURRENT, 10 UNCONFIRMED** right after Run Fit. All 10 unconfirmed are U 4f
 fits holding an LA component (LACX) — the non-bit-reproducible lineshape (1b §1; the separate LA unit logged in

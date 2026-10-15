@@ -528,7 +528,7 @@ test('the sidebar banner shows on a stack tab whose visible entries draw a local
   assert.equal(run({ isStack: true, entries: [{ sourceTabId: 2, visible: true, showFit: false }] }).style.display, 'none', 'fit curves hidden → no designation needed');
   assert.equal(run({ isStack: true, entries: [{ sourceTabId: 3, visible: true, showFit: true }] }).style.display, 'none', 'weighted source only');
   const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
-  assert.match(grab('function _applyStatDisplay(', 1800), /_updateLocalModelBanner\(\)/, 'activation/result changes refresh the banner');
+  assert.match(grab('function _applyStatDisplay(', 2600), /_updateLocalModelBanner\(\)/, 'activation/result changes refresh the banner');
   const legendAt = html.indexOf("row.querySelector('.name').textContent = name;");
   assert.match(html.slice(legendAt, legendAt + 2500), /_updateLocalModelBanner\(\)/, 'stack legend rebuild refreshes the banner');
 });

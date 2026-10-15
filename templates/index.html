@@ -9706,6 +9706,10 @@ function _isLegacyFit(fr) { return !!fr && !fr.seal; }
 // The state line an EXPORT carries: a sealed fit's state, or LEGACY for an unsealed one (saves are untouched:
 // a legacy fit re-saves its fields as main writes them)
 function _exportFitState(fr) {
+  if (!fr) {
+    const why = typeof _droppedLegacyFitOf === 'function' ? _droppedLegacyFitOf(_activeTab()) : null;
+    return why === null ? '' : 'PEAKS-ONLY: the saved fit was not restored' + (why ? ' (' + why + ')' : '') + '; it was ' + _LEGACY_FIT_NOTE;
+  }
   return _isLegacyFit(fr) ? 'LEGACY: ' + _LEGACY_FIT_NOTE : _exportSealState(fr);
 }
 function _exportSealState(fr) {
@@ -10527,7 +10531,9 @@ function _applyStatDisplay(fr) {
     // F1: the statistic belongs to the previous model: say so, show no number
     const sealCheck = fr.seal ? sealedState(fr, _activeTab()).check : null;
     if (fq) { fq.textContent = _fitStatLabel(fr) + (fr.seal ? (sealCheck === 'edited' ? ' \u2014 (model changed)' : ' \u2014 (check failed: ' + sealCheck + ')')
-      : _restoredStale(fr) ? (fr.backgroundStale ? ' \u2014 (background changed)' : ' \u2014 (Voigt mix)') : ' \u2014 (model changed)'); fq.setAttribute('data-xps-tip', _staleNoteOf(fr)); }
+      : _restoredStale(fr) ? (fr.backgroundStale ? ' \u2014 (background changed)' : ' \u2014 (Voigt mix)') : ' \u2014 (model changed)') +
+      (_isLegacyFit(fr) ? ' (saved before sealed records)' : '');
+      fq.setAttribute('data-xps-tip', _staleNoteOf(fr) + (_isLegacyFit(fr) ? '\n\nThis fit was ' + _LEGACY_FIT_NOTE + '.' : '')); }
     if (sb) sb.textContent = '\u2014';
   } else if (hasStat) {
     const tip = (_isLocalFit(fr) ? _LOCALFIT_TOOLTIP : _CHISQ_TOOLTIP) + (st === 'unverified' ? '\n\n' + _STATS_UNVERIFIED_NOTE : '') +
@@ -11125,6 +11131,7 @@ function _outsideWindowNoteHtml(be) {
 
 function renderResults() {
   const el = document.getElementById('results-area');
+  if (typeof _activeTab === 'function') _droppedLegacyFitOf(_activeTab());   // a fit shown now ends a dropped legacy fit's note (step 8)
   const _stats = _statsLiveState();   // F1: current / stale / unverified / none
   if (el) { el.setAttribute('data-stats-state', _stats); el.setAttribute('data-seal-sig', _sealSig(state.fitResult)); }
   _applyStatDisplay(state.fitResult);   // header + status bar track every result change (clear, restore, auto-fit) as one unit
@@ -11135,8 +11142,10 @@ function renderResults() {
       : '<p style="color:var(--text3);font-size:11px;text-align:center;padding:20px 0">Run the fit to see results.</p>';
     el.innerHTML += _outsideWindowNoteHtml(_areaGrid());   // the note needs no fit (a saved fit dropped on load, a model not yet fitted)
     // V6.8 (seal step 6): a legacy fit that could not be restored keeps its record, shown here
-    { const t = _activeTab(), pv = t && t.provenance;
-      if (pv) el.innerHTML += `<div class="tab-provenance-note" style="font-size:11px;line-height:1.5;color:var(--text2);margin-top:6px">The saved fit of this model was not restored${pv.reason ? ' (' + _escHtml(pv.reason) + ')' : ''}. Its record: ${_fitRecordRows(pv.record).map(([k, v]) => _escHtml(k) + ' ' + _escHtml(String(v))).join('; ')}.</div>`; }
+    { const t = _activeTab(), pv = t && t.provenance, dropped = _droppedLegacyFitOf(t);
+      if (pv) el.innerHTML += `<div class="tab-provenance-note" style="font-size:11px;line-height:1.5;color:var(--text2);margin-top:6px">The saved fit of this model was not restored${pv.reason ? ' (' + _escHtml(pv.reason) + ')' : ''}. Its record: ${_fitRecordRows(pv.record).map(([k, v]) => _escHtml(k) + ' ' + _escHtml(String(v))).join('; ')}.</div>`;
+      // step 8: a legacy fit dropped to peaks only (Codex round 1) — saved before sealed records
+      if (dropped !== null) el.innerHTML += `<div class="stats-legacy-note" style="font-size:11px;line-height:1.5;color:var(--text2);margin-top:6px">${pv ? '' : 'The saved fit of this model was not restored' + (dropped ? ' (' + _escHtml(dropped) + ')' : '') + '. '}It was ${_escHtml(_LEGACY_FIT_NOTE)}.</div>`; }
     el.setAttribute('data-area-sig', _areaSignature());
     // Quantify (#quantify-area) is populated by renderQuantify(), called
     // only from the non-null path below — without this it kept showing
@@ -12136,7 +12145,16 @@ function _fitRecordWellFormed(r) {
       software: ['null', _SEAL_SOFTWARE_T] }) && (!r.backgroundVerdict || _sealEffectExact(r.backgroundVerdict.effect));
   } catch (_) { return false; }
 }
+// step 8 (Codex round 1): a LEGACY fit the restore dropped to peaks only says so where its fit would be shown
+// (Results, every export's state line) until the tab shows a fit — a runtime marker, never saved (saves stay main's).
+const _droppedLegacyFits = new WeakMap();   // tab -> the reason its saved fit was not restored
+function _droppedLegacyFitOf(tab) {
+  if (!tab || !_droppedLegacyFits.has(tab)) return null;
+  if (_fitResultOf(tab)) { _droppedLegacyFits.delete(tab); return null; }   // the tab has shown a fit since: that ends it
+  return _droppedLegacyFits.get(tab);
+}
 function _dropRestoredFit(rec, reason) {
+  if (rec.fitResult && !rec.fitResult.seal) _droppedLegacyFits.set(rec, reason || '');
   if (rec.fitResult && _fitRecordWellFormed(rec.fitResult.record))
     rec.provenance = { record: rec.fitResult.record, reason: reason || '' };
   rec.fitResult = null;
@@ -14808,9 +14826,11 @@ function _doPublicationExport() {
   // the fit's record rides in the PNG itself (an iTXt chunk, keyword XPS-Fit-Record: recording only)
   const _rec0 = _exportRecordOf(state.fitResult);
   // a sealed fit's chunk always carries its state — STALE with the failed check too (step 5, Codex round 1)
+  // (a legacy fit carries LEGACY, with or without a record — the committed fits have none; step 8, Codex round 1)
+  const _st0 = _exportFitState(state.fitResult);
   const rec = _isFitRecord(_rec0) ? (state.fitResult && state.fitResult.seal
     ? { ..._rec0, sealState: _exportSealState(state.fitResult), provenance: _sealProvenanceOf(state.fitResult) }
-    : { ..._rec0, sealState: _exportFitState(state.fitResult) }) : null;   // a legacy fit: LEGACY (step 8)
+    : { ..._rec0, sealState: _st0 }) : (_st0 ? { sealState: _st0 } : null);
   canvas.toBlob(async blob => {
     if (!blob) { notify('Export failed.', 'red'); return; }
     _downloadBlob(rec ? await _pngWithText(blob, 'XPS-Fit-Record', JSON.stringify(rec)) : blob, fname + '.png');

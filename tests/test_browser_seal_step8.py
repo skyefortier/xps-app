@@ -135,3 +135,153 @@ def test_a_committed_legacy_fit_restored_stale_says_it_too(browser, server):  # 
         assert pg.errors == [], pg.errors
     finally:
         pg.close()
+
+
+# ── Codex step 8 round 1 ─────────────────────────────────────────────────────────────────────────────────────────────
+XLSX_HOOK = """() => { window.__xlsx = null; XLSX.writeFile = wb => {
+    const back = XLSX.read(XLSX.write(wb, { type: 'array', bookType: 'xlsx' }), { type: 'array' });
+    window.__xlsx = Object.fromEntries(back.SheetNames.map(n => [n, XLSX.utils.sheet_to_json(back.Sheets[n], { header: 1, defval: null })])); }; }"""
+PNG_HOOK = """() => { window.__png = undefined; window._pngWithText = async (blob, k, text) => { window.__png = text; return blob; };
+  window._downloadBlob = async (blob, name) => { if (name.endsWith('.png') && window.__png === undefined) window.__png = null; }; }"""
+
+
+def _png(pg):
+    pg.evaluate(PNG_HOOK)
+    pg.evaluate("() => _doPublicationExport()")
+    pg.wait_for_function("() => window.__png !== undefined", timeout=20000)
+    t = pg.evaluate("() => window.__png")
+    return json.loads(t) if t else None
+
+
+@pytest.mark.parametrize("record", [True, False], ids=["with-record", "recordless"])
+def test_every_export_of_a_legacy_fit_carries_its_state(browser, server, record):  # noqa: F811
+    """The committed legacy fits hold no record: their PNG must still say LEGACY (Codex step 8 round 1, MAJOR)."""
+    pg = _fitted(browser, server)
+    try:
+        pg.evaluate(LEGACY)
+        if not record:
+            pg.evaluate("() => { delete state.fitResult.record; tabManager._syncActiveToRecord(); }")
+        png = _png(pg)
+        assert png is not None and png["sealState"] == "LEGACY: " + NOTE, png
+        assert ("engine" in png) is record, png                                   # the record rides only when there is one
+        pg.evaluate(XLSX_HOOK)
+        pg.evaluate("() => exportFitTable('xlsx')")
+        info = pg.evaluate("() => window.__xlsx.Info")
+        blank = next(i for i, r in enumerate(info) if all(v is None for v in r))
+        assert info[blank + 1][:2] == ["Fit state", "LEGACY: " + NOTE], info[blank:blank + 3]   # opens the appended rows
+        csv, tsv = _exports(pg)
+        for text in (csv, tsv):
+            assert text.split("\n\n")[-1].split("\n")[0] == "# Fit state: LEGACY: " + NOTE
+    finally:
+        pg.close()
+
+
+def test_a_stale_legacy_fits_header_says_it_too(browser, server):  # noqa: F811
+    pg = _fitted(browser, server)
+    try:
+        pg.evaluate(LEGACY)
+        pg.evaluate("() => { state.peaks[0].center += 0.05; updatePlot(); renderResults(); _applyStatDisplay(state.fitResult); }")
+        got = pg.evaluate("""() => ({ stats: _statsLiveState(), header: document.getElementById('fit-quality').textContent,
+            tip: document.getElementById('fit-quality').getAttribute('data-xps-tip'),
+            note: (document.querySelector('#results-area .stats-legacy-note') || {}).textContent || '' })""")
+        assert got["stats"] == "stale" and got["header"].endswith("— (model changed) (saved before sealed records)"), got
+        assert NOTE in got["tip"] and got["note"].strip().startswith("This fit was " + NOTE), got
+    finally:
+        pg.close()
+
+
+def test_a_legacy_fit_dropped_to_peaks_only_says_so_until_a_fit_is_shown(browser, server):  # noqa: F811
+    f = os.path.join(ROOT, "docs/autofit/test_data/4-GTA UCl4-BN.proj.zip")       # two of its fits are dropped (the census)
+    pg = _page(browser, server)
+    try:
+        pg.evaluate("""async ([b64, name]) => { const s = atob(b64), b = new Uint8Array(s.length);
+            for (let i = 0; i < s.length; i++) b[i] = s.charCodeAt(i); await _loadZipProject(new File([b], name)); }""",
+                    [base64.b64encode(open(f, "rb").read()).decode(), os.path.basename(f)])
+        pg.wait_for_timeout(500)
+        name = pg.evaluate("() => { const t = tabManager.tabs.find(x => !x.isStack && !x.fitResult && _droppedLegacyFits.has(x)); return t ? t.name : null; }")
+        assert name, "this project has a saved fit the restore drops"
+        pg.evaluate("(n) => { tabManager.activateTab(tabManager.tabs.find(t => t.name === n).id); renderResults(); }", name)
+        note = pg.evaluate("() => (document.querySelector('#results-area .stats-legacy-note') || {}).textContent || ''")
+        assert "The saved fit of this model was not restored" in note and NOTE in note, note
+        pg.evaluate(CAPTURE)
+        pg.evaluate("() => exportResults()")
+        pg.wait_for_function("() => window.__tsv !== null")
+        tail = pg.evaluate("() => window.__tsv").split("\n\n")[-1].split("\n")
+        assert tail[0].startswith("# Fit state: PEAKS-ONLY: the saved fit was not restored") and NOTE in tail[0], tail[:2]
+        png = _png(pg)
+        assert png and png["sealState"].startswith("PEAKS-ONLY: the saved fit was not restored"), png
+        # a fit shown on the tab ends it: cleared afterwards, the tab says nothing about the old file's fit
+        pg.evaluate("async () => { await runFit(); }")
+        pg.evaluate(SETTLE)
+        pg.evaluate("() => { state.fitResult = null; tabManager._syncActiveToRecord(); renderResults(); }")
+        assert pg.evaluate("() => !!document.querySelector('#results-area .stats-legacy-note')") is False
+        assert pg.errors == [], pg.errors
+    finally:
+        pg.close()
+
+
+def _saves(pg):
+    pg.evaluate(CAPTURE)
+    pg.evaluate("async () => { document.getElementById('save-fname').value = 'p'; await _doSaveProject(); await _doSaveFit(); await _doSaveSpectrum(); }")
+    pg.wait_for_function("() => Object.keys(window.__files).length >= 3")
+    out = {}
+    for name, text in pg.evaluate("() => window.__files").items():
+        d = json.loads(text)
+        d.pop("timestamp", None)
+        out[name] = d
+    return out
+
+
+def test_a_legacy_fit_re_saves_identically_and_its_saves_carry_no_state_wording(browser, server):  # noqa: F811
+    """Saves are main's (the legacy census compares them with main's page field by field, 121 / 121): here, a legacy
+    fit's project, fit and spectrum saves hold no state wording, and saving them twice gives the same content."""
+    pg = _fitted(browser, server)
+    try:
+        pg.evaluate(LEGACY)
+        first = _saves(pg)
+        second = _saves(pg)
+        assert sorted(first) == ["p.fit.json", "p.proj.json", "p.spec.json"], sorted(first)
+        assert first == second
+        for name, d in first.items():
+            text = json.dumps(d)
+            assert "LEGACY" not in text and "sealed records" not in text and "not proven" not in text, name
+            assert '"seal"' not in text, name
+    finally:
+        pg.close()
+
+
+@pytest.mark.parametrize("answer,word", [("hold", "confirming"), ("unconfirmed", "unconfirmed")])
+def test_acceptance_reads_as_recorded_while_pending_or_unconfirmed(browser, server, answer, word):  # noqa: F811
+    pg = _page(browser, server)
+    try:
+        _setup(pg, SCENARIOS["gauss_voigt_linear_avg3_window"])
+        if answer == "hold":
+            pg.route("**/api/verify-fit", lambda route: None)
+        else:
+            pg.route("**/api/verify-fit", lambda route: route.abort())
+        pg.evaluate("async () => { await runFit(); }")
+        if answer != "hold":
+            pg.evaluate(SETTLE)
+        got = pg.evaluate("""() => { renderResults(); const ra = document.getElementById('results-area');
+            return { state: sealedState(state.fitResult, _activeTab()).state,
+                     line: (ra.querySelector('div.seal-not-proven') || {}).textContent || '', text: ra.textContent }; }""")
+        assert got["state"] == ("pending" if answer == "hold" else "unconfirmed"), got
+        assert "as recorded — not proven" in got["line"] and word in got["text"], got
+    finally:
+        pg.unroute_all(behavior="ignoreErrors")
+        pg.close()
+
+
+def test_the_certificate_notice_reads_as_recorded(browser, server):  # noqa: F811
+    pg = _fitted(browser, server)
+    try:
+        # a record whose continuation moved a centre past the red band (the notice's trigger), checked again
+        pg.evaluate("""async () => { const s = structuredClone(state.fitResult.seal), c = s.O.certificate;
+            const id = s.O.individual_peaks[0].id;
+            c.moved = true; c.centre_moves = [{ id, ev: -1.5 }]; c.largest_centre_move = { id, ev: -1.5 };
+            state.fitResult = Object.freeze({ seal: _makeSeal(s) }); await _ensureVerified(_activeTab(), true); renderResults(); }""")
+        got = pg.evaluate("""() => ({ state: sealedState(state.fitResult, _activeTab()).state,
+            note: (document.querySelector('#results-area .certificate-move-note') || {}).textContent || '' })""")
+        assert got["note"] and "moved" in got["note"] and "(as recorded — not proven)" in got["note"], got
+    finally:
+        pg.close()
