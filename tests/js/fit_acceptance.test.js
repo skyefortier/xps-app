@@ -313,7 +313,8 @@ test('project save derives the designation from the objective for an older local
 
 test('stack envelope/legend, history preview and auto-fit caption carry the designation; CSV and XLSX warnings asserted separately', () => {
   const grab = (sig, len) => { const i = html.indexOf(sig); assert.ok(i > 0, sig); return html.slice(i, i + len); };
-  assert.match(html, /\(rd && rd\.sealState \? !rd\.reportable : _isLocalFit\(src\.fitResult\)\) \? ' \(fit: local, starting point\)' : ' \(fit\)'/, 'stack envelope dataset label');
+  assert.match(extractFn('_stackEnvLabel'), /const local = rd && rd\.sealState \? !rd\.reportable : _isLocalFit\(src\.fitResult\);[\s\S]*' \(fit: local, starting point'/, 'stack envelope dataset label');
+  for (const f of ['_buildStackDatasets', '_updateStackChart']) assert.match(extractFn(f), /_stackEnvLabel\(src, rd\)/, f + ' labels the envelope through the one reader');
   assert.match(html, /local fit: starting point/, 'stack legend row name');
   assert.match(html, /label: \(_isLocalFit\(_historyPreview\.fitResult\) \? 'Preview \(local, starting point\)' : 'Preview'\)/, 'history preview label');
   assert.match(grab('function applyAutoFitResult(', 12000), /_applyStatDisplay\(state\.fitResult\)/, 'auto-fit refreshes the statistic display');
@@ -360,7 +361,7 @@ test('spectrum load renders the Results panel after restoring a saved result, an
   const save = grab('function _doSaveFit()', 3000);
   assert.match(save, /fitStatistics: state\.fitResult \? \(\(sd, sv\) => \(\{/, 'Save Fit writes a fitStatistics block');
   assert.match(save, /caveat: _localFitCaveat\(state\.fitResult\)/, 'Save Fit derives the caveat');
-  assert.match(save, /reportable: _isLocalFit\(state\.fitResult\) \? false/, 'Save Fit derives reportable');
+  assert.match(save, /reportable: (sd \? sd\.reportable : \()?_isLocalFit\(state\.fitResult\) \? false/, 'Save Fit derives reportable (a sealed fit from its designation)');
 });
 
 test('_applyStatDisplay clears header, tooltip, caption and value together on local → none', () => {

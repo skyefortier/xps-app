@@ -1,0 +1,16 @@
+CORRECTNESS REVIEW, ROUND 2, of step 5 of unit 1c ("sealed fit record") in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software.
+
+REPO: this checkout, branch seal-1c-s5, now rebased onto seal-numerics-rule (steps 3-4 reviewed GO; the owner's 2026-10-15 rule "confirmation by recomputation" is under its own review). Step 5 is `git diff seal-numerics-rule..HEAD`. Round 1 (NO-GO x2; verdicts docs/autofit/codex/seal_1c_step5_r1_verdict_run{A,B}.md; prompt seal_1c_step5_r1_prompt.txt — read it for what step 5 is) found: the stack's in-place update rebuilding the subtracted envelope and keeping stale labels (MAJOR); history bypassing state and ownership (MAJOR); a server `.fit.json` re-imported as local (MAJOR); stale PNG / TSV exports losing the failed check (MAJOR in run B); readers touching page state before the switch's gate; the header gating on a legacy field; `.fit.json` reading legacy `chosenAlternative` / `reportable`; the Batch summary on `outcome.chiReduced`; the stack without source-state text; tests that did not discriminate. THE PLAN: docs/superpowers/plans/2026-10-14-seal-1c-page.md §5, §7, §12 step 5.
+
+WHAT THIS ROUND CHANGES: one reading of a stack entry's envelope and labels for both the build and the in-place update (`_stackEnvY`, `_stackPeakLabel`, `_stackEnvLabel`, the label carrying a sealed source's state); history rows and previews judge a snapshot's RECORD by itself (`sealedState(..., {live: false})`: its bindings to the spectrum and the server's answer, not the live model — `_snapshotSealState`), start a detached check for an unchecked one (`_verifyRecordOnly`, cached per seal, never attached to an operation), show the state text or "record does not hold" without statistics, and repaint on a verdict; `.fit.json` writes a server fit with no objective (the page's `_isLocalProvenance` reads a Poisson objective as local), `reportable` from the designation and the record's choice (`_chosenOf`); TSV and PNG of a STALE sealed fit carry "STALE (check): reason" and say whether the model changed or the record does not hold; `_componentArea` / `_shownPeak` return at the switch first; the header decides on the record's statistic; the local engine returns its sealed O's χ²ᵣ to Batch Fit. Tests: tests/test_browser_seal_step5.py (24), incl. switch-off with a disagreeing record, the stack in place and after a verdict, history judged by its record (edited model, failed record, unconfirmed), `.fit.json` server/local round trips, stale exports, XLSX.
+
+ANSWER EACH (cite file:line):
+1. Is every round-1 finding (both runs) resolved? List each with its status.
+2. With the switch ON, does every consumer in plan §7's table read the record for CURRENT / PENDING / UNCONFIRMED and today's labelled live preview for STALE — any consumer still reading a legacy duplicate, or mixing readings?
+3. Is judging a history snapshot by its own record (not the live model) right under plan §5 / §7 / §9, and is the detached check sound (ownership, caching, repaint)?
+4. With the switch OFF, is everything exactly today's?
+5. Do the tests each fail on the defect they name?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

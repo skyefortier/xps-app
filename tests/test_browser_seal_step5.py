@@ -150,10 +150,19 @@ def test_a_stack_draws_its_sources_record(browser, server):  # noqa: F811
 
 
 def test_switch_off_is_todays_chart(browser, server):  # noqa: F811
+    """With the switch off nothing reads the seal: a record that DISAGREES with today's fields changes nothing."""
     pg = _page(browser, server)
     try:
         pg.evaluate("() => { _SEAL_AUTHORITATIVE = false; }")
-        assert pg.evaluate("() => _sealedDisplay(state.fitResult)") is None
+        pg.evaluate(TAMPER, "s.O.fitted_y = s.O.fitted_y.map(v => v + 1000); s.O.individual_peaks[0].params.area.value *= 2;"
+                            " s.O.statistics.reduced_chi_square = 123.456")
+        got = pg.evaluate("""() => { updatePlot(); renderResults();
+            const env = state.chart.data.datasets.find(d => d.label === 'Fit'), fr = state.fitResult;
+            return { env: env.data.every((p, i) => Object.is(p.y, fr.fittedY[i])), header: document.getElementById('fit-quality').textContent,
+                     area: _componentArea(state.peaks[0], _areaGrid()) === _peakArea(state.peaks[0], _areaGrid()),
+                     display: _sealedDisplay(fr), stats: _statsLiveState() }; }""")
+        assert got["env"] and "123.46" not in got["header"] and got["area"] and got["display"] is None, got
+        assert got["stats"] in ("current", "unverified"), got
     finally:
         pg.close()
 
@@ -177,7 +186,11 @@ PANELS = """() => {
     sealNote: (ra.querySelector('.stats-seal-note') || {}).textContent || null,
     staleBanner: !!ra.querySelector('[data-seal-stale]'),
     quantify: (document.querySelector('#quantify-area .quantify-seal-note') || {}).textContent || null,
-    sidebarPct: state.peaks.map(p => document.querySelector('#peak-item-' + p.id + ' .peak-summary-val:nth-of-type(3)')),
+    sidebarPct: state.peaks.map(p => { const vals = document.querySelectorAll('#peak-item-' + p.id + ' .peak-summary-val'); return vals[2] ? vals[2].textContent : null; }),
+    wantPct: (() => { const a = state.peaks.map(p => comp(p).area), unsup = state.peaks.map(p => _sealUnsupported(v, p));
+                      const tot = a.reduce((t, x, i) => t + (unsup[i] ? 0 : x), 0);
+                      return a.map((x, i) => unsup[i] || !(tot > 0 && x > 0) ? '\u2014' : (x / tot * 100).toFixed(1) + '%'); })(),
+    rPanelText: (ra.querySelector('[data-xps-tip]') || {}).textContent || '',
   };
 }"""
 
@@ -189,6 +202,8 @@ def test_results_and_the_header_show_the_record_with_its_state(browser, server):
         assert "confirming" in got["header"] and got["chi2"] in got["header"], got
         assert got["sb"] == got["chi"] and got["stat"] == got["chi"], got
         assert got["areas"] and got["centres"], got
+        assert got["sidebarPct"] == got["wantPct"], got          # the sidebar's area % from the record's areas
+        assert got["rPct"] in got["rPanelText"] and "confirming" in got["rPanelText"] and "Excellent" not in got["rPanelText"], got
         assert got["sealNote"] and "confirming" in got["sealNote"], got
         assert got["quantify"] and "confirming" in got["quantify"], got
         assert "confirming" in got["sbR"] and got["rPct"] in got["sbR"], got
@@ -298,6 +313,7 @@ def test_the_starts_panel_and_use_this_solution_follow_the_state(browser, server
 
 def test_history_rows_and_previews_are_the_snapshots_record(browser, server):  # noqa: F811
     pg = _page(browser, server)
+    pg.evaluate(VERIFY)                                   # a record confirmed by the server reads "as recorded"
     try:
         got = pg.evaluate("""() => { const tab = _activeTab(), snap = tab.snapshots[0];
             _renderHistoryList(); const meta = document.querySelector('#hist-row-' + snap.id + ' .hist-row-chi');
@@ -364,7 +380,7 @@ def test_tsv_and_csv_export_the_record_and_its_state(browser, server):  # noqa: 
         # an edit: the live recompute, labelled, and no fit state line
         pg.evaluate("() => { state.peaks[0].center += 0.05; }")
         tsv = _export(pg, "() => exportResults()", "tsv")
-        assert "# Fit state" not in tsv and "model has changed" in tsv, tsv[:300]
+        assert "# Fit state: STALE (edited)" in tsv and "model has changed" in tsv, tsv[:300]   # the live recompute, labelled
     finally:
         pg.close()
 
@@ -382,5 +398,112 @@ def test_the_figure_record_and_the_fit_file_carry_the_record(browser, server):  
         chi = pg.evaluate("() => sealedState(state.fitResult, _activeTab()).view.statistics.chi2r")
         assert stats["chiReduced"] == chi and stats["sealState"] == "CURRENT" and stats["engine"] == "server", stats
         assert stats["record"]["engine"] == "server"
+    finally:
+        pg.close()
+
+
+
+# ── step 5 round 1 fixes ──
+def test_the_stack_updates_in_place_from_the_record_and_follows_a_verdict(browser, server):  # noqa: F811
+    pg = _page(browser, server)
+    try:
+        # a record whose subtracted envelope is NOT fitted_y − background (the stack must draw O's own array) and whose
+        # first component is recorded unsupported (PENDING applies recorded verdicts)
+        pg.evaluate(TAMPER, "s.O.fitted_sub = s.O.fitted_sub.map(v => v + 7); "
+                            "s.O.individual_peaks[0].support = { ...s.O.individual_peaks[0].support, supported: false }")
+        got = pg.evaluate("""() => { const src = _activeTab(); tabManager._syncActiveToRecord();
+            const stack = tabManager.createStackTab(); _addSpectrumToStack(stack, src.id);
+            document.getElementById('bg-sub-toggle').checked = true;
+            const env = () => state.chart.data.datasets.find(d => d._stackKey && d._stackKey.endsWith(':env'));
+            const peak0 = () => state.chart.data.datasets.find(d => d._stackKey && d._stackKey.endsWith(':peak:' + src.peaks[0].id));
+            const O = src.fitResult.seal.O;
+            _updateStackChart(stack, { invalidate: 'datasets' });
+            const built = env().data.every((p, i) => Object.is(p.y, O.fitted_sub[i]));
+            stack.verticalOffset = 0; _updateStackChart(stack);           // the in-place path (a slider)
+            const inPlace = env().data.every((p, i) => Object.is(p.y, O.fitted_sub[i]));
+            return { built, inPlace, label: peak0().label, envLabel: env().label, srcId: src.id }; }""")
+        assert got["built"] and got["inPlace"], got
+        assert got["label"].endswith("(" + pg.evaluate("() => _UNSUPPORTED_LABEL") + ")") and "confirming" in got["envLabel"], got
+        # the server's check fails while the stack is shown: the verdict repaints it in place — no flag, "no longer applies"
+        pg.evaluate("async (id) => { await _ensureVerified(tabManager._getTab(id)); }", got["srcId"])
+        after = pg.evaluate("""(id) => { const ds = state.chart.data.datasets, t = tabManager._getTab(id);
+            return { peak: ds.find(d => d._stackKey && d._stackKey.endsWith(':peak:' + t.peaks[0].id)).label,
+                     env: ds.find(d => d._stackKey && d._stackKey.endsWith(':env')).label }; }""", got["srcId"])
+        assert "(" + pg.evaluate("() => _UNSUPPORTED_LABEL") + ")" not in after["peak"] and "no longer applies" in after["env"], after
+    finally:
+        pg.close()
+
+
+def test_history_judges_each_snapshot_by_its_own_record(browser, server):  # noqa: F811
+    pg = _page(browser, server)
+    try:
+        pg.evaluate(VERIFY)
+        # a later edit does not make the snapshot's record fail: it is judged by itself, not by the live model
+        pg.evaluate("() => { state.peaks[0].center += 0.2; updatePlot(); showHistoryModal(); }")
+        row = pg.evaluate("() => document.querySelector('#history-list .hist-row-chi').textContent")
+        assert "as recorded" in row, row
+        # a snapshot whose record does not hold: its row says so, without statistics, and its preview draws no record
+        pg.evaluate("""() => { const t = _activeTab(), snap = t.snapshots[0], s = structuredClone(snap.fitResult.seal);
+            s.O.fitted_y[2] += 1e-6; snap.fitResult = { ...snap.fitResult, seal: _makeSeal(s) }; _renderHistoryList(); }""")
+        pg.wait_for_function("() => /record does not hold/.test(document.querySelector('#history-list .hist-row-meta').textContent)", timeout=30000)
+        got = pg.evaluate("""() => { const t = _activeTab(), snap = t.snapshots[0]; _historyPreviewSnap(snap.id);
+            const ds = state.chart.data.datasets.find(d => d._historyPreview);
+            return { meta: document.querySelector('#history-list .hist-row-meta').textContent, label: ds.label }; }""")
+        assert "χ" not in got["meta"] and "record does not hold" in got["label"], got
+    finally:
+        pg.close()
+
+
+def test_history_shows_an_unconfirmed_snapshot_as_unconfirmed(browser, server):  # noqa: F811
+    pg = _page(browser, server)
+    try:
+        pg.route("**/api/verify-fit", lambda route: route.abort())
+        pg.evaluate("() => { showHistoryModal(); }")
+        pg.wait_for_function("() => /unconfirmed/.test(document.querySelector('#history-list .hist-row-chi').textContent)", timeout=30000)
+    finally:
+        pg.close()
+
+
+@pytest.mark.parametrize("local", [False, True])
+def test_a_fit_file_keeps_its_engine_through_a_save_and_import(browser, server, local):  # noqa: F811
+    pg = _page(browser, server, "gauss_voigt_linear_avg3_window", local=local)
+    try:
+        pg.evaluate(CAPTURE)
+        name = pg.evaluate("() => (document.getElementById('save-fname').value.trim() || 'spectrum') + '.fit.json'")
+        fj = _export(pg, "() => _doSaveFit()", name)
+        import json
+        data = json.loads(fj)
+        assert data["fitStatistics"]["reportable"] is (not local), data["fitStatistics"]
+        got = pg.evaluate("""(text) => { const d = JSON.parse(text); tabManager.createTab('imp', state.rawBE.slice(), state.rawIntensity.slice());
+            _applyFitJSON(d); return { localModel: _isLocalModel(), prov: _activeTab().modelProvenance }; }""", fj)
+        assert got["localModel"] is local, got
+    finally:
+        pg.close()
+
+
+def test_a_stale_sealed_fit_exports_its_failed_check(browser, server):  # noqa: F811
+    pg = _page(browser, server)
+    try:
+        pg.evaluate(CAPTURE)
+        pg.evaluate(TAMPER, "s.O.statistics.chi_square *= 1.000001")
+        pg.evaluate(VERIFY)
+        assert pg.evaluate(STATE) == "stale"
+        tsv = _export(pg, "() => exportResults()", "tsv")
+        assert "# Fit state: STALE (statistics)" in tsv and "record does not hold (statistics)" in tsv, tsv[:400]
+        rec = _export(pg, "() => _doPublicationExport()", "png-record")
+        assert '"sealState":"STALE (statistics)' in rec, rec[:300]
+    finally:
+        pg.close()
+
+
+def test_xlsx_carries_the_state_and_the_provenance(browser, server):  # noqa: F811
+    pg = _page(browser, server)
+    try:
+        if not pg.evaluate("() => typeof XLSX !== 'undefined'"):
+            pytest.skip("the XLSX library did not load (offline)")
+        rows = pg.evaluate("""() => { let info = null; const w = XLSX.writeFile; XLSX.writeFile = (wb) => { info = XLSX.utils.sheet_to_json(wb.Sheets['Info'], { header: 1 }); };
+            try { exportFitTable('xlsx'); } finally { XLSX.writeFile = w; } return info; }""")
+        flat = [" ".join(str(c) for c in r) for r in rows]
+        assert any(r.startswith("Fit state PENDING") for r in flat), flat
     finally:
         pg.close()

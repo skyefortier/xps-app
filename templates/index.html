@@ -9289,6 +9289,22 @@ function _ensureVerified(owner, retry = false, fromDeployment = false) {
   }
   return _verifySeal(owner, seal, 'background');   // "check again" supersedes an attempt in flight (the latest attaches)
 }
+// A RECORD not installed on its tab (a history snapshot): its server check, cached per seal like any other numerical
+// answer (owner live), never attached to a fit operation; the history list repaints when it lands.
+const _sealDetached = new WeakSet();
+function _verifyRecordOnly(owner, seal) {
+  if (!seal || seal.engine !== 'server' || _sealVerdicts.has(seal) || _sealUnreachable.has(seal) || _sealDetached.has(seal)) return null;
+  _sealDetached.add(seal);
+  const checks = seal.producer === 'autoFit' && seal.E ? [[seal.E.R, seal.E.O], [seal.R, seal.O]] : [[seal.R, seal.O]];
+  return _settleChecks(checks).then(({ verdict: v }) => {
+    _sealDetached.delete(seal);
+    if (!_ownerLive(owner) || _sealVerdicts.has(seal)) return null;
+    if (v.unreachable) _sealUnreachable.set(seal, true);
+    else _sealVerdicts.set(seal, { state: v.state, check: v.check || null, reason: v.reason || '', software: v.software || null });
+    _onSealVerdict(owner, seal);
+    return v;
+  });
+}
 // A seal's verdict changed: the consumers repaint (step 7 wires them; until then an event for tests and observers).
 function _onSealVerdict(owner, seal) {
   try { window.dispatchEvent(new CustomEvent('xps-seal-verdict', { detail: { owner, seal } })); } catch (e) { /* no window */ }
@@ -9300,6 +9316,9 @@ function _repaintForSeal(owner) {
   if (typeof tabManager === 'undefined' || !tabManager) return;
   const active = _activeTab();
   if (!active) return;
+  // the history list judges its snapshots' records (step 5, Codex round 1)
+  const hp = document.getElementById('history-panel');
+  if (active === owner && hp && hp.classList.contains('open') && typeof _renderHistoryList === 'function') _renderHistoryList();
   if (active === owner) { updatePlot(); return; }
   if (isStackTab(active) && active.entries.some(e => e.sourceTabId === owner.id)) {
     for (const e of active.entries) if (e.sourceTabId === owner.id) e._renderDataCache = null;
@@ -9309,7 +9328,9 @@ function _repaintForSeal(owner) {
 
 // The STATE of a fit (plan §5): { state: 'current' | 'pending' | 'unconfirmed' | 'stale' | 'peaks-only' | 'legacy'
 // | 'none', check, reason, view }. The only reader of R / O / D / E.
-function sealedState(fr, owner) {
+// `opts.live === false` (a history snapshot): the RECORD's own state — its bindings to the owner's spectrum and the
+// server's answer — without asking whether it describes the live model (a snapshot is not the live model).
+function sealedState(fr, owner, opts) {
   if (!fr) return { state: 'none', check: null, reason: '', view: null };
   const seal = fr.seal;
   if (!seal) return { state: 'legacy', check: null, reason: 'saved before sealed records — re-run this fit to confirm', view: null };
@@ -9320,7 +9341,7 @@ function sealedState(fr, owner) {
     const b = _sealBindings(seal, owner);
     if (!b.ok) return { state: 'stale', check: b.check, reason: b.reason, view };
     const projected = seal.engine === 'server' ? view.model : seal.O.model;
-    if (_sealLiveKey(owner) !== _sealKeyOf(projected, seal.R.context0.live))
+    if (!(opts && opts.live === false) && _sealLiveKey(owner) !== _sealKeyOf(projected, seal.R.context0.live))
       return { state: 'stale', check: 'edited', reason: 'the model or its context changed since this fit', view };
   } catch (e) {
     return { state: 'peaks-only', check: 'schema', reason: 'the saved fit record cannot be read (' + (e && e.message) + ')', view: null };
@@ -9410,6 +9431,7 @@ function _sealStaleNote(fr) {
 // The area a reader shows: a sealed fit's RECORDED component area while its record describes the model shown;
 // else the server's formula on the one grid (Q5).
 function _componentArea(p, grid) {
+  if (!_SEAL_AUTHORITATIVE) return _peakArea(p, grid);
   const s = _sealedDisplay(state.fitResult);
   const c = s && _sealComponent(s.view, p);
   return c ? c.area : _peakArea(p, grid);
@@ -9419,7 +9441,8 @@ function _componentArea(p, grid) {
 function _exportSealState(fr) {
   if (!_SEAL_AUTHORITATIVE || !fr || !fr.seal) return '';
   const s = _sealStateOf(fr);
-  return s.state.toUpperCase() + (s.state === 'current' ? '' : ': ' + (s.state === 'pending' ? 'confirming\u2026 (the server has not yet checked this record)' : s.reason));
+  return s.state.toUpperCase() + (s.state === 'current' ? '' : (s.check && s.state !== 'pending' ? ' (' + s.check + ')' : '') +
+    ': ' + (s.state === 'pending' ? 'confirming\u2026 (the server has not yet checked this record)' : s.reason));
 }
 function _exportRecordOf(fr) {
   if (_SEAL_AUTHORITATIVE && fr && fr.seal) { const st = _sealStateOf(fr); return st.view ? st.view.record : null; }
@@ -9428,6 +9451,7 @@ function _exportRecordOf(fr) {
 // The fitted values a reader shows for a live peak: the sealed view's model entry (names, colours and visibility
 // stay the live peak's), else the peak.
 function _shownPeak(p) {
+  if (!_SEAL_AUTHORITATIVE) return p;
   const s = _sealedDisplay(state.fitResult);
   const q = s && s.view.model.find(m => String(m.id) === String(p.id));
   return q ? { ...p, ...q, name: p.name, color: p.color, visible: p.visible } : p;
@@ -10206,13 +10230,16 @@ function _applyStatDisplay(fr) {
   const fq = document.getElementById('fit-quality');
   const sb = document.getElementById('sb-chi');
   const st = (fr && fr === state.fitResult) ? _statsLiveState() : 'current';
-  if (fr && Number.isFinite(fr.chiReduced) && st === 'stale') {
+  // a sealed fit has its statistic in its record (a loaded one holds nothing else): the record decides, not a copy
+  const sealedFr = _SEAL_AUTHORITATIVE && !!fr && !!fr.seal;
+  const hasStat = !!fr && (sealedFr ? (st === 'stale' || Number.isFinite(_shownStats(fr).chiReduced)) : Number.isFinite(fr.chiReduced));
+  if (hasStat && st === 'stale') {
     // F1: the statistic belongs to the previous model: say so, show no number
     const sealCheck = _SEAL_AUTHORITATIVE && fr.seal ? sealedState(fr, _activeTab()).check : null;
     if (fq) { fq.textContent = _fitStatLabel(fr) + (_SEAL_AUTHORITATIVE && fr.seal ? (sealCheck === 'edited' ? ' \u2014 (model changed)' : ' \u2014 (check failed: ' + sealCheck + ')')
       : _restoredStale(fr) ? (fr.backgroundStale ? ' \u2014 (background changed)' : ' \u2014 (Voigt mix)') : ' \u2014 (model changed)'); fq.setAttribute('data-xps-tip', _staleNoteOf(fr)); }
     if (sb) sb.textContent = '\u2014';
-  } else if (fr && Number.isFinite(fr.chiReduced)) {
+  } else if (hasStat) {
     const tip = (_isLocalFit(fr) ? _LOCALFIT_TOOLTIP : _CHISQ_TOOLTIP) + (st === 'unverified' ? '\n\n' + _STATS_UNVERIFIED_NOTE : '');
     if (fq) { fq.textContent = _fitStatusText(fr); fq.setAttribute('data-xps-tip', tip); }
     if (sb) sb.textContent = _shownStats(fr).chiReduced.toFixed(3);
@@ -10683,7 +10710,9 @@ function runFitLocal(be, bgSubtracted, bgIntensity, options = {}) {
   notify('Local fit converged in ' + iterations + ' iteration' + (iterations === 1 ? '' : 's') +
          '. \u03c7\u00b2\u1d63 = ' + chiReduced.toFixed(3) + ' (Poisson-weighted; no uncertainties). Starting point only: run Fit before reporting.', 'amber');
   _autoSnapshot();
-  return { success: true, engine: 'local', iterations, acceptedSteps, chiReduced, certifyRestarts };
+  // the value its callers report (Batch Fit's summary) is the sealed local O's own χ²ᵣ when there is one (plan §6.4)
+  const _sealedO = state.fitResult && state.fitResult.seal && state.fitResult.seal.engine === 'local' ? state.fitResult.seal.O : null;
+  return { success: true, engine: 'local', iterations, acceptedSteps, chiReduced: _sealedO ? _sealedO.chi2r : chiReduced, certifyRestarts };
 }
 
 function solveLinear(A, b, n) {
@@ -11957,7 +11986,7 @@ function _buildStackDatasets(stackTab) {
     for (const pc of rdPeaks) {
       datasets.push({
         _stackKey: e.id + ':peak:' + pc.peak.id,
-        label: (pc.peak.name || ('peak ' + pc.peak.id)) + (_isUnsupported(pc.peak, _startsRecordKey(src), src) ? ' (' + _UNSUPPORTED_LABEL + ')' : ''),
+        label: _stackPeakLabel(pc, src),
         // BG-sub view: pure peak shape (bg-subtracted level).
         // Raw view: peak + bg (raw level).
         data: useBgSub
@@ -12002,13 +12031,11 @@ function _buildStackDatasets(stackTab) {
     // envelope-pill off or per-entry showFit off).
     let envData = [];
     if (rd && rd.be.length) {
-      envData = useBgSub
-        ? rd.be.map((b, i) => ({ x: b, y: (rd.fittedSub ? rd.fittedSub[i] : rd.fittedY[i] - rd.bg[i]) + yShift }))
-        : rd.be.map((b, i) => ({ x: b, y: rd.fittedY[i]              + yShift }));
+      envData = rd.be.map((b, i) => ({ x: b, y: _stackEnvY(rd, i, useBgSub) + yShift }));
     }
     datasets.push({
       _stackKey: e.id + ':env',
-      label: (src ? src.name : 'entry') + (src && (rd && rd.sealState ? !rd.reportable : _isLocalFit(src.fitResult)) ? ' (fit: local, starting point)' : ' (fit)'),
+      label: _stackEnvLabel(src, rd),
       data: envData,
       borderColor: _colorWithAlpha(e.color, 0.7),
       backgroundColor: _colorWithAlpha(e.color, 0.7),
@@ -12021,6 +12048,27 @@ function _buildStackDatasets(stackTab) {
     if (isVisible) visIdx++;
   }
   return datasets;
+}
+
+// ONE reading of an entry's envelope and labels for both stack paths — the build (_buildStackDatasets) and the
+// in-place update (_updateStackChart) — so a slider, a pill or a verdict repaint never changes what a sealed
+// source draws (seal step 5, Codex round 1: the update path rebuilt the subtracted envelope as fittedY − bg).
+function _stackEnvY(rd, i, useBgSub) {
+  return useBgSub ? (rd.fittedSub ? rd.fittedSub[i] : rd.fittedY[i] - rd.bg[i]) : rd.fittedY[i];
+}
+function _stackPeakLabel(pc, src) {
+  return (pc.peak.name || ('peak ' + pc.peak.id)) + (_isUnsupported(pc.peak, _startsRecordKey(src), src) ? ' (' + _UNSUPPORTED_LABEL + ')' : '');
+}
+// The envelope's label: the designation and, for a sealed source, its state (plan §5: never only a tooltip).
+function _stackEnvLabel(src, rd) {
+  if (!src) return 'entry (fit)';
+  const local = rd && rd.sealState ? !rd.reportable : _isLocalFit(src.fitResult);
+  let state = '';
+  if (_SEAL_AUTHORITATIVE && src.fitResult && src.fitResult.seal) {
+    const st = rd && rd.sealState ? rd.sealState : _statsRecordState(src);
+    state = st === 'pending' ? ', confirming\u2026' : st === 'unconfirmed' ? ', unconfirmed' : st === 'stale' ? ', no longer applies' : '';
+  }
+  return src.name + (local ? ' (fit: local, starting point' + state + ')' : (state ? ' (fit' + state + ')' : ' (fit)'));
 }
 
 // Destroy + rebuild path — used on entry add/remove or initial activation.
@@ -12175,11 +12223,8 @@ function _updateStackChart(stackTab, opts) {
     if (envIdx !== undefined) {
       const ds = state.chart.data.datasets[envIdx];
       ds.borderWidth = lineWidth;
-      ds.data = rd
-        ? (useBgSub
-            ? rd.be.map((b, i) => ({ x: b, y: (rd.fittedY[i] - rd.bg[i]) + yShift }))
-            : rd.be.map((b, i) => ({ x: b, y: rd.fittedY[i]              + yShift })))
-        : [];
+      ds.data = rd ? rd.be.map((b, i) => ({ x: b, y: _stackEnvY(rd, i, useBgSub) + yShift })) : [];
+      ds.label = _stackEnvLabel(src, rd);
       const m = state.chart.getDatasetMeta(envIdx);
       if (m) m.hidden = !envShown;
     }
@@ -12203,6 +12248,7 @@ function _updateStackChart(stackTab, opts) {
         if (pkIdx !== undefined) {
           const ds = state.chart.data.datasets[pkIdx];
           ds.borderWidth = lineWidth;
+          ds.label = _stackPeakLabel(pc, src);
           ds.data = useBgSub
             ? rd.be.map((b, i) => ({ x: b, y: pc.peakOnly[i] + yShift }))
             : rd.be.map((b, i) => ({ x: b, y: pc.y[i]        + yShift }));
@@ -12444,15 +12490,19 @@ function updatePlot() {
   // History snapshot preview overlay (cyan dashed, drawn on top)
   // seal step 5: a sealed snapshot previews ITS record — its own envelope on its own energies — never its peaks
   // re-evaluated over today's background (an alternative's preview is a model, not a fit: as before)
-  let prevView = null;
+  let prevView = null, prevNote = '';
   if (_SEAL_AUTHORITATIVE && _historyPreview && _historyPreview.fitResult && _historyPreview.fitResult.seal) {
-    try { prevView = _sealView(_historyPreview.fitResult.seal); } catch (e) { prevView = null; }
+    const st = _snapshotSealState(_activeTab(), _historyPreview);
+    if (st.view && st.state !== 'stale' && st.state !== 'peaks-only') {
+      prevView = st.view;
+      prevNote = st.state === 'current' ? ' (as recorded)' : ' (' + _sealStateText(st.state, st.reason) + ')';
+    } else prevNote = ' (record does not hold: model only)';
   }
   if (_historyPreview && _historyPreview.peaks && _historyPreview.peaks.length && plotBE.length) {
     const prevPeakY = prevView ? null : evalAllPeaks(plotBE, _historyPreview.peaks);
     const isLight = document.body.classList.contains('light-theme');
     datasets.push({
-      label: (_isLocalFit(_historyPreview.fitResult) ? 'Preview (local, starting point)' : 'Preview') + (prevView ? ' (as recorded)' : ''),
+      label: (_isLocalFit(_historyPreview.fitResult) ? 'Preview (local, starting point)' : 'Preview') + prevNote,
       _historyPreview: true,   // the glow plugin keys on this flag, not on the label text
       data: prevView
         ? prevView.energies.map((b, i) => ({ x: b, y: bgSubView ? prevView.fittedSub[i] : prevView.fittedY[i] }))
@@ -13055,15 +13105,15 @@ function _doSaveFit() {
       record: (r => _isFitRecord(r) ? r : null)(_exportRecordOf(state.fitResult)),   // the parameters' provenance (recording only)
       chiReduced: _shownStats(state.fitResult).chiReduced ?? null,
       engine: sd ? sd.engine : (state.fitResult.engine || null),
-      objective: sd ? sd.objective : (state.fitResult.objective || null),
+      objective: sd ? (sd.engine === 'local' ? sd.objective : null) : (state.fitResult.objective || null),   // a server result carries none (_isLocalProvenance reads a Poisson objective as local)
       weighting: sd ? sd.weighting : (state.fitResult.weighting || null),
       status: state.fitResult.status || null,
       ...(sv ? { sealState: sv } : {}),
       starts: _startsForSave(_startsIfCurrent(state.fitResult, _startsLiveKey())),
       startsModelKey: state.fitResult.startsModelKey || null,
-      chosenAlternative: _startsIfCurrent(state.fitResult, _startsLiveKey()) ? (state.fitResult.chosenAlternative || null) : null,
+      chosenAlternative: _startsIfCurrent(state.fitResult, _startsLiveKey()) ? _chosenOf(state.fitResult) : null,
       certificateMove: _certificateMoveIfCurrent(state.fitResult, _startsLiveKey()),
-      reportable: _isLocalFit(state.fitResult) ? false : (state.fitResult.reportable ?? null),
+      reportable: sd ? sd.reportable : (_isLocalFit(state.fitResult) ? false : (state.fitResult.reportable ?? null)),
       caveat: _localFitCaveat(state.fitResult) || state.fitResult.caveat || null,
       ..._statsSaveFields(_statsLiveState(), state.fitResult),   // F1: says plainly when the statistics belong to the previous model
     }))(_sealDesignation(state.fitResult), _exportSealState(state.fitResult)) : ((_activeTab() && _activeTab().modelProvenance) ? (_isLocalProvenance(_activeTab().modelProvenance) ? {
@@ -13908,11 +13958,17 @@ function exportResults() {
     (bgFail ? '# WARNING: ' + bgFail + ' The Background, BG-subtracted and Residual columns are empty.\n' : '');
   // F1: the columns are computed from the CURRENT peaks; after an edit they
   // are the edited, unfitted model, not the last fit's curve
-  const staleNote = _statsLiveState() === 'stale'
-    ? '# NOTE: the model has changed since the last fit: Model, Residual and the component columns are the current (unfitted) model, not a fitted result. Run Fit before reporting.\n' : '';
+  const _tsvSealCheck = _SEAL_AUTHORITATIVE && state.fitResult && state.fitResult.seal ? _sealStateOf(state.fitResult).check : null;
+  const staleNote = _statsLiveState() !== 'stale' ? ''
+    : (_tsvSealCheck && _tsvSealCheck !== 'edited')
+    ? '# NOTE: the last fit\'s record does not hold (' + _tsvSealCheck + '): Model, Residual and the component columns are the current (unfitted) model, not a fitted result. Run Fit before reporting.\n'
+    : '# NOTE: the model has changed since the last fit: Model, Residual and the component columns are the current (unfitted) model, not a fitted result. Run Fit before reporting.\n';
   // the record FOLLOWS the data (a blank line, then its lines): every existing line stays in place
-  const recLines = _fitRecordTextLines(state.fitResult && state.fitResult.record);
-  const csv = warning + staleNote + rows.map(r => r.join('\t')).join('\n') + (recLines.length ? '\n\n' + recLines.join('\n') : '');
+  const recLines = _fitRecordTextLines(_exportRecordOf(state.fitResult));   // a sealed fit's record is its view's
+  // a STALE sealed fit says WHICH check failed, and why (step 5, Codex round 1), beside today's note
+  const sealStale = _SEAL_AUTHORITATIVE && state.fitResult && state.fitResult.seal && _statsLiveState() === 'stale'
+    ? '# Fit state: ' + _exportSealState(state.fitResult) + '\n' : '';
+  const csv = warning + sealStale + staleNote + rows.map(r => r.join('\t')).join('\n') + (recLines.length ? '\n\n' + recLines.join('\n') : '');
   const blob = new Blob([csv], { type: 'text/tab-separated-values' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -14191,7 +14247,9 @@ function _doPublicationExport() {
     ctx.font = '38px Arial,sans-serif';
     ctx.fillStyle = '#555555'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
     if (state.fitResult && _figStats === 'stale') {
-      ctx.fillText('Model changed since the fit: no statistics, not a fitted result', plotX + 14, mainTop + 14);
+      const _figCheck = _SEAL_AUTHORITATIVE && state.fitResult.seal ? _sealStateOf(state.fitResult).check : null;
+      ctx.fillText(_figCheck && _figCheck !== 'edited' ? 'The fit\'s record does not hold (' + _figCheck + '): no statistics, not a fitted result'
+                                                     : 'Model changed since the fit: no statistics, not a fitted result', plotX + 14, mainTop + 14);
     } else if (state.fitResult) {
       const statLabel = !_isLocalFit(state.fitResult) ? '\u03c7\u00b2_r'
         : (_isUnweightedLocal(state.fitResult) ? 'Residual variance (local fit, not reportable)' : '\u03c7\u00b2_r (local fit, not reportable)');
@@ -14325,7 +14383,8 @@ function _doPublicationExport() {
   // ── Download ──────────────────────────────────────────────────────────────
   // the fit's record rides in the PNG itself (an iTXt chunk, keyword XPS-Fit-Record: recording only)
   const _rec0 = _exportRecordOf(state.fitResult);
-  const rec = _isFitRecord(_rec0) ? (_figSeal ? { ..._rec0, sealState: _exportSealState(state.fitResult) } : _rec0) : null;
+  // a sealed fit's chunk always carries its state — STALE with the failed check too (step 5, Codex round 1)
+  const rec = _isFitRecord(_rec0) ? (_SEAL_AUTHORITATIVE && state.fitResult && state.fitResult.seal ? { ..._rec0, sealState: _exportSealState(state.fitResult) } : _rec0) : null;
   canvas.toBlob(async blob => {
     if (!blob) { notify('Export failed.', 'red'); return; }
     _downloadBlob(rec ? await _pngWithText(blob, 'XPS-Fit-Record', JSON.stringify(rec)) : blob, fname + '.png');
@@ -17067,18 +17126,21 @@ function _renderHistoryList() {
 
   info.textContent = `${snaps.length} snapshot${snaps.length !== 1 ? 's' : ''} for "${tab.name}"`;
 
-  // seal step 5: a sealed snapshot shows ITS record's statistics (never a copy taken beside it), marked as recorded
+  // seal step 5: a sealed snapshot shows ITS record's statistics (never a copy taken beside it) with the record's own
+  // state (its bindings to this spectrum and the server's answer, not the live model's): none when it does not hold
   const statsOf = s => {
-    let sv = null;
-    if (_SEAL_AUTHORITATIVE && s.fitResult && s.fitResult.seal) { try { sv = _sealView(s.fitResult.seal); } catch (e) { sv = null; } }
-    return sv ? { chi: sv.statistics.chi2r, r: sv.rPanel ? sv.rPanel.rPct : null, sealed: true }
-              : { chi: s.chi, r: s.rFactor, sealed: false };
+    if (!(_SEAL_AUTHORITATIVE && s.fitResult && s.fitResult.seal)) return { chi: s.chi, r: s.rFactor, sealed: false };
+    const st = _snapshotSealState(tab, s);
+    if (!st.view || st.state === 'stale' || st.state === 'peaks-only')
+      return { chi: null, r: null, sealed: true, note: 'record does not hold: ' + st.reason };
+    return { chi: st.view.statistics.chi2r, r: st.view.rPanel ? st.view.rPanel.rPct : null, sealed: true,
+             note: st.state === 'current' ? 'as recorded' : _sealStateText(st.state, st.reason) };
   };
   list.innerHTML = snaps.map(s => { const st = statsOf(s); return `
     <div class="hist-row" id="hist-row-${s.id}">
       <div class="hist-row-main">
         <div class="hist-row-label">${_escHtml(s.label)}</div>
-        <div class="hist-row-meta">${s.timestamp} &middot; ${(s.peaks || []).length} peak${(s.peaks || []).length !== 1 ? 's' : ''}${typeof st.chi === 'number' && isFinite(st.chi) ? ' &middot; <span class="hist-row-chi"' + (st.sealed ? ' data-sealed="1"' : '') + '>' + _escHtml(_fitStatLabel(s.fitResult)) + ' = ' + st.chi.toFixed(3) + (_isLocalFit(s.fitResult) ? ' (starting point)' : '') + (st.sealed ? ' (as recorded)' : '') + '</span>' : ''}${typeof st.r === 'number' && isFinite(st.r) ? ', R = ' + st.r.toFixed(1) + '%' : ''}</div>
+        <div class="hist-row-meta">${s.timestamp} &middot; ${(s.peaks || []).length} peak${(s.peaks || []).length !== 1 ? 's' : ''}${typeof st.chi === 'number' && isFinite(st.chi) ? ' &middot; <span class="hist-row-chi"' + (st.sealed ? ' data-sealed="1"' : '') + '>' + _escHtml(_fitStatLabel(s.fitResult)) + ' = ' + st.chi.toFixed(3) + (_isLocalFit(s.fitResult) ? ' (starting point)' : '') + (st.sealed ? ' (' + _escHtml(st.note) + ')' : '') + '</span>' : (st.note ? ' &middot; <span class="hist-row-chi" data-sealed="1" data-seal-stale="1">' + _escHtml(st.note) + '</span>' : '')}${typeof st.r === 'number' && isFinite(st.r) ? ', R = ' + st.r.toFixed(1) + '%' : ''}</div>
       </div>
       <div class="hist-row-btns">
         <button class="btn btn-sm" onclick="_historyPreviewSnap(${s.id})" title="Overlay this snapshot on the chart">Preview</button>
@@ -17129,6 +17191,15 @@ function _peaksLoadError(peaks) {
   if (!Array.isArray(peaks)) return null;
   for (const p of peaks) { const e = _peakLoadError(p); if (e) return e; }
   return null;
+}
+
+// A history snapshot's sealed record judged by itself (sealedState without the live key), its check started if it
+// has none (a detached attempt).
+function _snapshotSealState(tab, snap) {
+  const fr = snap.fitResult;
+  const st = sealedState({ seal: fr.seal }, tab, { live: false });
+  if (st.state === 'pending') _verifyRecordOnly(tab, fr.seal);
+  return st;
 }
 
 function _historyPreviewSnap(snapId) {

@@ -222,7 +222,8 @@ test('publication figure: no label at the (zero) component, legend entry says so
   assert.match(fig, /if \(!p\.visible \|\| _isUnsupported\(p\)\) continue;\s*\/\/ no label/);
   assert.match(fig, /label: _isUnsupported\(p\) \? p\.name \+ ' \(not supported by the data\)' : p\.name, type: 'fill'/);
   assert.match(extractFn('updatePlot'), /const unsup = sv \? _sealUnsupported\(sv, p\) : _isUnsupported\(p\);[\s\S]*?label: unsup \? p\.name \+ ' \(' \+ _UNSUPPORTED_LABEL \+ '\)' : p\.name,/);
-  assert.match(extractFn('_buildStackDatasets'), /_isUnsupported\(pc\.peak, _startsRecordKey\(src\), src\) \? ' \(' \+ _UNSUPPORTED_LABEL \+ '\)' : ''/);
+  assert.match(extractFn('_stackPeakLabel'), /_isUnsupported\(pc\.peak, _startsRecordKey\(src\), src\) \? ' \(' \+ _UNSUPPORTED_LABEL \+ '\)' : ''/);
+  for (const f of ['_buildStackDatasets', '_updateStackChart']) assert.match(extractFn(f), /_stackPeakLabel\(pc, src\)/, f);
   assert.match(extractFn('exportResults'), /_isUnsupported\(p\) \? p\.name \+ ' \(not supported by the data\)' : p\.name/);
 });
 
@@ -347,7 +348,7 @@ test('a key change re-renders every consumer of the verdict — each compared wi
 });
 
 test('stack tabs judge a source component against the SOURCE record\'s key', () => {
-  assert.match(extractFn('_buildStackDatasets'), /_isUnsupported\(pc\.peak, _startsRecordKey\(src\), src\)/);
+  assert.match(extractFn('_stackPeakLabel'), /_isUnsupported\(pc\.peak, _startsRecordKey\(src\), src\)/);
   const c = core();
   const p = { id: 1, support: { supported: false, fitKey: 'SRC' } };
   assert.strictEqual(c._isUnsupported(p, 'SRC'), true);
