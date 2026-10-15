@@ -135,22 +135,55 @@ def test_the_numerics_are_the_records_against_the_reruns_own(client):  # noqa: F
     assert got["numerics"] == {"same": True, "differing": []}, got
 
 
-# ── Codex 1d round 2: hostile inputs that pass the form are refused (4xx), never answered 500 ────────────────────────
-def test_bounds_whose_span_overflows_are_refused(client):  # noqa: F811
-    a = _record(client)
-    p = a["individual_peaks"][0]["params"]["fwhm"]
-    p["min"], p["max"] = -(10 ** 308), 10 ** 308                       # each a float represents; their span does not
-    got = _compare(client, a, copy.deepcopy(a), status=400)
-    assert "overflow" in got["error"], got
+# ── Codex 1d rounds 2-3: hostile inputs are refused (4xx) on EITHER side, before any comparison ───────────────────
+def _with_span(o, lo, hi):
+    p = o["individual_peaks"][0]["params"]["fwhm"]
+    p["min"], p["max"] = lo, hi
 
 
-def test_a_link_chain_deeper_than_the_comparison_follows_is_refused(client):  # noqa: F811
-    a = _record(client)
-    ip = a["individual_peaks"][0]
+def _with_chain(o, n=1100):
+    ip = o["individual_peaks"][0]
     tmpl = ip["params"]["center"]
-    chain = {}
-    for i in range(1100):                                               # p<id>_l0 -> p<id>_l1 -> ... (bounds null)
-        chain[f"l{i}"] = {**tmpl, "min": None, "max": None, "vary": False, "expr": f"p{ip['id']}_l{i + 1}"}
-    ip["params"].update(chain)
-    r = client.post("/api/compare-fits", json={"a": a, "b": copy.deepcopy(a)})
-    assert r.status_code == 400, (r.status_code, r.get_json())
+    for i in range(n):                                                  # p<id>_l0 -> p<id>_l1 -> ... (bounds null)
+        ip["params"][f"l{i}"] = {**tmpl, "min": None, "max": None, "vary": False, "expr": f"p{ip['id']}_l{i + 1}"}
+
+
+def _with_signal(o):
+    o["counts"][0], o["background_y"][0] = 1e308, -1e308                  # each finite; their difference is not
+
+
+@pytest.mark.parametrize("hostile,words", [
+    (lambda o: _with_span(o, -(10 ** 308), 10 ** 308), "bound span"),       # integers
+    (lambda o: _with_span(o, -1e308, 1e308), "bound span"),                 # floats: their difference is inf, no exception
+    (_with_chain, "chain of parameter links"),
+    (_with_signal, "signal overflows"),
+])
+@pytest.mark.parametrize("side", ["a", "b", "both"])
+def test_a_hostile_side_is_refused_before_any_comparison(client, hostile, words, side):  # noqa: F811
+    a = _record(client)
+    h = copy.deepcopy(a)
+    hostile(h)
+    pair = {"a": (h, a), "b": (a, h), "both": (h, copy.deepcopy(h))}[side]
+    got = _compare(client, *pair, status=400)
+    assert words in got["error"] and got["error"].startswith(("a is not a fit response", "b is not a fit response")), got
+    if side == "b":
+        b_value = copy.deepcopy(h)
+        b_value["individual_peaks"][0]["params"]["fwhm"]["value"] = 1e307
+        _compare(client, a, b_value, status=400)
+
+
+def test_no_real_record_is_refused():
+    """The 202 + 126 records of seal 1b's run v2, when present: every one passes the scale checks (open bounds are
+    null, links one level deep)."""
+    import json
+    import os
+    path = os.environ.get("SEAL_1B_RECORDS")
+    if not path or not os.path.exists(path):
+        pytest.skip("SEAL_1B_RECORDS not set (the verbatim records are not committed)")
+    from app import create_app
+    app = create_app()
+    with app.test_client() as c:
+        for line in open(path):
+            O = json.loads(line)["O"]
+            r = c.post("/api/compare-fits", json={"a": O, "b": O})
+            assert r.status_code == 200 and r.get_json()["same"], r.get_json()

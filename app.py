@@ -32,8 +32,10 @@ DELETE /api/session/<id>    Delete session files
 from __future__ import annotations
 
 import json
+import re
 import logging
 import os
+import sys
 import threading
 import time
 import uuid
@@ -1445,6 +1447,45 @@ def _register_routes(app: Flask) -> None:
     # explicitly, so it reads 'caller' by construction; the seed itself is compared).
     _COMPARE_APART = ("starts", "software", "seed_source")
 
+    def _comparable_failure(O):
+        # Every SCALE the comparison measures a difference against, finite on BOTH sides, decided before comparing
+        # and whatever the comparison would traverse (Codex 1d round 3: a scale that overflows to infinity makes
+        # every difference vanish; a side the comparison does not read its bounds or links from was compared):
+        # the energy span, the background-subtracted signal, every parameter's bound span, and a chain of
+        # parameter links no deeper than the comparison follows (it follows them recursively). Real responses:
+        # open bounds are null, links one level deep (1b's 328 records).
+        try:
+            x = np.asarray(O["energy"], float)
+            net = np.asarray(O["counts"], float) - np.asarray(O["background_y"], float)
+        except (TypeError, ValueError):
+            return "its energies, counts or background are not numbers"
+        with np.errstate(over="ignore", invalid="ignore"):
+            if not np.isfinite(np.ptp(x)) or not np.isfinite(np.nanmax(np.abs(net), initial=0.0)):
+                return "its energy span or signal overflows the comparison's arithmetic"
+        exprs = {}
+        for pk in O.get("individual_peaks") or []:
+            for name, info in (pk.get("params") or {}).items():
+                if not isinstance(info, dict):
+                    continue
+                lo, hi = info.get("min"), info.get("max")
+                if lo is not None and hi is not None:
+                    with np.errstate(over="ignore", invalid="ignore"):
+                        if not np.isfinite(np.float64(hi) - np.float64(lo)):
+                            return f"a bound span ({name}) overflows the comparison's arithmetic"
+                exprs[f"p{pk.get('id')}_{name}"] = info.get("expr") or ""
+        limit = sys.getrecursionlimit() // 4
+        for start in exprs:                                   # each chain followed iteratively, cycles stopped
+            seen, frontier = {start}, [start]
+            for _depth in range(limit + 1):
+                frontier = [r for f in frontier for r in re.findall(r"[A-Za-z_][A-Za-z0-9_]*", exprs.get(f, ""))
+                            if r in exprs and r not in seen]
+                seen.update(frontier)
+                if not frontier:
+                    break
+            else:
+                return "a chain of parameter links is deeper than the comparison follows"
+        return None
+
     def _floats_only(x):
         # every number one a float represents (a JSON integer like 10**400 is refused, never compared)
         if isinstance(x, dict):
@@ -1477,6 +1518,8 @@ def _register_routes(app: Flask) -> None:
                         form = "it holds a number no float represents"
                 except RecursionError:
                     form = "it is nested too deeply"
+            if form is None:
+                form = _comparable_failure(O)
             if form:
                 return _err(f"{name} is not a fit response: {form}")
         try:

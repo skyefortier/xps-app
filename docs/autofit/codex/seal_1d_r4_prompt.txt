@@ -1,0 +1,15 @@
+CORRECTNESS REVIEW, ROUND 4, of unit 1d ("Re-run this fit") of the sealed fit record in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software.
+
+REPO: this checkout, branch seal-1d, on seal-1c-s8. 1d is `git diff seal-1c-s8..HEAD`. Read docs/autofit/codex/seal_1d_r1_prompt.txt … r3_prompt.txt for what 1d is. Round 3 (both runs NO-GO on MINORs only; verdicts seal_1d_r3_verdict_run{A,B}.md): catching OverflowError / RecursionError covered only what the comparator happened to raise — floating-point bounds -1e308 / 1e308 give an infinite span without raising (an infinite tolerance: `same: true` with a value moved 1e307), and hostile bounds or a link chain placed only in `b` were never traversed (the comparator reads bounds and links from `a`), so they were compared rather than refused.
+
+WHAT THIS ROUND CHANGES: `_comparable_failure(O)` (app.py) refuses a side BEFORE any comparison, on both sides, whatever the comparator would traverse: every SCALE the comparison measures a difference against must be finite — the energy span, the background-subtracted signal, every parameter's bound span (computed in float64, so -1e308 / 1e308 is refused) — and no chain of parameter links may be deeper than the comparison follows (followed iteratively, cycles stopped, limit a quarter of the recursion limit). Real responses: open bounds are null and links one level deep; all 328 records of seal 1b's run v2 pass (test_no_real_record_is_refused, with SEAL_1B_RECORDS set). The round-2 catches stay as a second line. Tests: the integer and float spans, the link chain and an overflowing signal, each on side a, side b and both (b also with a value moved 1e307) — 12 cases, every one failing when the check is removed.
+
+ANSWER EACH (cite file:line):
+1. Is every round-3 finding resolved, or a stated limit? List each with its status.
+2. Is there any remaining input to /api/compare-fits, on either side, that is compared although a scale the comparison uses is non-finite, or answered 500? Name the path.
+3. Can the new check refuse a response a real fit produces?
+4. Do the new tests fail on the defects they name?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.
