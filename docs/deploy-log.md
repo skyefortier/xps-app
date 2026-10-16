@@ -4,7 +4,7 @@ What went to production (i9 LaunchAgent, xps.fortierlab.org), newest first.
 One entry per deploy; an item that changes behaviour for every user gets its
 own bullet even when it shipped inside a larger unit, so it can be found
 later. Procedure: [DEPLOY.md](../DEPLOY.md). The xps2 droplet is deployed by
-the owner and may lag.
+scripts/deploy_xps2.sh with every deploy since 2026-10-16 (DEPLOY.md, step 5).
 
 ## 2026-10-16 — xps2 droplet brought up to production main (ef750f6)
 
