@@ -6,6 +6,44 @@ own bullet even when it shipped inside a larger unit, so it can be found
 later. Procedure: [DEPLOY.md](../DEPLOY.md). The xps2 droplet is deployed by
 scripts/deploy_xps2.sh with every deploy since 2026-10-16 (DEPLOY.md, step 5).
 
+## 2026-10-16 — Sealed fit record (option b), "Re-run this fit", LA made reproducible — both machines (651c756)
+
+- **What students see (release note: `docs/comms/2026-10-16-sealed-fit-record-note.md`, HELD for the owner to
+  send):** every server fit carries its record (request, data, the server's reply) and every reader — Results,
+  chart, exports, saves — reads its numbers from it; the server recomputes the record whenever the fit is shown:
+  "confirming…", then no marker (confirmed), or "unconfirmed: <why>" (shown as recorded). A fit edited since reads
+  "no longer applies" (F1). Projects saved before this release open "saved before sealed records" (or peaks only)
+  — never confirmed; press Run Fit. "Re-run this fit" under Results refits a sealed fit's own request with its own
+  seed and compares (reproduced within rounding / a different solution); it never changes the fit.
+- **χ² (not χ²ᵣ) corrected** on fits with links, locks, held or extra shape parameters: the page rebuilt it as
+  χ²ᵣ × (n − 3·peaks); on the 202 committed fits wrong on 113, median 1.0 %, max 2.9 %. Nothing else a student
+  sees moves (RMSE, R, curves, areas = the record to rounding; `docs/findings/seal-1c/README.md`).
+- **Projects larger** (× 2.73 on the committed projects; a seal ≈ 26 KB gzipped, at most 38 KB).
+- **LA(α,β,m) bit-reproducible** (NUMERICS_VERSION 2026-10-15): its convolution summed in one fixed order (np.convolve's
+  BLAS dot rounded differently per process). Seal 1b's 107 LA requests in four settings: 307/428 → 428/428
+  consistent on the i9, 428/428 on xps2. LA fits slower (owner: accepted, no FFT): median 1.26 → 1.51 s on the
+  committed LA requests; a held m = 50 synthetic fit ~20 → 45 s. `docs/findings/seal-la/README.md`.
+- **Two machines:** a record made on one and re-checked on the other reads UNCONFIRMED about half the time (macOS
+  vs Linux exp/pow; never mismatch) and now says so plainly: "made on a different platform; exact recheck not
+  possible here — use Re-run this fit" (owner; follow-up unit logged: confirmed within rounding on another
+  platform). Production check: 10 i9 records sent to xps2 — 7 consistent, 3 unconfirmed with that message.
+- **Accepted and logged (owner):** 1d's exact-structure validator still accepts some hand-made responses the server
+  cannot write (Codex rounds 10–16, MINORs only; never a 500, never a wrong comparison of a real record); the
+  redesign (check each record against its own request via /api/verify-fit first) is a logged unit.
+- Units and reviews: 1a′ server record + /api/verify-fit, 1b measurements, numerics rule, 1c page steps 2–8, 1d
+  Re-run, LA — Codex ×2 per unit (GO; 1d accepted with its logged class); plan
+  `docs/superpowers/plans/2026-10-15-seal-1d-rerun.md` and the 1c plan. Full suite on the released code: 2143
+  passed, 9 skipped; JS 41/41 files.
+- **Deploy:** i9 ff-only to 651c756 (main's ops commits merged into the stack), constraints check equal, kickstart,
+  :5050 + public health ok, reference ok. xps2: `scripts/deploy_xps2.sh 651c756` PASS (record commit 651c756,
+  git_dirty false; :5000 refused outside). Production browser check (`scripts/seal_production_check.py`) PASS on
+  BOTH xps.fortierlab.org and xps2.fortierlab.org: the seven committed projects reopen 81 "saved before sealed
+  records" + 40 peaks-only, none current, no page error; a fresh C 1s fit confirmed, its record naming 651c756
+  clean; Re-run this fit reproduced within rounding, fit unchanged; a fresh U 4f LA fit confirmed and stayed
+  confirmed on three re-checks.
+- Not yet: the old-fit label reads "re-run this fit to confirm" while the Re-run button exists only for sealed
+  fits — for an old project the action is Run Fit (the student note says so); a one-string wording fix is pending.
+
 ## 2026-10-16 — Both machines from now on: `scripts/deploy_xps2.sh`, `constraints.txt`, manual failover (b5a4354)
 
 - **Process (owner):** every approved deploy goes to the i9 AND xps2 (DEPLOY.md step 5), in that

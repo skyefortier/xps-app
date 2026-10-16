@@ -67,7 +67,8 @@ def main():
         out[name] = {"pass": bool(passed), "detail": detail}
         print(f"{'ok  ' if passed else 'FAIL'} {name}: {json.dumps(detail)[:400]}", flush=True)
 
-    health = json.loads(urllib.request.urlopen(a.url + "/api/health", timeout=30).read())
+    req = urllib.request.Request(a.url + "/api/health", headers={"User-Agent": "Mozilla/5.0 (seal production check)"})
+    health = json.loads(urllib.request.urlopen(req, timeout=30).read())    # Cloudflare refuses urllib's own agent
     report("health", health.get("status") == "ok", health)
     with sync_playwright() as pw:
         br = pw.chromium.launch()
