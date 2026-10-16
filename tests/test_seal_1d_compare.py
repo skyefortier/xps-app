@@ -142,11 +142,14 @@ def _with_span(o, lo, hi):
 
 
 def _with_chain(o, n=1100):
-    ip = o["individual_peaks"][0]
-    tmpl = ip["params"]["center"]
-    for i in range(n):                                                  # p<id>_l0 -> p<id>_l1 -> ... (bounds null)
-        nxt = f"p{ip['id']}_l{i + 1}" if i < n - 1 else f"p{ip['id']}_center"   # each names one parameter that exists
-        ip["params"][f"l{i}"] = {**tmpl, "min": None, "max": None, "vary": False, "expr": nxt}
+    """n components, each centre linked to the next's, the last to the first component's: names a fit writes."""
+    base = o["individual_peaks"][0]
+    for i in range(n):
+        c = copy.deepcopy(base)
+        c["id"] = f"k{i}"
+        nxt = f"pk{i + 1}_center" if i < n - 1 else f"p{base['id']}_center"
+        c["params"]["center"] = {**base["params"]["center"], "min": None, "max": None, "vary": False, "expr": nxt}
+        o["individual_peaks"].append(c)
 
 
 def _with_signal(o):
@@ -158,8 +161,9 @@ def _with_wide_grid(o):
 
 
 def _with_link(o, expr):
-    ip = o["individual_peaks"][0]
-    ip["params"]["extra"] = {**ip["params"]["center"], "min": None, "max": None, "vary": False, "expr": expr}
+    """the hostile expression on the SECOND component's centre: a parameter a fit writes, so only the link is at issue"""
+    ip = o["individual_peaks"][1]
+    ip["params"]["center"] = {**ip["params"]["center"], "vary": False, "expr": expr}
 
 
 @pytest.mark.parametrize("hostile,words", [
@@ -266,7 +270,9 @@ def test_two_parameters_with_one_synthesized_name_are_refused(client):  # noqa: 
     h["individual_peaks"].append(other)
     for pair in ((h, a), (a, h), (h, copy.deepcopy(h))):
         got = _compare(client, *pair, status=400)
-        assert "share the name" in got["error"], got
+        # (since round 8 no two names a fit writes can coincide — none ends in `_<another name>` — so the parameter
+        # name itself is what refuses this one; the name check stays as a second line)
+        assert "share the name" in got["error"] or "x_fwhm) is not one a fit writes" in got["error"], got
 
 
 @pytest.mark.parametrize("expr", ["'p1_l1' and p1_center", "p1_center + p1_fwhm", "abs(p1_center)", "p1_center + inf",
@@ -279,4 +285,43 @@ def test_a_link_outside_the_fits_grammar_is_refused_on_either_side(client, expr)
     _with_link(h, expr.replace("p1_", f"p{pid}_"))
     for pair in ((h, a), (a, h)):
         got = _compare(client, *pair, status=400)
-        assert "not one a fit writes" in got["error"], got
+        assert "a link (" in got["error"] and "not one a fit writes" in got["error"], got        # the grammar, not another rule
+
+
+# ── Codex 1d round 8 ─────────────────────────────────────────────────────────────────────────────────────────────────
+def test_the_parameter_names_are_those_the_fit_writes():
+    import os
+    import re
+    import app as app_module
+    src = open(os.path.join(os.path.dirname(__file__), "..", "fitting.py"), encoding="utf-8").read()
+    assert app_module.FIT_PARAM_NAMES == set(re.findall(r'_set\("([a-z_]+)"', src)) | {"area"}
+
+
+def test_a_parameter_named_outside_the_fits_set_is_refused(client):  # noqa: F811
+    a = _record(client)
+    h = copy.deepcopy(a)
+    p = h["individual_peaks"][0]["params"]
+    for name in ("value", "min", "expr"):
+        p[name] = {**p["center"], "expr": None}
+    for pair in ((h, a), (a, h), (h, copy.deepcopy(h))):
+        got = _compare(client, *pair, status=400)
+        assert "is not one a fit writes" in got["error"], got
+
+
+def test_duplicate_ids_within_a_scattered_start_alternative_are_refused(client):  # noqa: F811
+    a = _record(client)
+    st, ips = a["starts"], a["individual_peaks"]
+    assert st["ran"] and len(st["fit"]["components"]) >= 2, st
+    alt = {"chi2r": st["fit"]["chi2r"] * 0.9, "n_starts": 1, "largest_centre_shift_from_start": st["fit"]["largest_centre_shift_from_start"],
+           "largest_fraction_difference_pp": 1.0,
+           "components": [{**c, "area": ip["params"]["area"]["value"],
+                           "params": {k: v["value"] for k, v in ip["params"].items() if k != "area"}}
+                          for c in st["fit"]["components"] for ip in ips if ip["id"] == c["id"]]}
+    ok = copy.deepcopy(a)
+    ok["starts"]["alternatives"], ok["starts"]["n_in_alternatives"] = [alt], 1
+    assert _compare(client, ok, copy.deepcopy(ok))["starts"]["same"] is True          # well formed, compared
+    h = copy.deepcopy(ok)
+    h["starts"]["alternatives"][0]["components"][1]["id"] = h["starts"]["alternatives"][0]["components"][0]["id"]
+    for pair in ((h, ok), (ok, h), (h, copy.deepcopy(h))):
+        got = _compare(client, *pair, status=400)
+        assert "scattered-start alternative share an id" in got["error"], got

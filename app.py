@@ -52,6 +52,12 @@ import same_fit
 import vgd_parser
 from xps_reference import XPSReferenceError, load_reference_cached
 
+# The parameters a fit writes (fitting.py's `_set("<name>", …)` calls, and each component's `area`; pinned by
+# tests/test_seal_1d_compare.py): /api/compare-fits refuses a record with any other name (seal 1d, Codex round 8:
+# names such as `value` / `min` / `expr` made the comparison read a parameter MAP as one parameter).
+FIT_PARAM_NAMES = frozenset({"alpha", "amplitude", "area", "asymmetry", "beta", "center", "fwhm", "gamma_asym",
+                             "gl_ratio", "m", "m_gauss"})
+
 # Upper bound on the Monte-Carlo uncertainty resampling count accepted by
 # /api/fit. Each perturbation re-runs the full composite fit, so an unbounded
 # value lets a single request occupy a worker for many minutes (audit F7).
@@ -1479,8 +1485,15 @@ def _register_routes(app: Flask) -> None:
         ids = [str(pk.get("id")) for pk in O.get("individual_peaks") or []]
         if len(set(ids)) != len(ids):
             return "two components share an id"                     # a fit never writes one (the server refuses it)
+        # nor within a scattered-start alternative: its widths are keyed by component id (Codex 1d round 8)
+        for alt in ((O.get("starts") or {}).get("alternatives") or []) if isinstance(O.get("starts"), dict) else []:
+            alt_ids = [str(c.get("id")) for c in (alt.get("components") or []) if isinstance(c, dict)] if isinstance(alt, dict) else []
+            if len(set(alt_ids)) != len(alt_ids):
+                return "two components of a scattered-start alternative share an id"
         for pk in O.get("individual_peaks") or []:
             for name, info in (pk.get("params") or {}).items():
+                if name not in FIT_PARAM_NAMES:
+                    return f"a parameter ({str(name)[:40]}) is not one a fit writes"
                 if not isinstance(info, dict):
                     continue
                 key = f"p{pk.get('id')}_{name}"

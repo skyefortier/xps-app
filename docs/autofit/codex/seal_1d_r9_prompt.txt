@@ -1,0 +1,15 @@
+CORRECTNESS REVIEW, ROUND 9, of unit 1d ("Re-run this fit") of the sealed fit record in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software.
+
+REPO: this checkout, branch seal-1d, on seal-1c-s8. 1d is `git diff seal-1c-s8..HEAD`. Read docs/autofit/codex/seal_1d_r1_prompt.txt … r8_prompt.txt for what 1d is. Round 8 (both runs NO-GO, one MINOR each; verdicts seal_1d_r8_verdict_run{A,B}.md; both confirmed the round-7 grammar fix and found no page-produced fit refused beyond the stated ±1e308 limit): (A) duplicate component ids WITHIN a scattered-start alternative let one component take another's position scale; (B) parameter records named `value` / `min` / `expr` made the comparator read a parameter MAP as one parameter, answering 500.
+
+WHAT THIS ROUND CHANGES: (A) a response whose scattered-start alternative has two components with one id is refused, on either side; (B) every parameter must be one a fit writes — `FIT_PARAM_NAMES` (app.py, module level) = fitting.py's `_set("<name>", …)` names plus `area`, pinned by a test that re-derives the set from fitting.py's source — else refused. Test fixtures that had used invented parameter names now use names a fit writes: the 1,100-link chain is 1,100 components each linking its centre to the next's; hostile link expressions sit on a real component's centre and the test now requires the LINK message (so the grammar, not another rule, refuses them). The synthesized-name collision of round 6 is now refused by the name set first (no two names a fit writes can coincide); its own check stays as a second line. Each new rule mutation-checked (removing the name set, the alternative-id check, or the whole-text grammar each fails its tests). 1d's three test files: 102 passed, including all 328 records of seal 1b's run v2 comparing `same` and real fits with offsets 1e-05 … -0.5.
+
+ANSWER EACH (cite file:line):
+1. Is every round-8 finding resolved?
+2. Is there any remaining input, on either side, that /api/compare-fits compares although a scale, id or link structure the comparison relies on is non-finite, ambiguous or beyond what it follows, or answers 500? Name the path.
+3. Can the check refuse a response a real fit produces?
+4. Do the new tests fail on the defects they name?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.
