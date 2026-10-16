@@ -249,6 +249,7 @@ def test_a_record_from_other_numerics_that_recomputes_differently_is_unconfirmed
     v = _verify(client, R, O2)
     assert v["state"] == "unconfirmed" and v["check"] == "numerics", v
     assert "numerics 2026-10-09 (here " + fitting.NUMERICS_VERSION + ")" in v["reason"] and "fitted_y" in v["reason"], v
+    assert v["reason"].startswith("made with other software; exact recheck not possible here \u2014 use Re-run this fit"), v
     O2["software"]["numerics"] = fitting.NUMERICS_VERSION            # the same numerics: the record does not hold
     v = _verify(client, R, O2)
     assert v["state"] == "mismatch", v
@@ -305,10 +306,14 @@ def test_a_request_this_server_cannot_read_reads_by_the_numerics_that_made_it(cl
     assert v["state"] == "unconfirmed" and v["check"] == "numerics" and "differs in request" in v["reason"], v
 
 
+# values that differ from ANY server's own (Codex: xps2's real identity, hard-coded here, failed on xps2)
+_OTHER_PLATFORM = {"python": "0.0.0-other", "os": "OtherOS 0", "blas": "other-blas 0"}
+
+
 @pytest.mark.parametrize("change,lead", [
-    ({"python": "3.12.3", "os": "Linux 6.8.0-106-generic", "blas": "scipy-openblas 0.3.31.188.0"}, "made on a different platform;"),
-    ({"numerics": "2026-10-09"}, "made with other software;"),
-    ({"numerics": "2026-10-09", "os": "Linux 6.8.0-106-generic"}, "made on a different platform with other software;"),
+    (_OTHER_PLATFORM, "made on a different platform;"),
+    ({"numerics": "0000-00-00"}, "made with other software;"),
+    ({"numerics": "0000-00-00", "os": "OtherOS 0"}, "made on a different platform with other software;"),
 ])
 def test_a_recheck_that_cannot_be_made_here_says_why_in_plain_words(client, sealed, change, lead):
     """Owner 2026-10-16 (the deploy to the i9 and xps2): a fit made on the other machine whose recomputation differs

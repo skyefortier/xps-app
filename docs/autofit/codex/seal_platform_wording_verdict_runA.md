@@ -1,0 +1,15 @@
+**One MINOR finding; no BLOCKER or MAJOR findings. The production change is wording-only and correct.**
+
+**MINOR — The new tests fail under xps2’s recorded identity.** [tests/test_seal_1a_verify.py:309](/Users/skyefortier/xps-app/.claude/worktrees/seal-la/tests/test_seal_1a_verify.py:309) hard-codes xps2’s Python, OS and BLAS as differing values. They match [xps2’s recorded identity](/Users/skyefortier/xps-app/.claude/worktrees/seal-la/docs/findings/seal-la/matrix/xps2/provenance.json:5). I reproduced two failures using that identity: the platform-only case returns `mismatch/request`; the mixed case correctly says “made with other software.” Generate values guaranteed to differ from the running server.
+
+1. **Classification and decisions:** Correct for every nonempty combination of differing identity fields; I exercised all **1,023 combinations**. The partition and wording are at [fitting.py:409](/Users/skyefortier/xps-app/.claude/worktrees/seal-la/fitting.py:409). Both server numerics branches call the helper, preserving their guards, state and check: [fitting.py:3721](/Users/skyefortier/xps-app/.claude/worktrees/seal-la/fitting.py:3721), [app.py:1423](/Users/skyefortier/xps-app/.claude/worktrees/seal-la/app.py:1423). Identical numerics never reach it. The helper and platform keys are excluded from the math digest at [scripts/numerics_digest.py:44](/Users/skyefortier/xps-app/.claude/worktrees/seal-la/scripts/numerics_digest.py:44).
+
+   One scope distinction: the page’s existing mixed-worker deployment warning also uses `unconfirmed/check=numerics`; it retains its separate, appropriate wording at [templates/index.html:9606](/Users/skyefortier/xps-app/.claude/worktrees/seal-la/templates/index.html:9606).
+
+2. **Page and control:** Yes. The page preserves the server reason at [templates/index.html:9611](/Users/skyefortier/xps-app/.claude/worktrees/seal-la/templates/index.html:9611) and renders it in the results banner at [templates/index.html:11245](/Users/skyefortier/xps-app/.claude/worktrees/seal-la/templates/index.html:11245). Unconfirmed fits remain eligible for display at [templates/index.html:9626](/Users/skyefortier/xps-app/.claude/worktrees/seal-la/templates/index.html:9626). `_canRerun` accepts such server fits, and the named button exists at [templates/index.html:9758](/Users/skyefortier/xps-app/.claude/worktrees/seal-la/templates/index.html:9758). Its handler refits the recorded request with its recorded seed.
+
+3. **Tests:** Partially establish it. The new assertions cover all three wording categories, but exclusively through an unreadable request ([tests/test_seal_1a_verify.py:317](/Users/skyefortier/xps-app/.claude/worktrees/seal-la/tests/test_seal_1a_verify.py:317)); they have the portability defect above. During this review, all three categories also passed through the actual recomputation-mismatch branch using an in-memory fixture. Numerics-version tests: **14 passed, 1 skipped**. Browser behavior was traced in source, not browser-executed.
+
+The test portability defect does not change production classification or scientific decisions. No files were changed by this review.
+
+VERDICT: GO
