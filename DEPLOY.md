@@ -59,7 +59,9 @@ Both machines install `pip install -r requirements.txt -c constraints.txt`.
 `constraints.txt` pins every package `requirements.txt` pulls in to the version
 production (the i9) runs. It is generated, not edited: after changing
 production's libraries, run `venv/bin/python scripts/gen_constraints.py` on the
-i9 and commit the result with the change.
+i9 and commit the result with the change. `scripts/gen_constraints.py --check`
+says whether an environment matches it exactly (every package, no more, no
+fewer); the xps2 script runs it on both machines.
 
 ## 5. Deploy xps2 too — every deploy, both machines (owner, 2026-10-16)
 
@@ -74,14 +76,18 @@ scripts/deploy_xps2.sh <commit>          # e.g. the merge commit just deployed
 scripts/deploy_xps2.sh --check <commit>  # checks only, changes nothing
 ```
 
-It refuses unless the commit is the i9's HEAD on `main` (clean) and is on
-`origin/main`, and unless the droplet fast-forwards to exactly it. It then
-installs the constrained libraries and verifies each, imports the app,
-restarts `xps-app` (nothing else), and checks: health on the droplet and at
-https://xps2.fortierlab.org; a fit's record naming the commit with
-`git_dirty: false`; port 5000 refusing connections from outside. `PASS` or a
-`FAILED:` line; after a failure it prints the rollback command (it does not
-roll back on its own). One deploy-log entry covers both machines.
+It refuses (`REFUSED:`, the droplet's application untouched) unless the
+commit is the i9's HEAD on `main` (clean) and on `origin/main`,
+`constraints.txt` matches production's venv, and the droplet's checkout is
+clean with disk to spare. It then saves the droplet's commit and a copy of its
+venv (`/root/backups/deploy-*`, the two newest kept), fast-forwards to exactly
+the commit, installs the constrained libraries and checks them, imports the
+app, restarts `xps-app` (nothing else), and checks: health on the droplet and
+at https://xps2.fortierlab.org; a fit's record naming the commit with
+`git_dirty: false`; port 5000 refusing connections from outside. `PASS`, or
+`FAILED:` with the exact rollback command (previous commit and venv) — it does
+not roll back by itself. One deploy-log entry covers both machines. Codex
+review: `docs/ops/codex/deploy_xps2_r{1,2,3}.md` (GO at round 3).
 
 ## 6. Manual failover: send xps.fortierlab.org to xps2
 
