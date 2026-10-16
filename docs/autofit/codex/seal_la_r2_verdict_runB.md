@@ -1,0 +1,34 @@
+The round-1 MAJOR is resolved. I found **no BLOCKER or MAJOR correctness defect**. Two **MINOR documentation findings** remain:
+
+- **Cross-machine confirmation is described incorrectly.** The README says confirmation requires the same software identity; `across()` repeats this. Actually, exact recomputation confirms a record regardless of identity. Different numerics make a *differing recomputation* unconfirmed. Independently, **53/107 xps2 records confirmed on this i9; 54 were unconfirmed**. Correct “other software” to the actual `numerics` check and explain this conditional behavior. [README.md:77](/Users/skyefortier/xps-app/.claude/worktrees/seal-la/docs/findings/seal-la/README.md:77), [seal_la_matrix.py:146](/Users/skyefortier/xps-app/.claude/worktrees/seal-la/scripts/seal_la_matrix.py:146), [fitting.py:3611](/Users/skyefortier/xps-app/.claude/worktrees/seal-la/fitting.py:3611).
+- **The across-machine causal conclusion exceeds the evidence.** Successful verification within each machine does not establish that LA evaluation contributes nothing to differences between machines. Re-evaluating xps2’s recorded parameters here produced different bits for **55/214 LA curves**. The matrix establishes repeatability within each environment; it does not isolate the cause of cross-machine optimizer differences. Qualify the assertion that LA evaluation “is not the cause.” [README.md:90](/Users/skyefortier/xps-app/.claude/worktrees/seal-la/docs/findings/seal-la/README.md:90).
+
+1. **Acceptance matrix and previous MINORs: resolved.**
+
+   I checked the retained raw records against seal-1b’s original corpus: all four sides contain exactly the **107 original LA requests**, unchanged except for session IDs. Every R/O digest matches the committed provenance; every fit returned HTTP 200 and `success=true`. Each setting contains every ID exactly once.
+
+   The same harness reproduces the four settings. Counts independently agree: **307/428 consistent before**, with 121 component-level unconfirmed outcomes across 70 records; **428/428 after**, **428/428 final i9**, and **428/428 xps2**. No mismatches. The deliberate difference is four gunicorn workers on i9 versus two on xps2; the owner requested the **after** side on xps2, not an additional before run there. [seal_la_matrix.py:66](/Users/skyefortier/xps-app/.claude/worktrees/seal-la/scripts/seal_la_matrix.py:66), [summary.txt:1](/Users/skyefortier/xps-app/.claude/worktrees/seal-la/docs/findings/seal-la/matrix/summary.txt:1), [run_xps2.sh:13](/Users/skyefortier/xps-app/.claude/worktrees/seal-la/docs/findings/seal-la/matrix/xps2/run_xps2.sh:13).
+
+   The previous stale LA assumptions, envelope allowance, even-kernel coverage, held-`m` coverage, and hardcoded numerics version are corrected. Browser provenance limitations are now explicit; the matrix supplies independently auditable provenance. The timing script checks every response, and the slowdown is accepted. [CLAUDE.md:58](/Users/skyefortier/xps-app/.claude/worktrees/seal-la/CLAUDE.md:58), [envelope_identity.py:62](/Users/skyefortier/xps-app/.claude/worktrees/seal-la/tests/envelope_identity.py:62), [test_la_deterministic.py:46](/Users/skyefortier/xps-app/.claude/worktrees/seal-la/tests/test_la_deterministic.py:46), [test_seal_1a_server.py:124](/Users/skyefortier/xps-app/.claude/worktrees/seal-la/tests/test_seal_1a_server.py:124), [README.md:107](/Users/skyefortier/xps-app/.claude/worktrees/seal-la/docs/findings/seal-la/README.md:107), [seal_la_fit_time.py:35](/Users/skyefortier/xps-app/.claude/worktrees/seal-la/scripts/seal_la_fit_time.py:35).
+
+2. **Tap-range equivalence: correct for every positive grid/kernel length.**
+
+   Tap `t` affects indices `[t, t+N−1]`. It intersects the returned window `[off, off+N−1]` precisely when `off−N+1 ≤ t ≤ off+N−1`, clipped to `[0,K−1]`. The implementation uses exactly these bounds. Omitted taps cannot affect any returned element; retained products and additions occur in their original order. The offset also preserves NumPy’s `same` plus the old trim for both length orderings and parities. [fitting.py:1642](/Users/skyefortier/xps-app/.claude/worktrees/seal-la/fitting.py:1642).
+
+   The 4,000-case byte-equality test passes, and both tap-bound mutants fail. The unchanged-version equivalence entry is justified, and the current manifest digest passes. [test_la_deterministic.py:66](/Users/skyefortier/xps-app/.claude/worktrees/seal-la/tests/test_la_deterministic.py:66), [numerics_manifest.json:19](/Users/skyefortier/xps-app/.claude/worktrees/seal-la/tests/fixtures/numerics_manifest.json:19).
+
+3. **Remaining process variability and xps2 evidence: no additional demonstrated defect.**
+
+   The convolution has fixed association and separate multiplication/addition. LA still uses `power`, `exp`, and kernel summation; verification also recomputes backgrounds, areas, statistics and support. The evidence supports repeatability in the tested environments, not universal identity across platforms or altered floating-point modes. Verification does not rerun optimization. [fitting.py:1715](/Users/skyefortier/xps-app/.claude/worktrees/seal-la/fitting.py:1715), [fitting.py:3603](/Users/skyefortier/xps-app/.claude/worktrees/seal-la/fitting.py:3603).
+
+   xps2’s provenance records the requested **Python 3.12.3**, pinned libraries, Linux x86_64, scipy-openblas and clean `55d99ca`; its script uses production’s virtualenv from the separate checkout at nice 19. This satisfies the owner’s request. The documentation corrections above concern interpretation, not the successful acceptance result. [provenance.json:2](/Users/skyefortier/xps-app/.claude/worktrees/seal-la/docs/findings/seal-la/matrix/xps2/provenance.json:2), [run_xps2.sh:7](/Users/skyefortier/xps-app/.claude/worktrees/seal-la/docs/findings/seal-la/matrix/xps2/run_xps2.sh:7).
+
+4. **Tests: meaningful and sensitive to the regression.**
+
+   Read-only validation produced **23 passed, one skipped**, plus **28/28 fresh-process verification checks** covering all seven free/held-`m` cases, using stdin instead of temporary files. All 107 final i9 records also verified under HEAD.
+
+   The process probe produced **one digest with the fix versus five with restored `np.convolve`**. Restoring old convolution also failed the free-`m` verification case in two of four processes. Not every case must fail—the held-499 case passed with old arithmetic—so these are environment-dependent regression detectors, not universal failure guarantees. Offset mutations were detected too. [test_la_deterministic.py:112](/Users/skyefortier/xps-app/.claude/worktrees/seal-la/tests/test_la_deterministic.py:112), [test_la_deterministic.py:128](/Users/skyefortier/xps-app/.claude/worktrees/seal-la/tests/test_la_deterministic.py:128).
+
+The full suite, browser run and remote xps2 execution were not rerun during this review; their evidence was audited. No files changed.
+
+**VERDICT: GO**

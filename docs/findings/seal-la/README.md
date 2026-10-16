@@ -74,21 +74,41 @@ the same, and the full suite was rerun on the final stack.)
 | xps2 (`matrix/xps2/`) | Linux 6.8 x86_64, 1 vCPU, Python 3.12.3, scipy-openblas 0.3.31 | 107 / 0 | 107 / 0 | 107 / 0 | 107 / 0 (2 workers) | **428 / 428** |
 
 (consistent / unconfirmed; no mismatch anywhere; every fit HTTP 200 with success true.) On xps2 the requests were
-re-fitted THERE and verified there: a record is confirmed only by a server of its own software identity, and the
-two machines' identities differ (Python 3.12.3 vs 3.12.13, the BLAS, the OS), so an i9 record checked on xps2 reads
-UNCONFIRMED ("other software") by design, never `mismatch`. xps2's run used production's virtualenv read-only
+re-fitted THERE and verified there, so each machine's matrix is that machine's own repeatability. xps2's run used production's virtualenv read-only
 (/opt/xps-app/venv: numpy 2.4.4, scipy 1.17.1, lmfit 1.3.4, asteval 1.0.8, the i9's pins) from a separate clone of the
 commit (`matrix/xps2/run_xps2.sh`, `provenance.json`: commit 55d99ca, clean, one software identity), at nice 19 beside
 production; its temporary gunicorn had 2 workers, production's count on that 961 MB machine.
 
-Across the machines (information, not verification — `python scripts/seal_la_matrix.py across`, the fit compared as
+### Across the machines
+
+A verification is a recomputation: a record made on one machine and checked on the other reads CONSISTENT when the
+recomputation reproduces it exactly, and UNCONFIRMED — never `mismatch` — when it does not, because the two numerics
+identities differ (Python 3.12.13 vs 3.12.3, the OS, the BLAS: `NUMERICS_IDENTITY_KEYS`). (Round 2 of this review
+corrected an earlier statement here that a record could only be confirmed by its own identity.) Measured, every record
+checked once on the other machine (`matrix/cross/`, `cross.sh`; Codex round 2 found the same counts independently):
+
+| records | made on | checked on | consistent | unconfirmed | mismatch |
+|---|---|---|---|---|---|
+| the 107 LA fits of the final code | i9 | xps2 | 56 | 51 | 0 |
+| the 107 LA fits of the final code | xps2 | i9 | 53 | 54 | 0 |
+| seal 1b's 221 records WITHOUT LA (GL, asym-GL, Gaussian, DS, DS+G …) | i9 (a46cd3f) | xps2 | 119 | 102 | 0 |
+| the same 221 — control | i9 (a46cd3f) | i9 (final code) | 221 | 0 | 0 |
+
+So about half of the records made on one machine are unconfirmed on the other, LA or not: the elementwise arithmetic
+the lineshapes use (exp, power, …) is not bit-identical between macOS and Linux's math libraries (Codex round 2: 55 of
+214 xps2 LA curves evaluate to other bits on the i9), and the control shows it is the platform, not the code. This is
+not something the LA unit can change — it fixes LA within each machine — and it matters for a deployment to both
+machines: a fit saved on one site and re-checked on the other may read "unconfirmed" (shown as recorded), never wrong.
+
+Across the machines as FITS (information, not verification — `python scripts/seal_la_matrix.py across`, the fit compared as
 /api/compare-fits compares it, `matrix/across.txt`): of the 107 requests fitted on the i9 and on xps2, 106 are the same
 fit within rounding and 101 have the same scattered starts; none is bit-identical (the optimiser's arithmetic differs
-between the BLAS libraries, CLAUDE.md "Reproducibility"). The one fit that differs (f91e7b75720c, UCl4_on_graphite)
+between the platforms, CLAUDE.md "Reproducibility"). The one fit that differs (f91e7b75720c, UCl4_on_graphite)
 differs by 2e-6 of its χ² — the same record differs by the same amount on the i9 alone between np.convolve and the
 fixed-order sum (before vs after), a fit whose minimum is flat to that level; five differ only in a "not better" scattered start's χ²ᵣ (≤ 2e-6) and one in a scattered start
-that converged on one machine and not the other. LA's own evaluation is not the cause of any of these: a
-verification re-evaluates, and every one of the 856 re-evaluations above reproduced its record bit for bit.
+that converged on one machine and not the other. These are optimiser outcomes on two platforms whose arithmetic
+differs (the table above); they are not isolated to any one cause. Within each machine, every one of the 856
+re-evaluations above reproduced its record bit for bit.
 
 ## Measured through the page (`scripts/seal_la_confirm_measure.py`, `confirm_before.json`, `confirm_after.json`)
 

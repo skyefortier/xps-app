@@ -143,9 +143,9 @@ def summarise(d, sides=("before", "after")):
 
 
 def across(a_path, b_path):
-    """Information, not a verification: a record is confirmed only by a server of its own software identity, so the
-    two machines' records are compared as fits — the same fit within rounding (fit_equality, the measure 1d's re-run
-    uses), and whether every number is the same bit for bit."""
+    """Information, not a verification: the two machines' records of the same requests compared as FITS — the same fit
+    within rounding (fit_equality, the measure 1d's re-run uses), and whether every number is the same bit for bit.
+    (Whether one machine CONFIRMS the other's record is a verification: run `verify` on that machine.)"""
     from fit_equality import fit_differences
     A = {r["id"]: r for r in records(a_path)}
     B = {r["id"]: r for r in records(b_path)}
