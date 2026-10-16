@@ -34,8 +34,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import re
-import sys
 import threading
 import time
 import uuid
@@ -51,12 +49,6 @@ import parser as xps_parser
 import same_fit
 import vgd_parser
 from xps_reference import XPSReferenceError, load_reference_cached
-
-# The parameters a fit writes (fitting.py's `_set("<name>", …)` calls, and each component's `area`; pinned by
-# tests/test_seal_1d_compare.py): /api/compare-fits refuses a record with any other name (seal 1d, Codex round 8:
-# names such as `value` / `min` / `expr` made the comparison read a parameter MAP as one parameter).
-FIT_PARAM_NAMES = frozenset({"alpha", "amplitude", "area", "asymmetry", "beta", "center", "fwhm", "gamma_asym",
-                             "gl_ratio", "m", "m_gauss"})
 
 # Upper bound on the Monte-Carlo uncertainty resampling count accepted by
 # /api/fit. Each perturbation re-runs the full composite fit, so an unbounded
@@ -1453,97 +1445,6 @@ def _register_routes(app: Flask) -> None:
     # explicitly, so it reads 'caller' by construction; the seed itself is compared).
     _COMPARE_APART = ("starts", "software", "seed_source")
 
-    # The fit's own link grammar, LEXICALLY over the whole text (fitting.py: `p<id>_<param>`, `... + <number>` with the
-    # number possibly negative, `... * <number>`): nothing else may appear — no comment, string, call or second name —
-    # so every reading of the text, the comparison's regex included, sees the one master name (Codex 1d rounds 5-7;
-    # an exponent's `e` names no parameter: every parameter name begins with `p<id>_`).
-    _LINK_GRAMMAR = re.compile(r"\s*([A-Za-z_][A-Za-z0-9_]*)\s*(?:[+*]\s*[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?\s*)?")
-
-    def _link_master(e):
-        # the master parameter of an expression of the fit's own grammar, else None
-        m = _LINK_GRAMMAR.fullmatch(e) if isinstance(e, str) else None
-        return m.group(1) if m else None
-
-    def _comparable_failure(O):
-        # Every SCALE the comparison measures a difference against, finite on BOTH sides, decided before comparing
-        # and whatever the comparison would traverse (Codex 1d round 3: a scale that overflows to infinity makes
-        # every difference vanish; a side the comparison does not read its bounds or links from was compared):
-        # the energy span, the background-subtracted signal, every parameter's bound span, and a chain of
-        # parameter links no deeper than the comparison follows (it follows them recursively), each link naming one
-        # parameter. Real responses: open bounds are null, links one level deep (1b's 328 records).
-        try:
-            x = np.asarray(O["energy"], float)
-            net = np.asarray(O["counts"], float) - np.asarray(O["background_y"], float)
-        except (TypeError, ValueError):
-            return "its energies, counts or background are not numbers"
-        with np.errstate(over="ignore", invalid="ignore"):
-            # every position scale is a half-maximum width — a sample count (<= n) times a grid step (<= the span) —
-            # so a finite n x span bounds them all (Codex 1d round 4)
-            if not np.isfinite(np.ptp(x) * max(len(x), 1)) or not np.isfinite(np.nanmax(np.abs(net), initial=0.0)):
-                return "its energy span or signal overflows the comparison's arithmetic"
-        names, exprs = set(), {}
-        ids = [str(pk.get("id")) for pk in O.get("individual_peaks") or []]
-        if len(set(ids)) != len(ids):
-            return "two components share an id"                     # a fit never writes one (the server refuses it)
-        # nor within a scattered-start alternative: its widths are keyed by component id (Codex 1d round 8)
-        for alt in ((O.get("starts") or {}).get("alternatives") or []) if isinstance(O.get("starts"), dict) else []:
-            alt_ids = [str(c.get("id")) for c in (alt.get("components") or []) if isinstance(c, dict)] if isinstance(alt, dict) else []
-            if len(set(alt_ids)) != len(alt_ids):
-                return "two components of a scattered-start alternative share an id"
-        for pk in O.get("individual_peaks") or []:
-            for name, info in (pk.get("params") or {}).items():
-                if name not in FIT_PARAM_NAMES:
-                    return f"a parameter ({str(name)[:40]}) is not one a fit writes"
-                if not isinstance(info, dict):
-                    continue
-                key = f"p{pk.get('id')}_{name}"
-                if key in names:                                     # p1 + x_fwhm and p1_x + fwhm: one name, two parameters
-                    return f"two parameters share the name {key[:60]}"
-                names.add(key)
-                lo, hi = info.get("min"), info.get("max")
-                if lo is not None and hi is not None:
-                    with np.errstate(over="ignore", invalid="ignore"):
-                        if not np.isfinite(np.float64(hi) - np.float64(lo)):
-                            return f"a bound span ({name}) overflows the comparison's arithmetic"
-                if info.get("expr"):
-                    exprs[key] = info["expr"]
-        # a link as a fit writes it names exactly ONE parameter of the response (1b's 328 records: all 630 do), so the
-        # links form chains, each followed here exactly as the comparison follows it (Codex 1d round 4)
-        target = {}
-        for key, e in exprs.items():
-            # EXACTLY the grammar the fit writes (fitting.py: `p<id>_<param>`, `... + <number>`, `... * <number>`;
-            # all 630 links in seal 1b's records): one master parameter, at most one numeric offset or factor. Nothing
-            # else — no string, call or second name — so the comparison's own reading of the text (a regex over it)
-            # sees the same single name (Codex 1d rounds 5-6; a numeric literal such as 1e-05 names nothing)
-            master = _link_master(e)
-            if master is None or master not in names:
-                return f"a link ({key}: {e[:40]}) is not one a fit writes"
-            target[key] = master
-        limit = sys.getrecursionlimit() // 4
-        for start in target:
-            cur, steps, seen = start, 0, {start}
-            while cur in target and steps <= limit:
-                cur, steps = target[cur], steps + 1
-                if cur in seen:
-                    break                                          # a cycle: the comparison stops it
-                seen.add(cur)
-            if steps > limit:
-                return "a chain of parameter links is deeper than the comparison follows"
-        return None
-
-    def _floats_only(x):
-        # every number one a float represents (a JSON integer like 10**400 is refused, never compared)
-        if isinstance(x, dict):
-            return all(_floats_only(v) for v in x.values())
-        if isinstance(x, list):
-            return all(_floats_only(v) for v in x)
-        if isinstance(x, int) and not isinstance(x, bool):
-            try:
-                float(x)
-            except OverflowError:
-                return False
-        return True
-
     @app.post("/api/compare-fits")
     @_require_json
     def compare_fits():
@@ -1554,17 +1455,13 @@ def _register_routes(app: Flask) -> None:
         if not isinstance(body, dict) or not isinstance(body.get("a"), dict) or not isinstance(body.get("b"), dict):
             return _err("request body must be {a, b}: two fit responses")
         a, b = body["a"], body["b"]
+        # each side's EXACT structure as a fit writes it, before anything is compared (owner 2026-10-15, option 3):
+        # anything else is refused with a plain reason, never compared and never a 500
         for name, O in (("a", a), ("b", b)):
-            n = len(O["energy"]) if isinstance(O.get("energy"), list) else 0
-            form = fitting.response_form_failure(O, n) if n else "it has no energies"
-            if form is None:
-                try:
-                    if not _floats_only(O):
-                        form = "it holds a number no float represents"
-                except RecursionError:
-                    form = "it is nested too deeply"
-            if form is None:
-                form = _comparable_failure(O)
+            try:
+                form = fitting.response_structure_failure(O)
+            except RecursionError:
+                form = "it is nested too deeply"
             if form:
                 return _err(f"{name} is not a fit response: {form}")
         # the comparison measures BOTH sides' component curves on a's grid: a half-maximum width is at most the

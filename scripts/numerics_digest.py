@@ -5,7 +5,7 @@ numerics whose recomputation differs reads "unconfirmed", where under the same n
 "mismatch" (fitting.verify_fit). This digest is what "the fitting math" means:
 
 - fitting.py, every top-level statement EXCEPT the verifier (RESPONSE_KEYS … _verify_relations,
-  software_failure, numerics_difference), the software recording (fit_record, _git_state, _env_sha256,
+  software_failure, numerics_difference, and seal 1d's response_structure_failure), the software recording (fit_record, _git_state, _env_sha256,
   _software_identity, SOFTWARE, RECORD_KEYS, the identity keys), NUMERICS_VERSION itself and the logger;
 - app.py's ``_normalise_fit_request`` (how a request's fields are read before run_fit) and every app.py
   function it calls, transitively (``_parse_int`` …);
@@ -47,6 +47,8 @@ EXCLUDED = {
     "_exact_float", "_is_number", "_same", "_as_json", "_non_finite", "_ID_T", "_MOVE_T", "_NOT_RUN_T",
     "_STARTS_T", "_REQUIRED_T", "_CERTIFICATE_T", "_SUPPORT_T", "_STATISTICS_T", "_typed", "_BG_EFFECT_T", "_BG_VERDICT_T", "_bg_effect_form_failure",
     "_non_finite_request", "verify_fit", "_verify", "_verify_relations",
+    # the exact structure /api/compare-fits requires (seal 1d): a validator of responses, like the verifier's form check
+    "response_structure_failure", "_representable", "_COMPONENT_ID", "_FLOAT_TEXT",
 }
 APP_ROOT = "_normalise_fit_request"
 _LOG_OBJECTS = {"log", "logger", "logging"}

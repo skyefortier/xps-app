@@ -203,6 +203,107 @@ def response_form_failure(O, n):
     return None
 
 
+# The EXACT structure a fit response has (seal 1d, owner 2026-10-15: /api/compare-fits refuses anything else, before
+# comparing). Every rule is what run_fit writes, checked on seal 1b's 328 records: a component's parameters are exactly
+# its lineshape's arguments plus `area`; a link is `p<master>_<the same parameter>` — the centre `+ <number>`, the
+# amplitude `* <number>` — on a parameter that does not vary, to another component; the scattered starts list every
+# component, in order, an alternative's components carrying exactly their own parameters; every number one a float
+# represents; every scale a comparison measures against finite (the energy span times the samples, the signal, every
+# bound span).
+_COMPONENT_ID = re.compile(r"[A-Za-z0-9_]+")            # what lmfit accepts in a parameter prefix
+_FLOAT_TEXT = r"-?\d+(?:\.\d+)?(?:e[+-]\d+)?"            # str(float) for a finite float
+
+
+def _representable(v, depth=0):
+    if depth > 64:
+        return False
+    if isinstance(v, dict):
+        return all(_representable(e, depth + 1) for e in v.values())
+    if isinstance(v, list):
+        return all(_representable(e, depth + 1) for e in v)
+    if isinstance(v, int) and not isinstance(v, bool):
+        try:
+            float(v)
+        except OverflowError:
+            return False
+    return True
+
+
+def response_structure_failure(O):
+    """None if ``O`` has exactly the structure a fit response has (the rules above), else why not, in plain words."""
+    if not isinstance(O, dict) or not isinstance(O.get("energy"), list) or not O["energy"]:
+        return "it is not a fit response with energies"
+    why = response_form_failure(O, len(O["energy"]))
+    if why:
+        return why
+    if not _representable(O):
+        return "it holds a number no float represents (or is nested too deeply)"
+    peaks = O["individual_peaks"]
+    ids = [str(ip["id"]) for ip in peaks]
+    if any(isinstance(ip["id"], bool) or ip["id"] is None or not _COMPONENT_ID.fullmatch(str(ip["id"])) for ip in peaks):
+        return "a component id is not one a fit can have"
+    if len(set(ids)) != len(ids):
+        return "two components share an id"
+    for ip in peaks:
+        func = _SHAPE_FUNCS.get(ip["shape"])
+        if func is None:
+            return f"a component's lineshape ({str(ip['shape'])[:30]}) is not one a fit has"
+        want = set(list(inspect.signature(func).parameters)[1:]) | {"area"}
+        if set(ip["params"]) != want:
+            return f"component {str(ip['id'])[:20]}: its parameters are not those of a {ip['shape']} component"
+    # links: each to exactly one OTHER component's same parameter, in the form the fit writes
+    master = {}
+    for ip in peaks:
+        for name, rec in ip["params"].items():
+            e = rec.get("expr") if name != "area" else None
+            if e is None:
+                continue
+            if rec["vary"]:
+                return f"component {str(ip['id'])[:20]}: a linked parameter ({name}) varies"
+            tail = {"center": r" \+ " + _FLOAT_TEXT, "amplitude": r" \* " + _FLOAT_TEXT}.get(name, "")
+            found = [mid for mid in ids if mid != str(ip["id"]) and re.fullmatch(re.escape(f"p{mid}_{name}") + tail, e)]
+            if len(found) != 1:
+                return f"component {str(ip['id'])[:20]}: a link ({e[:40]}) is not one a fit writes"
+            master[(str(ip["id"]), name)] = (found[0], name)
+    import sys
+    limit = sys.getrecursionlimit() // 4
+    for start in master:
+        cur, seen = start, {start}
+        while cur in master:
+            cur = master[cur]
+            if cur in seen:
+                return "the links form a cycle"
+            seen.add(cur)
+            if len(seen) > limit:
+                return "a chain of links is deeper than a comparison follows"
+    # the scattered starts: every component, in order; an alternative's components carry exactly their own parameters
+    st = O["starts"]
+    if isinstance(st, dict) and st.get("ran"):
+        if [str(c["id"]) for c in st["fit"]["components"]] != ids:
+            return "the scattered starts do not list the fit's components in order"
+        own = {str(ip["id"]): set(ip["params"]) - {"area"} for ip in peaks}
+        for alt in st["alternatives"]:
+            if [str(c["id"]) for c in alt["components"]] != ids:
+                return "a scattered-start alternative does not list the fit's components in order"
+            for c in alt["components"]:
+                if set(c["params"]) != own[str(c["id"])]:
+                    return f"a scattered-start alternative's component {str(c['id'])[:20]} does not carry its own parameters"
+    # every scale a comparison measures against: finite
+    with np.errstate(over="ignore", invalid="ignore"):
+        x = np.asarray(O["energy"], float)
+        counts, bg = np.asarray(O["counts"], float), np.asarray(O["background_y"], float)
+        both = np.isfinite(counts) & np.isfinite(bg)
+        net = counts[both] - bg[both]                       # a fit's background-subtracted signal is finite
+        if not np.isfinite(np.ptp(x) * len(x)) or not np.isfinite(net).all():
+            return "its energy span or signal overflows a comparison's arithmetic"
+        for ip in peaks:
+            for name, rec in ip["params"].items():
+                if name != "area" and rec["min"] is not None and rec["max"] is not None \
+                        and not np.isfinite(np.float64(rec["max"]) - np.float64(rec["min"])):
+                    return f"component {str(ip['id'])[:20]}: a bound span ({name}) overflows a comparison's arithmetic"
+    return None
+
+
 def numerics_difference(sw):
     """The numerics fields in which the software record ``sw`` differs from this server's (a field it does not
     declare differs), as text; [] when the same numerics made it."""

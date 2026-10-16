@@ -64,12 +64,27 @@ sealed server result (not on local, legacy or stale ones); a re-run that reprodu
 solution (a stubbed replay reply); a re-run dropped by a replaced fit or a closed tab keeps nothing (an edit only hides its outcome, a tab switch keeps it); the seal,
 the model and the state never change; Cancel.
 
-## Stated limit (Codex 1d rounds 3-5)
+## The exact structure (owner 2026-10-15, option 3, after Codex rounds 2-9)
 
-`/api/compare-fits` refuses (400), before comparing, any side whose comparison scales are not finite — the energy
-span, the background-subtracted signal, a bound span, the longest curve's length times the record's span — or whose
-links are not as a fit writes them (each naming exactly one parameter of the response, parsed with `ast`; ids unique;
-no chain deeper than the comparison follows). A fit the server accepts with bounds no comparison can measure against
-(a parameter held at bounds of ±1e308) is therefore refused a re-run, with the reason; the page never sends such
-bounds. All 328 records of seal 1b's run v2 compare.
+Rounds 2-9 each found one more crafted request the endpoint compared or answered 500, check by check. The owner's
+decision: `/api/compare-fits` validates EACH response against the exact structure the server writes, before comparing
+anything; anything else is refused with a plain 4xx message, never a 500. `fitting.response_structure_failure(O)`
+(beside the verifier's form check, excluded from the numerics digest like it) — every rule what `run_fit` writes,
+verified on seal 1b's 328 records:
 
+- the response's form (`response_form_failure`: exact keys, types, arrays of n numbers);
+- every number one a float represents; nesting no deeper than a response's;
+- component ids unique, each one lmfit accepts in a parameter prefix (`[A-Za-z0-9_]+`);
+- a component's lineshape one the server has, its parameters EXACTLY that lineshape's arguments plus `area`;
+- a link exactly as the fit writes it: `p<master>_<the same parameter>`, the centre `+ <number>`, the amplitude
+  `* <number>` (the number as Python writes a float), to exactly one OTHER component, on a parameter that does not
+  vary; no cycle; no chain deeper than the comparison follows;
+- the scattered starts list every component in order; an alternative's components likewise, each carrying exactly
+  its own parameters;
+- every scale a comparison measures against finite: n × the energy span, every point of the background-subtracted
+  signal, every bound span; and across the two sides, the longest curve × a's span.
+
+Evidence: every real record and every lineshape × link × lock a fit writes passes (tests); each hostile case of
+rounds 1-9 is refused on side a, side b and both; a seeded fuzz of 3,000 random mutations of a real response answers
+only 200 or 400. Stated limit: a fit the server accepts with a bound span no comparison can measure (±1e308) is
+refused a re-run, with the reason; the page never sends such bounds.

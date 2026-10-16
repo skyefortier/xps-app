@@ -1,0 +1,17 @@
+CORRECTNESS REVIEW, ROUND 10, of unit 1d ("Re-run this fit") of the sealed fit record in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software.
+
+REPO: this checkout, branch seal-1d, on seal-1c-s8. 1d is `git diff seal-1c-s8..HEAD`. Read docs/superpowers/plans/2026-10-15-seal-1d-rerun.md (incl. its new section "The exact structure") and docs/autofit/codex/seal_1d_r1_prompt.txt for what 1d is. Rounds 2-9 each found one more crafted request that POST /api/compare-fits compared or answered with a 500, fixed check by check (verdicts seal_1d_r*_verdict_run{A,B}.md; round 9: a scattered-start alternative's parameter map with names `value` / `min` / `expr` gave 500).
+
+THE OWNER'S DECISION (2026-10-15, option 3): the endpoint validates EACH response against the exact structure the server writes, before comparing anything; anything else is refused with a plain 4xx message, never a 500.
+
+WHAT THIS ROUND CHANGES: the per-check code in app.py is replaced by one validator, `fitting.response_structure_failure(O)` (fitting.py, beside `response_form_failure`; excluded from the numerics digest like the verifier, scripts/numerics_digest.py). Its rules — each what run_fit writes, verified on seal 1b's 328 records — are listed in the plan section; in short: the response form; every number a float represents, nesting bounded; unique ids lmfit accepts in a prefix; a known lineshape whose parameters are EXACTLY its function's arguments plus `area`; a link exactly `p<master>_<same parameter>` (centre `+ <number>`, amplitude `* <number>`) to one other component, not varying, no cycle, depth bounded; the scattered starts and every alternative listing every component in order, an alternative's components carrying exactly their own parameters; every comparison scale finite (n x span, every point of counts − background, every bound span). The endpoint then checks only the cross-side bound (the longest curve x a's span) and compares. Tests (tests/test_seal_1d_compare.py): 24 hostile cases from rounds 1-9 (incl. round 9's alternative map) each refused on side a, b and both; real fits for every lineshape x link x lock and link offsets 1e-05 … 0.0 compared; all 328 real records pass the validator and compare `same` (with SEAL_1B_RECORDS set); a seeded fuzz of 3,000 random structural and numeric mutations on a random side answers only 200 or 400. Mutation-checked: replacing the validator by the old form check fails 72 of those cases. The numerics digest test passes (no fitting-math change).
+
+ANSWER EACH (cite file:line):
+1. Does `response_structure_failure` accept every response run_fit can write (any lineshape, link, offset, ratio, lock, background, method, starts / required / certificate variant), and nothing else?
+2. Is there any input, on either side, that /api/compare-fits still compares although it is not of that structure, or that it answers with a 500? Name the path.
+3. Is the round-9 finding resolved, and does anything here change what the comparator decides for two real responses?
+4. Do the tests (including the fuzz) establish what they claim?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

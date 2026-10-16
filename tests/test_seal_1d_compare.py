@@ -3,6 +3,7 @@ same_fit, the tests' own (tests/fit_equality.py re-exports it) — behind POST /
 without its scattered starts (their own line, owner 2026-10-15), its software record (information; the numerics on
 their own line, the 2026-10-15 rule) and its seed SOURCE (a re-run passes the recorded seed explicitly)."""
 import copy
+import json
 
 import pytest
 
@@ -10,6 +11,7 @@ import fit_equality
 import fitting
 import same_fit
 import test_scattered_starts as SS
+from test_seal_1a_server import SHAPES
 from test_seal_1a_verify import _seal, _upload, client  # noqa: F401
 
 
@@ -120,7 +122,7 @@ def test_a_number_no_float_represents_is_refused_never_compared(client, mutate):
         b = copy.deepcopy(a)
         mutate(b)
         got = _compare(client, *((b, a) if side == "a" else (a, b)), status=400)
-        assert got["error"] == side + " is not a fit response: it holds a number no float represents", got
+        assert got["error"].startswith(side + " is not a fit response: it holds a number no float represents"), got
 
 
 def test_the_numerics_are_the_records_against_the_reruns_own(client):  # noqa: F811
@@ -135,101 +137,91 @@ def test_the_numerics_are_the_records_against_the_reruns_own(client):  # noqa: F
     assert got["numerics"] == {"same": True, "differing": []}, got
 
 
-# ── Codex 1d rounds 2-3: hostile inputs are refused (4xx) on EITHER side, before any comparison ───────────────────
+# ── Option 3 (owner 2026-10-15): each side's EXACT structure as a fit writes it, before anything is compared ────────
+# (fitting.response_structure_failure). The hostile inputs of Codex rounds 1-9, each on side a, side b and both.
+def _peak(o, k=0):
+    return o["individual_peaks"][k]
+
+
 def _with_span(o, lo, hi):
-    p = o["individual_peaks"][0]["params"]["fwhm"]
+    p = _peak(o)["params"]["fwhm"]
     p["min"], p["max"] = lo, hi
 
 
 def _with_chain(o, n=1100):
-    """n components, each centre linked to the next's, the last to the first component's: names a fit writes."""
-    base = o["individual_peaks"][0]
-    for i in range(n):
+    base = _peak(o)
+    for i in range(n):                                                    # centre links through n more components
         c = copy.deepcopy(base)
         c["id"] = f"k{i}"
-        nxt = f"pk{i + 1}_center" if i < n - 1 else f"p{base['id']}_center"
+        nxt = f"pk{i + 1}_center + 0.0" if i < n - 1 else f"p{base['id']}_center + 0.0"
         c["params"]["center"] = {**base["params"]["center"], "min": None, "max": None, "vary": False, "expr": nxt}
         o["individual_peaks"].append(c)
 
 
-def _with_signal(o):
-    o["counts"][0], o["background_y"][0] = 1e308, -1e308                  # each finite; their difference is not
-
-
-def _with_wide_grid(o):
-    o["energy"][0], o["energy"][-1] = -1e306, 1e306                       # a finite span; x n points it is not
-
-
 def _with_link(o, expr):
-    """the hostile expression on the SECOND component's centre: a parameter a fit writes, so only the link is at issue"""
-    ip = o["individual_peaks"][1]
-    ip["params"]["center"] = {**ip["params"]["center"], "vary": False, "expr": expr}
+    ip = _peak(o, 1)
+    ip["params"]["center"] = {**ip["params"]["center"], "vary": False, "expr": expr.replace("p1_", f"p{_peak(o)['id']}_")}
 
 
-@pytest.mark.parametrize("hostile,words", [
-    (_with_wide_grid, "energy span"),                                       # every half-maximum width is bounded by n x span
-    (lambda o: _with_link(o, f"p{o['individual_peaks'][0]['id']}_center + p{o['individual_peaks'][0]['id']}_fwhm"), "not one a fit writes"),
-    (lambda o: _with_link(o, "nothing_here * 2"), "not one a fit writes"),
-    (lambda o: _with_span(o, -(10 ** 308), 10 ** 308), "bound span"),       # integers
-    (lambda o: _with_span(o, -1e308, 1e308), "bound span"),                 # floats: their difference is inf, no exception
-    (_with_chain, "chain of parameter links"),
-    (_with_signal, "signal overflows"),
-])
+def _dup_alt_id(o):
+    alt = o["starts"]["alternatives"][0]
+    alt["components"][1]["id"] = alt["components"][0]["id"]
+
+
+def _alt_param(o, **extra):
+    o["starts"]["alternatives"][0]["components"][0]["params"].update(extra)
+
+
+def _with_alternative(o):
+    st, ips = o["starts"], o["individual_peaks"]
+    st["alternatives"] = [{"chi2r": st["fit"]["chi2r"] * 0.9, "n_starts": 1,
+                           "largest_centre_shift_from_start": st["fit"]["largest_centre_shift_from_start"],
+                           "largest_fraction_difference_pp": 1.0,
+                           "components": [{**c, "area": ip["params"]["area"]["value"],
+                                           "params": {k: v["value"] for k, v in ip["params"].items() if k != "area"}}
+                                          for c in st["fit"]["components"] for ip in ips if ip["id"] == c["id"]]}]
+    st["n_in_alternatives"] = 1
+    return o
+
+
+HOSTILE = {
+    "huge integer energy": lambda o: o["energy"].__setitem__(0, 10 ** 400),
+    "huge integer bound": lambda o: _peak(o)["params"]["center"].__setitem__("max", 10 ** 400),
+    "integer bound span overflows": lambda o: _with_span(o, -(10 ** 308), 10 ** 308),
+    "float bound span overflows": lambda o: _with_span(o, -1e308, 1e308),
+    "energy span x samples overflows": lambda o: (o["energy"].__setitem__(0, -1e306), o["energy"].__setitem__(-1, 1e306)),
+    "signal overflows": lambda o: (o["counts"].__setitem__(0, 1e308), o["background_y"].__setitem__(0, -1e308)),
+    "link chain too deep": _with_chain,
+    "link to two parameters": lambda o: _with_link(o, "p1_center + p1_fwhm"),
+    "link naming nothing": lambda o: _with_link(o, "nothing_here * 2"),
+    "link with a quoted name": lambda o: _with_link(o, "'p1_l1' and p1_center"),
+    "link with a comment": lambda o: _with_link(o, "p1_center + 0.5  # p1_fwhm"),
+    "link with a call": lambda o: _with_link(o, "abs(p1_center)"),
+    "link subtracting": lambda o: _with_link(o, "p1_center - 0.5"),
+    "link to itself": lambda o: _peak(o)["params"]["fwhm"].update(vary=False, expr=f"p{_peak(o)['id']}_fwhm"),
+    "link to another parameter": lambda o: _with_link(o, "p1_fwhm"),
+    "varying linked parameter": lambda o: _peak(o, 1)["params"]["fwhm"].update(vary=True, expr=f"p{_peak(o)['id']}_fwhm"),
+    "duplicate component ids": lambda o: o["individual_peaks"].append(copy.deepcopy(_peak(o))),
+    "id not a fit's": lambda o: _peak(o).__setitem__("id", "1 x"),
+    "parameter named value/min/expr": lambda o: _peak(o)["params"].update(value={**_peak(o)["params"]["center"], "expr": None}),
+    "parameter missing": lambda o: _peak(o)["params"].pop("fwhm"),
+    "unknown lineshape": lambda o: _peak(o).__setitem__("shape", "voigt_true"),
+    "duplicate ids in an alternative": lambda o: _dup_alt_id(_with_alternative(o)),
+    "alternative carrying value/min/expr": lambda o: _alt_param(_with_alternative(o), value=1.0, min=0.0, expr=1.0),
+    "alternative out of order": lambda o: _with_alternative(o)["starts"]["alternatives"][0]["components"].reverse(),
+}
+
+
+@pytest.mark.parametrize("name", sorted(HOSTILE))
 @pytest.mark.parametrize("side", ["a", "b", "both"])
-def test_a_hostile_side_is_refused_before_any_comparison(client, hostile, words, side):  # noqa: F811
+def test_a_side_not_of_a_fits_exact_structure_is_refused(client, name, side):  # noqa: F811
     a = _record(client)
     h = copy.deepcopy(a)
-    hostile(h)
+    HOSTILE[name](h)
     pair = {"a": (h, a), "b": (a, h), "both": (h, copy.deepcopy(h))}[side]
-    got = _compare(client, *pair, status=400)
-    assert words in got["error"] and got["error"].startswith(("a is not a fit response", "b is not a fit response")), got
-    if side == "b":
-        b_value = copy.deepcopy(h)
-        b_value["individual_peaks"][0]["params"]["fwhm"]["value"] = 1e307
-        _compare(client, a, b_value, status=400)
-
-
-def test_no_real_record_is_refused():
-    """The 202 + 126 records of seal 1b's run v2, when present: every one passes the scale checks (open bounds are
-    null, links one level deep)."""
-    import json
-    import os
-    path = os.environ.get("SEAL_1B_RECORDS")
-    if not path or not os.path.exists(path):
-        pytest.skip("SEAL_1B_RECORDS not set (the verbatim records are not committed)")
-    from app import create_app
-    app = create_app()
-    with app.test_client() as c:
-        for line in open(path):
-            O = json.loads(line)["O"]
-            r = c.post("/api/compare-fits", json={"a": O, "b": O})
-            assert r.status_code == 200 and r.get_json()["same"], r.get_json()
-
-
-# ── Codex 1d round 5 ─────────────────────────────────────────────────────────────────────────────────────────────────
-@pytest.mark.parametrize("offset", [0.00001, -2.5e-7, 1e5, 10.9, -0.5])
-def test_a_link_with_an_exponent_the_page_can_send_is_compared_not_refused(client, offset):  # noqa: F811
-    """A real fit's link: the page's linked offset 0.00001 is written `p1_center + 1e-05` — one parameter named."""
-    x, y, specs = SS._well_posed()
-    specs = [dict(s) for s in specs]
-    specs[1].update(constrain_to=specs[0]["id"], splitting=offset, area_ratio=0.5, fix_fwhm=True)   # as peakToBackendSpec sends
-    R, O = _seal(client, x, y, specs, background={"method": "shirley"})
-    exprs = [v["expr"] for ip in O["individual_peaks"] for v in ip["params"].values() if isinstance(v, dict) and v.get("expr")]
-    assert any(e.endswith(" + " + repr(float(offset))) for e in exprs), exprs   # the offset written as Python spells it
-    got = _compare(client, O, copy.deepcopy(O))
-    assert got["same"], (exprs, got)
-
-
-def test_duplicate_component_ids_are_refused(client):  # noqa: F811
-    a = _record(client)
-    h = copy.deepcopy(a)
-    dup = copy.deepcopy(h["individual_peaks"][0])
-    h["individual_peaks"][0]["params"]["fwhm"]["expr"] = "nothing_here * 2"   # hidden behind the duplicate's own expr
-    dup["params"]["fwhm"]["expr"] = f"p{dup['id']}_center"
-    h["individual_peaks"].append(dup)
-    for pair in ((h, a), (a, h), (h, copy.deepcopy(h))):
-        got = _compare(client, *pair, status=400)
-        assert "share an id" in got["error"], got
+    r = client.post("/api/compare-fits", json={"a": pair[0], "b": pair[1]})
+    assert r.status_code == 400, (name, side, r.status_code, r.get_json())
+    assert r.get_json()["error"].startswith((side if side != "both" else "a") + " is not a fit response: "), r.get_json()
 
 
 def _resized(o, m):
@@ -246,82 +238,100 @@ def _resized(o, m):
 
 
 def test_b_curves_on_as_grid_are_bounded_by_the_longer_side(client):  # noqa: F811
-    """Each side passes its own n x span bound; the comparison measures b's longer curves on a's wide grid."""
+    """Each side passes alone; the comparison measures b's longer curves on a's wide grid."""
     a = _record(client)
     n = len(a["energy"])
-    span = 1.7e308 / (2 * n)                                              # a: n x span = 8.5e307, finite
+    span = 1.7e308 / (2 * n)
     a["energy"] = [i * span / (n - 1) for i in range(n)]
-    b = _resized(a, 10 * n)                                               # b: its own grid is the unit interval
-    assert _compare(client, a, a)["same"] is True                         # a alone is comparable
-    got = _compare(client, a, b, status=400)                              # 10 n x a's span overflows
+    b = _resized(a, 10 * n)
+    assert _compare(client, a, a)["same"] is True
+    got = _compare(client, a, b, status=400)
     assert "on a's grid" in got["error"], got
 
 
-
-# ── Codex 1d round 6 ─────────────────────────────────────────────────────────────────────────────────────────────────
-def test_two_parameters_with_one_synthesized_name_are_refused(client):  # noqa: F811
-    a = _record(client)
-    h = copy.deepcopy(a)
-    pk = h["individual_peaks"][0]
-    other = copy.deepcopy(pk)
-    other["id"] = f"{pk['id']}_x"                                          # p<id>_x + fwhm ...
-    pk["params"]["x_fwhm"] = {**pk["params"]["fwhm"], "expr": "nothing_here * 2"}   # ... and p<id> + x_fwhm
-    other["params"]["fwhm"]["expr"] = f"p{pk['id']}_center"
-    h["individual_peaks"].append(other)
-    for pair in ((h, a), (a, h), (h, copy.deepcopy(h))):
-        got = _compare(client, *pair, status=400)
-        # (since round 8 no two names a fit writes can coincide — none ends in `_<another name>` — so the parameter
-        # name itself is what refuses this one; the name check stays as a second line)
-        assert "share the name" in got["error"] or "x_fwhm) is not one a fit writes" in got["error"], got
-
-
-@pytest.mark.parametrize("expr", ["'p1_l1' and p1_center", "p1_center + p1_fwhm", "abs(p1_center)", "p1_center + inf",
-                                  "p1_center / 2", "2 * p1_center", "p1_center + 'x'",
-                                  "p1_center  # p1_fwhm", "p1_center + 0.5  # p1_fwhm", "p1_center - 0.5"])   # round 7: comments
-def test_a_link_outside_the_fits_grammar_is_refused_on_either_side(client, expr):  # noqa: F811
-    a = _record(client)
-    pid = a["individual_peaks"][0]["id"]
-    h = copy.deepcopy(a)
-    _with_link(h, expr.replace("p1_", f"p{pid}_"))
-    for pair in ((h, a), (a, h)):
-        got = _compare(client, *pair, status=400)
-        assert "a link (" in got["error"] and "not one a fit writes" in got["error"], got        # the grammar, not another rule
-
-
-# ── Codex 1d round 8 ─────────────────────────────────────────────────────────────────────────────────────────────────
-def test_the_parameter_names_are_those_the_fit_writes():
+def test_no_real_record_is_refused():
+    """The 202 + 126 records of seal 1b's run v2, when present: every one has the exact structure, and compares `same`."""
+    import json
     import os
-    import re
-    import app as app_module
-    src = open(os.path.join(os.path.dirname(__file__), "..", "fitting.py"), encoding="utf-8").read()
-    assert app_module.FIT_PARAM_NAMES == set(re.findall(r'_set\("([a-z_]+)"', src)) | {"area"}
+    path = os.environ.get("SEAL_1B_RECORDS")
+    if not path or not os.path.exists(path):
+        pytest.skip("SEAL_1B_RECORDS not set (the verbatim records are not committed)")
+    from app import create_app
+    app = create_app()
+    with app.test_client() as c:
+        for line in open(path):
+            O = json.loads(line)["O"]
+            assert fitting.response_structure_failure(O) is None
+            r = c.post("/api/compare-fits", json={"a": O, "b": O})
+            assert r.status_code == 200 and r.get_json()["same"], r.get_json()
 
 
-def test_a_parameter_named_outside_the_fits_set_is_refused(client):  # noqa: F811
-    a = _record(client)
-    h = copy.deepcopy(a)
-    p = h["individual_peaks"][0]["params"]
-    for name in ("value", "min", "expr"):
-        p[name] = {**p["center"], "expr": None}
-    for pair in ((h, a), (a, h), (h, copy.deepcopy(h))):
-        got = _compare(client, *pair, status=400)
-        assert "is not one a fit writes" in got["error"], got
+# real fits of every lineshape and link form the page can send: never refused
+SHAPE_CASES = [(shape, link, lock) for shape in sorted(SHAPES) for link in (False, True) for lock in (False, True)]
 
 
-def test_duplicate_ids_within_a_scattered_start_alternative_are_refused(client):  # noqa: F811
-    a = _record(client)
-    st, ips = a["starts"], a["individual_peaks"]
-    assert st["ran"] and len(st["fit"]["components"]) >= 2, st
-    alt = {"chi2r": st["fit"]["chi2r"] * 0.9, "n_starts": 1, "largest_centre_shift_from_start": st["fit"]["largest_centre_shift_from_start"],
-           "largest_fraction_difference_pp": 1.0,
-           "components": [{**c, "area": ip["params"]["area"]["value"],
-                           "params": {k: v["value"] for k, v in ip["params"].items() if k != "area"}}
-                          for c in st["fit"]["components"] for ip in ips if ip["id"] == c["id"]]}
-    ok = copy.deepcopy(a)
-    ok["starts"]["alternatives"], ok["starts"]["n_in_alternatives"] = [alt], 1
-    assert _compare(client, ok, copy.deepcopy(ok))["starts"]["same"] is True          # well formed, compared
-    h = copy.deepcopy(ok)
-    h["starts"]["alternatives"][0]["components"][1]["id"] = h["starts"]["alternatives"][0]["components"][0]["id"]
-    for pair in ((h, ok), (ok, h), (h, copy.deepcopy(h))):
-        got = _compare(client, *pair, status=400)
-        assert "scattered-start alternative share an id" in got["error"], got
+@pytest.mark.parametrize("shape,link,lock", SHAPE_CASES)
+def test_every_lineshape_link_and_lock_a_fit_writes_is_compared(client, shape, link, lock):  # noqa: F811
+    x, y, specs = SS._well_posed()
+    specs = [{**s, "shape": shape, **SHAPES[shape]} for s in specs]
+    if lock:
+        specs[0].update(fix_fwhm=True, fix_center=True)
+    if link:
+        specs[1].update(constrain_to=specs[0]["id"], splitting=1e-05, area_ratio=0.5, fix_fwhm=True)
+    R, O = _seal(client, x, y, specs, background={"method": "shirley"}, fit_method="least_squares", n_perturb=0, n_starts=3)
+    assert fitting.response_structure_failure(O) is None, (shape, link, lock, fitting.response_structure_failure(O))
+    got = _compare(client, O, copy.deepcopy(O))
+    assert got["same"] and got["starts"]["same"], got
+
+
+@pytest.mark.parametrize("offset", [0.00001, -2.5e-7, 1e5, 10.9, -0.5, 0.0])
+def test_a_link_offset_the_page_can_send_is_compared(client, offset):  # noqa: F811
+    x, y, specs = SS._well_posed()
+    specs = [dict(s) for s in specs]
+    specs[1].update(constrain_to=specs[0]["id"], splitting=offset, area_ratio=0.5, fix_fwhm=True)
+    R, O = _seal(client, x, y, specs, background={"method": "shirley"})
+    exprs = [v["expr"] for ip in O["individual_peaks"] for v in ip["params"].values() if isinstance(v, dict) and v.get("expr")]
+    assert any(e.endswith(" + " + repr(float(offset))) for e in exprs), exprs
+    assert _compare(client, O, copy.deepcopy(O))["same"]
+
+
+def test_random_mutations_never_answer_500(client):  # noqa: F811
+    """A seeded fuzz over a real response with an alternative: 3,000 random structural and numeric mutations, on a
+    random side — every answer is 200 (still a fit's structure) or 400 (refused), never 500."""
+    import random
+    rng = random.Random(20261015)
+    base = _with_alternative(_record(client))
+    values = [None, True, False, 0, -1, 1.5, 1e308, -1e308, 10 ** 400, "", "x", "p1_center", [], [1], {}, {"value": 1},
+              float("inf"), float("nan")]
+
+    def paths(o, at=()):
+        yield at
+        if isinstance(o, dict):
+            for k, v in o.items():
+                yield from paths(v, at + (k,))
+        elif isinstance(o, list):
+            for i, v in enumerate(o[:3]):
+                yield from paths(v, at + (i,))
+    every = [p for p in paths(base) if p]
+    counts = {200: 0, 400: 0}
+    for _ in range(3000):
+        h = copy.deepcopy(base)
+        for _k in range(rng.randint(1, 3)):
+            at = rng.choice(every)
+            parent = h
+            try:
+                for step in at[:-1]:
+                    parent = parent[step]
+                if isinstance(parent, dict) and rng.random() < 0.2:
+                    parent.pop(at[-1], None)
+                elif isinstance(parent, dict) and rng.random() < 0.1:
+                    parent[rng.choice(["value", "min", "expr", "zz"])] = rng.choice(values)
+                else:
+                    parent[at[-1]] = rng.choice(values)
+            except (KeyError, IndexError, TypeError):
+                pass
+        pair = (h, base) if rng.random() < 0.5 else (base, h)
+        r = client.post("/api/compare-fits", data=json.dumps({"a": pair[0], "b": pair[1]}), content_type="application/json")
+        assert r.status_code in (200, 400), (r.status_code, r.get_data(as_text=True)[:300])
+        counts[r.status_code] += 1
+    assert counts[400] > 0 and counts[200] > 0, counts
