@@ -12,20 +12,10 @@ a sum of the same n + 1 terms, added in some order: each within γ_n · S of the
 S = |b| + Σ |c_k| (Higham, recursive summation). So |e − s| ≤ 2 γ_n S ≤ 4 (n + 2) u S, with
 margin for the component-plus-background additions and subtractions of the page's drawn
 datasets (one more rounding per term), for n ≤ 2^20. A component evaluated twice by the same
-code on the same values gives the same bits, except where its evaluation contains a reduction
-whose order the library may change with memory alignment — the server's LA (`np.convolve`,
-a BLAS dot: CLAUDE.md "Reproducibility"). For it, `conv_term`: the convolution's terms are all
-non-negative (a positive Lorentzian core, a positive Gaussian kernel), so a dot of K terms is
-within γ_K of its own value, and the normalisation by the curve's (equally computed) value at
-the centre adds that value's γ_K (to first order — the quotient's exact factor is
-(1 + θ1)/(1 + θ2), |θ| ≤ γ_K): each evaluation within 2 γ_K |c| to first order, two
-evaluations 4 γ_K |c| (exactly, two normalised evaluations differ by at most
-4 γ_K / (1 − γ_K)² |c|), K = 2 max(1, ⌈3.5 m / 3⌉) + 1 (the kernel length, F `_la_casaxps_true`).
-What that leaves out — the second-order part of the quotient, the division and the final
-multiplication by the amplitude, a few u |c| in all (Codex round 2: ≈ 4.0000000013 u |c| at the
-largest K, 1167) — is covered by the summation term's own margin: 4 (n + 2) u S against the
-2 γ_n S the sums need (≈ 2 n u S) leaves (2 n + 8) u S ≥ 10 u S ≥ 10 u |c| per point for
-every n ≥ 1.
+code on the same values gives the same bits — LA included since the LA unit (2026-10-15: its
+convolution, a BLAS dot that rounded differently between processes, is now summed in one fixed
+order, `fitting._convolve_same_fixed_order`; until then this module allowed an LA component
+4 γ_K |c| more).
 
 NOT a rounding bound: the page's DRAWN components after a server fit are the page's own
 (JavaScript) evaluators, not the server's arrays; two implementations of a transcendental
@@ -41,18 +31,9 @@ import numpy as np
 U = 2.0 ** -53
 
 
-def conv_term(curve, m):
-    """4 γ_K |c| for an LA component with kernel parameter m (data points): see the module
-    docstring. m = 0 is no convolution (0)."""
-    if m <= 0:
-        return np.zeros_like(np.asarray(curve, float))
-    K = 2 * max(1, int(np.ceil(3.5 * m / 3))) + 1
-    return 4 * K * U / (1 - K * U) * np.abs(np.asarray(curve, float))
-
-
 def envelope_gap(envelope, background, components, extra=0.0):
     """Largest |e − (b + Σ c)| / (4 (n + 2) u S + extra) over the points: ≤ 1 means within
-    rounding (`extra`: an LA component's conv_term, point by point). Also returns the largest gap
+    rounding (`extra`: an allowance beyond rounding, point by point). Also returns the largest gap
     relative to max |e| (for reporting)."""
     e = np.asarray(envelope, float)
     b = np.asarray(background, float)
@@ -78,16 +59,7 @@ def assert_envelope_identity(envelope, background, components, label="", extra=0
     return ratio, rel
 
 
-def response_extra(res):
-    """The conv_term of every LA component of a run_fit response."""
-    extra = np.zeros(len(res["fitted_y"]))
-    for p in res["individual_peaks"]:
-        if p.get("shape") == "la_casaxps":
-            extra = extra + conv_term(p["y"], p["params"]["m"]["value"])
-    return extra
-
-
 def assert_response_identity(res, label=""):
     """A /api/fit (run_fit) response: fitted_y = background_y + Σ individual_peaks[].y."""
     return assert_envelope_identity(res["fitted_y"], res["background_y"],
-                                    [p["y"] for p in res["individual_peaks"]], label, response_extra(res))
+                                    [p["y"] for p in res["individual_peaks"]], label)

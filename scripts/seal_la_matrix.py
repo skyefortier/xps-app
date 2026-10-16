@@ -11,6 +11,8 @@ seal-1b-measure, a46cd3f), with the request's session replaced by a fresh full-p
                                              POST /api/verify-fit for every record in THIS (fresh) process, or against
                                              a running server (--url: a 4-worker gunicorn); --shake allocates arrays of
                                              random size between verifications (the allocation history changes)
+  summarise DIR                              DIR/{before,after}: per setting, consistent / unconfirmed / mismatch,
+                                             committed and synthetic, and the records not consistent in some setting
   provenance RECORDS OUT.json                the commit and cleanliness of this checkout, the software identity every
                                              record carries, and per record sha256 of R and O as JSON
 
@@ -112,6 +114,31 @@ def provenance(recs, out):
                "records": rows}, open(out, "w"), indent=1)
 
 
+SETTINGS = ("fresh_1", "fresh_2", "shake", "gunicorn")
+
+
+def summarise(d):
+    from collections import Counter
+    for side in ("before", "after"):
+        recs = list(records(f"{d}/{side}/records.jsonl"))
+        syn = {r["id"] for r in recs if r["project"] == "synthetic"}
+        print(f"{side}: {len(recs)} records ({len(recs) - len(syn)} committed, {len(syn)} synthetic); "
+              f"HTTP 200 + success: {sum(r['status'] == 200 and r['O']['success'] is True for r in recs)}")
+        bad, total = set(), Counter()
+        for st in SETTINGS:
+            v = list(records(f"{d}/{side}/verify_{st}.jsonl"))
+            for kind, sel in (("committed", lambda x: x["id"] not in syn), ("synthetic", lambda x: x["id"] in syn)):
+                c = Counter(x["state"] for x in v if sel(x))
+                print(f"  {st:9s} {kind:9s} " + ", ".join(f"{k} {c[k]}" for k in ("consistent", "unconfirmed", "mismatch")))
+            total.update(x["state"] for x in v)
+            bad |= {x["id"] for x in v if x["state"] != "consistent"}
+            checks = Counter(x["check"] for x in v if x["state"] != "consistent")
+            if checks:
+                print(f"  {st:9s} failed checks: {dict(sorted(checks.items()))}")
+        print(f"  all settings: {dict(sorted(total.items()))}; records not consistent in at least one: {len(bad)} "
+              f"({len(bad - syn)} committed, {len(bad & syn)} synthetic)")
+
+
 if __name__ == "__main__":
     phase, args = sys.argv[1], sys.argv[2:]
     if phase == "record":
@@ -119,6 +146,8 @@ if __name__ == "__main__":
     elif phase == "verify":
         url = args[args.index("--url") + 1] if "--url" in args else None
         verify(args[0], args[1], shake="--shake" in args, url=url)
+    elif phase == "summarise":
+        summarise(args[0])
     elif phase == "provenance":
         provenance(args[0], args[1])
     else:

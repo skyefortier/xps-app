@@ -34,13 +34,23 @@ def test_the_fixed_order_convolution_is_numpys_same_to_rounding():
     worst = 0.0
     for _ in range(3000):
         n = int(rng.integers(1, 400))
-        k = 2 * int(rng.integers(0, 300)) + 1                 # LA's kernels are odd, any length vs the grid
+        k = int(rng.integers(1, 600))                         # LA's kernels are odd; any length, even too, vs the grid
         b, kr = rng.random(n), rng.random(k)
         kr /= kr.sum()
         ref, got = _np_same_trimmed(b, kr), fitting._convolve_same_fixed_order(b, kr)
         assert got.shape == ref.shape == (n,)
         worst = max(worst, float(np.max(np.abs(got - ref)) / max(np.max(np.abs(ref)), 1e-300)))
     assert worst < 1e-14, worst
+
+
+def test_the_length_and_offset_are_numpys_exactly():
+    """Every grid and kernel length 1-64 (odd and even, kernel longer than the grid too) with integer-valued inputs,
+    whose every sum is exact: the fixed-order sum IS np.convolve 'same' trimmed to the grid, bit for bit."""
+    rng = np.random.default_rng(7)
+    for n in range(1, 65):
+        for k in range(1, 65):
+            b, kr = rng.integers(-50, 50, n).astype(float), rng.integers(-50, 50, k).astype(float)
+            assert np.array_equal(fitting._convolve_same_fixed_order(b, kr), _np_same_trimmed(b, kr)), (n, k)
 
 
 def test_the_same_bits_at_every_memory_alignment():
@@ -94,14 +104,17 @@ print(json.dumps(fitting.verify_fit(d["O"], **d["args"])["state"]))
 """
 
 
-@pytest.mark.parametrize("m", [0.6, 6.0, 40.0])
-def test_an_la_fit_verifies_consistent_in_fresh_processes(tmp_path, m):
+@pytest.mark.parametrize("m,fix_m", [(0.6, False), (6.0, False), (40.0, False),   # free: the fit moves m (to ~13.4)
+                                     (0.6, True), (6.0, True), (40.0, True), (499.0, True)])   # held: these kernels
+def test_an_la_fit_verifies_consistent_in_fresh_processes(tmp_path, m, fix_m):
     x, y, specs = SS._well_posed()
-    specs = [{**specs[0], "shape": "la_casaxps", **{**SHAPES["la_casaxps"], "m": m}, "fix_m": False},
+    specs = [{**specs[0], "shape": "la_casaxps", **{**SHAPES["la_casaxps"], "m": m}, "fix_m": fix_m},
              {**specs[1], "shape": "gaussian"}]
     args = dict(energy=list(map(float, x)), counts=list(map(float, y)), peak_specs=specs, background_method="shirley",
                 n_perturb=0, fit_kws={"method": "least_squares"})
     O = json.loads(json.dumps(fitting.run_fit(**{**args, "energy": np.asarray(x), "counts": np.asarray(y)})))
+    if fix_m:
+        assert O["individual_peaks"][0]["params"]["m"]["value"] == m      # the kernel under test is the one held
     path = tmp_path / "record.json"
     path.write_text(json.dumps({"O": O, "args": args}))
     states = [json.loads(subprocess.run([sys.executable, "-c", _VERIFY_CHILD, ROOT, str(path)], capture_output=True,

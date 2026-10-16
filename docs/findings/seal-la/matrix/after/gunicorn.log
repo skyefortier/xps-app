@@ -1,0 +1,18 @@
+[2026-10-15 23:53:04 -0600] [9682] [INFO] Starting gunicorn 26.0.0
+[2026-10-15 23:53:04 -0600] [9682] [INFO] Listening at: http://127.0.0.1:5155 (9682)
+[2026-10-15 23:53:04 -0600] [9682] [INFO] Using worker: sync
+[2026-10-15 23:53:04 -0600] [9684] [INFO] Booting worker with pid: 9684
+[2026-10-15 23:53:04 -0600] [9685] [INFO] Booting worker with pid: 9685
+[2026-10-15 23:53:04 -0600] [9686] [INFO] Booting worker with pid: 9686
+[2026-10-15 23:53:04 -0600] [9687] [INFO] Booting worker with pid: 9687
+[2026-10-15 23:53:04 -0600] [9682] [INFO] Control socket listening at /Users/skyefortier/.gunicorn/gunicorn.ctl
+[2026-10-15 23:53:18 -0600] [9682] [INFO] Handling signal: term
+[2026-10-15 23:53:18 -0600] [9686] [INFO] Worker exiting (pid: 9686)
+[2026-10-15 23:53:18 -0600] [9685] [INFO] Worker exiting (pid: 9685)
+[2026-10-15 23:53:18 -0600] [9684] [INFO] Worker exiting (pid: 9684)
+[2026-10-15 23:53:18 -0600] [9687] [INFO] Worker exiting (pid: 9687)
+[2026-10-15 23:53:19 -0600] [9682] [INFO] Worker (pid:9687) was sent SIGTERM!
+[2026-10-15 23:53:19 -0600] [9682] [INFO] Worker (pid:9686) was sent SIGTERM!
+[2026-10-15 23:53:19 -0600] [9682] [INFO] Worker (pid:9685) was sent SIGTERM!
+[2026-10-15 23:53:19 -0600] [9682] [INFO] Worker (pid:9684) was sent SIGTERM!
+[2026-10-15 23:53:19 -0600] [9682] [INFO] Shutting down: Master

@@ -5,6 +5,7 @@ identifies its environment (`env_sha256`, untracked files in `git_dirty`) and ea
 page (`page_sha256`, `reference_sha256`)."""
 import hashlib
 import json
+import os
 import re
 import subprocess
 
@@ -120,7 +121,8 @@ def test_env_sha256_is_the_digest_of_the_installed_distributions():
     from importlib import metadata
     lines = sorted(f"{d.metadata['Name']}=={d.version}" for d in metadata.distributions())
     assert fitting.SOFTWARE["env_sha256"] == hashlib.sha256("\n".join(lines).encode()).hexdigest()
-    assert fitting.SOFTWARE["numerics"] == "2026-10-13"
+    manifest = json.load(open(os.path.join(os.path.dirname(__file__), "fixtures", "numerics_manifest.json")))
+    assert fitting.SOFTWARE["numerics"] == fitting.NUMERICS_VERSION == manifest["history"][-1]["numerics"]
 
 
 def test_git_dirty_counts_untracked_files(tmp_path):

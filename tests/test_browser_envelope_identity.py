@@ -18,7 +18,7 @@ import pytest
 
 pytest.importorskip("playwright.sync_api")
 from test_browser_find_peaks_full_window import _new_page, browser, server  # noqa: E402,F401
-from envelope_identity import conv_term, envelope_gap  # noqa: E402
+from envelope_identity import envelope_gap  # noqa: E402
 
 # a U 4f-like spectrum; the shape under test on both main lines, a GL satellite, a Gaussian
 TAB = """(shape) => {
@@ -105,8 +105,7 @@ def _check_fitted(d, label):
     assert sv is not None, "a server fit is on show"
     assert d["env"] == sv["fitted_y"], f"{label}: the drawn envelope is not the server's fitted_y"
     assert d["bg"] == sv["background_y"], f"{label}: the drawn background is not the server's background_y"
-    extra = sum((conv_term(p["y"], p["params"]["m"]["value"]) for p in sv["peaks"] if p["shape"] == "la_casaxps"), 0.0)
-    ratio, rel = envelope_gap(sv["fitted_y"], sv["background_y"], [p["y"] for p in sv["peaks"]], extra)
+    ratio, rel = envelope_gap(sv["fitted_y"], sv["background_y"], [p["y"] for p in sv["peaks"]])
     assert ratio <= 1.0, f"{label}: the server's own envelope is not its background plus components ({ratio:.3g} x rounding)"
     # each drawn component (dataset − background, so recovering it rounds by up to
     # u (|b| + |c|): fl(fl(c + b) − b)) against the server's curve: parity of its amplitude plus

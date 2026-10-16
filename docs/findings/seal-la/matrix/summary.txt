@@ -1,0 +1,24 @@
+before: 107 records (89 committed, 18 synthetic); HTTP 200 + success: 107
+  fresh_1   committed consistent 76, unconfirmed 13, mismatch 0
+  fresh_1   synthetic consistent 18, unconfirmed 0, mismatch 0
+  fresh_1   failed checks: {'components': 13}
+  fresh_2   committed consistent 86, unconfirmed 3, mismatch 0
+  fresh_2   synthetic consistent 18, unconfirmed 0, mismatch 0
+  fresh_2   failed checks: {'components': 3}
+  shake     committed consistent 48, unconfirmed 41, mismatch 0
+  shake     synthetic consistent 18, unconfirmed 0, mismatch 0
+  shake     failed checks: {'components': 41}
+  gunicorn  committed consistent 36, unconfirmed 53, mismatch 0
+  gunicorn  synthetic consistent 7, unconfirmed 11, mismatch 0
+  gunicorn  failed checks: {'components': 64}
+  all settings: {'consistent': 307, 'unconfirmed': 121}; records not consistent in at least one: 70 (59 committed, 11 synthetic)
+after: 107 records (89 committed, 18 synthetic); HTTP 200 + success: 107
+  fresh_1   committed consistent 89, unconfirmed 0, mismatch 0
+  fresh_1   synthetic consistent 18, unconfirmed 0, mismatch 0
+  fresh_2   committed consistent 89, unconfirmed 0, mismatch 0
+  fresh_2   synthetic consistent 18, unconfirmed 0, mismatch 0
+  shake     committed consistent 89, unconfirmed 0, mismatch 0
+  shake     synthetic consistent 18, unconfirmed 0, mismatch 0
+  gunicorn  committed consistent 89, unconfirmed 0, mismatch 0
+  gunicorn  synthetic consistent 18, unconfirmed 0, mismatch 0
+  all settings: {'consistent': 428}; records not consistent in at least one: 0 (0 committed, 0 synthetic)

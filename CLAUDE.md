@@ -55,7 +55,7 @@ compatible with multi-worker gunicorn.
 | `POST`   | `/api/fit/start`          | The same request and validation as `/api/fit` (an immediate identical 400 / 404); runs the SAME `run_fit` in a background thread; returns `{job_id}` 202 (unit 2, 2026-09-27). |
 | `GET`    | `/api/fit/progress/<id>`  | The job record: `status` running / done / error / cancelled, `elapsed_sec`, `heartbeat_age_sec`; `result` = exactly the `/api/fit` body; `error` + `http_status` = exactly what `/api/fit` would answer. |
 | `POST`   | `/api/fit/cancel/<id>`    | Stop the job (every minimisation aborts via lmfit's `iter_cb`); also automatic after 180 s without a poll. |
-| `POST`   | `/api/verify-fit`         | `{R: {request, energies, counts}, O}` → `{state: consistent / mismatch / unconfirmed, check, reason, software}`: recomputes the recorded response O from its request EXACTLY (the request digest, roles, held values, expressions, method, shift, seed, background + verdict, every curve and area, `fitted_sub`, `fitted_y`, residuals, statistics, support) and never fits; every field by its JSON type. Unconfirmed: other `software`, a non-finite number, or a failed EVALUATION identity (recorded curve / model sum = this server's evaluation of the parameters) on a request holding a lineshape not evaluated bit-identically (`fitting.NOT_BIT_STABLE_SHAPES`: LA, owner Q7) — every relation of the recorded arrays stays exact. Acceptance (`success`, certificate, starts, required, σ) is NOT recomputed — shown as recorded (sealed fit record option (b); seal 1a′, 2026-10-13). |
+| `POST`   | `/api/verify-fit`         | `{R: {request, energies, counts}, O}` → `{state: consistent / mismatch / unconfirmed, check, reason, software}`: recomputes the recorded response O from its request EXACTLY (the request digest, roles, held values, expressions, method, shift, seed, background + verdict, every curve and area, `fitted_sub`, `fitted_y`, residuals, statistics, support) and never fits; every field by its JSON type. Unconfirmed: other `software`, a non-finite number, or a failed EVALUATION identity (recorded curve / model sum = this server's evaluation of the parameters) on a request holding a lineshape not evaluated bit-identically (`fitting.NOT_BIT_STABLE_SHAPES`: EMPTY since the LA unit, 2026-10-15 — LA was its one member until its convolution was summed in one fixed order; the mechanism is kept) — every relation of the recorded arrays stays exact. Acceptance (`success`, certificate, starts, required, σ) is NOT recomputed — shown as recorded (sealed fit record option (b); seal 1a′, 2026-10-13). |
 
 ## Frontend Architecture
 
@@ -141,7 +141,8 @@ the last (the page drew m rounded to an integer 2m+1 kernel while the
 server fits it continuously: up to 0.97 % of amplitude and 1.2 % of area on
 the lab's U 4f components) until the `caM` unit, 2026-09-25:
 `laTrueCasaXPS_array` now mirrors `_la_casaxps_true` (continuous σ = m/3,
-half-width max(1, ⌈3.5σ⌉), `np.convolve` 'same' with the server's trim,
+half-width max(1, ⌈3.5σ⌉), `np.convolve` 'same' with the server's trim — since
+2026-10-15 the server's fixed-order sum of the same semantics, `_convolve_same_fixed_order`,
 normalisation at the grid point nearest the centre) — ≤ 7e-16 of amplitude
 on all 108 committed LA components, pinned across the α/β/m box on seven
 grids incl. grids shorter than the kernel
@@ -518,8 +519,11 @@ one U 4f scan where two presses in five land in a neighbouring minimum). Levenbe
 byte-identical then. CORRECTED 2026-09-29 (unit A2): across processes main's
 Levenberg-Marquardt is NOT byte-identical on the U 4f models containing
 LA(α,β,m) — 56 of 64 differ between two presses, ≤ 0.23 pp; every other shape
-family 0 — because the continuous-m LA (2026-09-25) evaluates `np.convolve`,
-whose float64 inner product is the same alignment-dependent BLAS dot; and
+family 0 — because the continuous-m LA (2026-09-25) evaluated `np.convolve`,
+whose float64 inner product is a BLAS dot that rounded differently between processes (FIXED 2026-10-15, the LA
+unit: `fitting._convolve_same_fixed_order` sums every output over the kernel taps in increasing order with
+elementwise numpy operations, so LA evaluates to the same bits in every process and alignment —
+`docs/findings/seal-la/README.md`; the optimiser's own BLAS calls are untouched); and
 since A2 a fit the minimum certificate MOVES carries Trust-Region's
 arithmetic. The requirement is regeneration within meaningful precision
 (below), and the tests compare fits WITHIN ROUNDING
