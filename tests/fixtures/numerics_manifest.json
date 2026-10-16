@@ -12,6 +12,11 @@
     {
       "numerics": "2026-10-15",
       "math_sha256": "dc6c427a903d1e232384d2d510a862427ac2340584b8578622e26c53411d8bfe"
+    },
+    {
+      "numerics": "2026-10-15",
+      "math_sha256": "ae32296db536829e4ce7b1dca618877b29717dd0366a506f5212bfe7c11fea67",
+      "equivalence": "LA unit: _convolve_same_fixed_order sums only the kernel taps that reach the 'same' window. Every returned entry receives the same terms in the same order, so no bit moves (tests/test_la_deterministic.py: 4,000 random grids and kernels against the every-tap form, exact equality; both off-by-one ranges fail it)."
     }
   ]
 }

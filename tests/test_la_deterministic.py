@@ -53,6 +53,27 @@ def test_the_length_and_offset_are_numpys_exactly():
             assert np.array_equal(fitting._convolve_same_fixed_order(b, kr), _np_same_trimmed(b, kr)), (n, k)
 
 
+def _every_tap(base, kern):
+    """The reviewed form (LA unit round 1): every tap summed into the full convolution, then the window taken."""
+    n, k = len(base), len(kern)
+    full = np.zeros(n + k - 1)
+    for t in range(k):
+        full[t:t + n] += base * kern[t]
+    off = (k - 1) // 2 if k <= n else (n - 1) // 2 + (k - n) // 2
+    return full[off:off + n]
+
+
+def test_summing_only_the_taps_that_reach_the_window_changes_no_bit():
+    rng = np.random.default_rng(12)
+    for it in range(4000):
+        n, k = int(rng.integers(1, 300)), int(rng.integers(1, 1200))
+        b = rng.standard_normal(n) * 10.0 ** rng.integers(-8, 8, n)
+        if it % 5 == 0:
+            b[rng.integers(0, n, max(1, n // 3))] = 0.0
+        kr = rng.random(k)
+        assert fitting._convolve_same_fixed_order(b, kr).tobytes() == _every_tap(b, kr).tobytes(), (n, k)
+
+
 def test_the_same_bits_at_every_memory_alignment():
     rng = np.random.default_rng(1)
     base = rng.random(700)

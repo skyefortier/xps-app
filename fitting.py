@@ -1675,12 +1675,15 @@ def _convolve_same_fixed_order(base: np.ndarray, kern: np.ndarray) -> np.ndarray
     tolerance). It differs from np.convolve by rounding only (≤ 2.4e-15 relative over 3,000 random sizes, tests).
     Length and offset as before: 'same' is
     full[off : off + N], off = (K − 1)/2 when K ≤ N, else ⌊(N − 1)/2⌋ + ⌊(K − N)/2⌋ (numpy's 'same' then the
-    trim to len(base))."""
+    trim to len(base)). Only the taps that reach that window are summed — t from max(0, off − N + 1) to
+    min(K − 1, off + N − 1): the others add only to entries outside it, so every returned entry receives exactly the
+    same terms in the same order, bit for bit (tests); a kernel longer than the grid (large m on a short window) costs
+    at most 2N − 1 taps instead of K."""
     n, k = len(base), len(kern)
-    full = np.zeros(n + k - 1)
-    for t in range(k):
-        full[t:t + n] += base * kern[t]
     off = (k - 1) // 2 if k <= n else (n - 1) // 2 + (k - n) // 2
+    full = np.zeros(n + k - 1)
+    for t in range(max(0, off - n + 1), min(k - 1, off + n - 1) + 1):
+        full[t:t + n] += base * kern[t]
     return full[off:off + n]
 
 
