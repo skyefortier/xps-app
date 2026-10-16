@@ -1,0 +1,17 @@
+CORRECTNESS REVIEW, ROUND 11, of unit 1d ("Re-run this fit") of the sealed fit record in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software.
+
+REPO: this checkout, branch seal-1d, on seal-1c-s8. 1d is `git diff seal-1c-s8..HEAD`. Read docs/superpowers/plans/2026-10-15-seal-1d-rerun.md ("The exact structure") and docs/autofit/codex/seal_1d_r10_prompt.txt. The owner's decision (option 3): /api/compare-fits validates EACH response against the exact structure the server writes before comparing anything; anything else is a plain 4xx, never a 500.
+
+Round 10 (both runs NO-GO on MINORs; verdicts seal_1d_r10_verdict_run{A,B}.md): the validator REFUSED real responses with ids the server accepts ("", "é", null, true, false); a link could name a parameter its master lacks, or a number no float spelling gives (01, 00.5, 1e+999); an empty component list was accepted; an integer no float holds exactly (9007199254740993) passed; the fuzz had no oracle for which answer is right; the real-fit coverage was narrow.
+
+WHAT THIS ROUND CHANGES (fitting.response_structure_failure): ids — any the server accepts: `f"p{id}_x"` an identifier (the server builds every parameter name so), not a list or object, unique by that spelling; links — to exactly one OTHER component of the SAME lineshape (a linked peak takes its parent's) that has the parameter, the centre's / amplitude's number spelt exactly as the fit writes a finite float (`str(float(t)) == t`); at least one component; every integer one a float holds exactly; the software record holds no field a server does not record. Tests: the new hostile cases (a Gaussian master with a GL child linking gl_ratio, numbers 01 / 00.5 / 1e+999 / inf, no components, an inexact integer, an unknown software field) on a, b and both; an ORACLE test — deleting any key a response must have, or adding any key, in every object of a real response with an alternative, on either side, is refused (each case asserted 400); real fits with ids ("", "2"), ("é", "b"), (None, "2"), (True, False), ("1", "1_x"), the methods leastsq / nelder / differential_evolution / basinhopping, the backgrounds smart / linear / none / tougaard / smart_exp / manual, and a required-component check, each compared `same`; all 328 records of seal 1b's run v2 still pass and compare `same`. Every new rule mutation-checked (each removal fails its tests). The numerics digest is unchanged (the validator excluded like the verifier). 1d's test set: 394 passed.
+
+ANSWER EACH (cite file:line):
+1. Is every round-10 finding resolved?
+2. Does `response_structure_failure` now accept every response run_fit can write, and refuse everything else? Name any response the server writes that it refuses, or any non-response it accepts, with the path.
+3. Can /api/compare-fits answer 500 to any body?
+4. Do the tests (the oracle included) establish what they claim?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

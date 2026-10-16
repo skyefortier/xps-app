@@ -210,8 +210,16 @@ def response_form_failure(O, n):
 # component, in order, an alternative's components carrying exactly their own parameters; every number one a float
 # represents; every scale a comparison measures against finite (the energy span times the samples, the signal, every
 # bound span).
-_COMPONENT_ID = re.compile(r"[A-Za-z0-9_]+")            # what lmfit accepts in a parameter prefix
-_FLOAT_TEXT = r"-?\d+(?:\.\d+)?(?:e[+-]\d+)?"            # str(float) for a finite float
+_FLOAT_TEXT = r"[-+0-9.einf]+"                          # a candidate number; it must ALSO be str(float) of a finite float
+
+
+def _float_spelling(t):
+    """t is exactly how the fit writes a finite float into a link (f"{float}") — else False."""
+    try:
+        f = float(t)
+    except ValueError:
+        return False
+    return math.isfinite(f) and str(f) == t
 
 
 def _representable(v, depth=0):
@@ -223,7 +231,7 @@ def _representable(v, depth=0):
         return all(_representable(e, depth + 1) for e in v)
     if isinstance(v, int) and not isinstance(v, bool):
         try:
-            float(v)
+            return float(v) == v                           # an integer a float holds EXACTLY
         except OverflowError:
             return False
     return True
@@ -238,12 +246,20 @@ def response_structure_failure(O):
         return why
     if not _representable(O):
         return "it holds a number no float represents (or is nested too deeply)"
+    sw = O["software"]
+    allowed = set(SOFTWARE) | set(_NUMERICS_KEYS_SINCE_2026_10_15)
+    if not set(sw) <= allowed:
+        return "the recorded software holds a field no server records"
     peaks = O["individual_peaks"]
-    ids = [str(ip["id"]) for ip in peaks]
-    if any(isinstance(ip["id"], bool) or ip["id"] is None or not _COMPONENT_ID.fullmatch(str(ip["id"])) for ip in peaks):
+    if not peaks:
+        return "it has no components (a fit has at least one)"
+    # an id is one the server accepts: it builds every parameter name as f"p{id}_<name>", which must be an identifier
+    ids = [f"{ip['id']}" for ip in peaks]
+    if any(isinstance(ip["id"], (list, dict)) or not f"p{ip['id']}_x".isidentifier() for ip in peaks):
         return "a component id is not one a fit can have"
     if len(set(ids)) != len(ids):
         return "two components share an id"
+    by_id = {f"{ip['id']}": ip for ip in peaks}
     for ip in peaks:
         func = _SHAPE_FUNCS.get(ip["shape"])
         if func is None:
@@ -260,11 +276,18 @@ def response_structure_failure(O):
                 continue
             if rec["vary"]:
                 return f"component {str(ip['id'])[:20]}: a linked parameter ({name}) varies"
-            tail = {"center": r" \+ " + _FLOAT_TEXT, "amplitude": r" \* " + _FLOAT_TEXT}.get(name, "")
-            found = [mid for mid in ids if mid != str(ip["id"]) and re.fullmatch(re.escape(f"p{mid}_{name}") + tail, e)]
+            tail = {"center": r" \+ (" + _FLOAT_TEXT + ")", "amplitude": r" \* (" + _FLOAT_TEXT + ")"}.get(name, "")
+            found = []
+            for mid in ids:
+                m = re.fullmatch(re.escape(f"p{mid}_{name}") + tail, e) if mid != f"{ip['id']}" else None
+                # to a component of the SAME lineshape (a linked peak takes its parent's), which has this parameter,
+                # the number spelt as the fit writes a float
+                if m and by_id[mid]["shape"] == ip["shape"] and name in by_id[mid]["params"] \
+                        and (not tail or _float_spelling(m.group(1))):
+                    found.append(mid)
             if len(found) != 1:
                 return f"component {str(ip['id'])[:20]}: a link ({e[:40]}) is not one a fit writes"
-            master[(str(ip["id"]), name)] = (found[0], name)
+            master[(f"{ip['id']}", name)] = (found[0], name)
     import sys
     limit = sys.getrecursionlimit() // 4
     for start in master:
@@ -279,14 +302,14 @@ def response_structure_failure(O):
     # the scattered starts: every component, in order; an alternative's components carry exactly their own parameters
     st = O["starts"]
     if isinstance(st, dict) and st.get("ran"):
-        if [str(c["id"]) for c in st["fit"]["components"]] != ids:
+        if [f"{c['id']}" for c in st["fit"]["components"]] != ids:
             return "the scattered starts do not list the fit's components in order"
-        own = {str(ip["id"]): set(ip["params"]) - {"area"} for ip in peaks}
+        own = {f"{ip['id']}": set(ip["params"]) - {"area"} for ip in peaks}
         for alt in st["alternatives"]:
-            if [str(c["id"]) for c in alt["components"]] != ids:
+            if [f"{c['id']}" for c in alt["components"]] != ids:
                 return "a scattered-start alternative does not list the fit's components in order"
             for c in alt["components"]:
-                if set(c["params"]) != own[str(c["id"])]:
+                if set(c["params"]) != own[f"{c['id']}"]:
                     return f"a scattered-start alternative's component {str(c['id'])[:20]} does not carry its own parameters"
     # every scale a comparison measures against: finite
     with np.errstate(over="ignore", invalid="ignore"):

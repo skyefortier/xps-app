@@ -184,6 +184,15 @@ def _with_alternative(o):
     return o
 
 
+def _gaussian_master_gl_child(o):
+    """Codex round 10: component 0 a Gaussian (no gl_ratio), component 1 a GL whose gl_ratio links to p<0>_gl_ratio."""
+    m, c = _peak(o, 0), _peak(o, 1)
+    m["shape"] = "gaussian"
+    m["params"].pop("gl_ratio", None)
+    c["shape"] = "pseudo_voigt_gl"
+    c["params"]["gl_ratio"] = {**c["params"]["gl_ratio"], "vary": False, "expr": f"p{m['id']}_gl_ratio"}
+
+
 HOSTILE = {
     "huge integer energy": lambda o: o["energy"].__setitem__(0, 10 ** 400),
     "huge integer bound": lambda o: _peak(o)["params"]["center"].__setitem__("max", 10 ** 400),
@@ -209,6 +218,15 @@ HOSTILE = {
     "duplicate ids in an alternative": lambda o: _dup_alt_id(_with_alternative(o)),
     "alternative carrying value/min/expr": lambda o: _alt_param(_with_alternative(o), value=1.0, min=0.0, expr=1.0),
     "alternative out of order": lambda o: _with_alternative(o)["starts"]["alternatives"][0]["components"].reverse(),
+    # Codex round 10
+    "link to a parameter its master lacks": lambda o: _gaussian_master_gl_child(o),
+    "link number 01": lambda o: _with_link(o, "p1_center + 01"),
+    "link number 00.5": lambda o: _with_link(o, "p1_center + 00.5"),
+    "link number 1e+999": lambda o: _with_link(o, "p1_center + 1e+999"),
+    "link number inf": lambda o: _with_link(o, "p1_center + inf"),
+    "no components": lambda o: (o.__setitem__("individual_peaks", []), o.__setitem__("starts", None)),
+    "integer a float cannot hold": lambda o: o["counts"].__setitem__(0, 9007199254740993),
+    "software field no server records": lambda o: o["software"].__setitem__("zz", "x"),
 }
 
 
@@ -297,7 +315,8 @@ def test_a_link_offset_the_page_can_send_is_compared(client, offset):  # noqa: F
 
 def test_random_mutations_never_answer_500(client):  # noqa: F811
     """A seeded fuzz over a real response with an alternative: 3,000 random structural and numeric mutations, on a
-    random side — every answer is 200 (still a fit's structure) or 400 (refused), never 500."""
+    random side — every answer is 200 or 400, never 500. (It does not establish WHICH is right for a value change;
+    the key-level oracle below does, for deletions and additions.)"""
     import random
     rng = random.Random(20261015)
     base = _with_alternative(_record(client))
@@ -335,3 +354,78 @@ def test_random_mutations_never_answer_500(client):  # noqa: F811
         assert r.status_code in (200, 400), (r.status_code, r.get_data(as_text=True)[:300])
         counts[r.status_code] += 1
     assert counts[400] > 0 and counts[200] > 0, counts
+
+
+OPTIONAL_KEYS = {"error", "reason", "message", "follows", "asteval", "machine", "os", "blas"}   # keys a response MAY omit
+
+
+def _dict_paths(o, at=()):
+    if isinstance(o, dict):
+        yield at
+        for k, v in o.items():
+            yield from _dict_paths(v, at + (k,))
+    elif isinstance(o, list):
+        for i, v in enumerate(o[:3]):
+            yield from _dict_paths(v, at + (i,))
+
+
+def test_every_deleted_or_added_key_is_refused(client):  # noqa: F811
+    """An ORACLE the random fuzz lacks: a fit response has exactly its keys, so deleting a key it must have, or adding
+    any key, anywhere — every object of a real response with an alternative, on either side — is refused."""
+    base = _with_alternative(_record(client))
+    checked = 0
+    for at in _dict_paths(base):
+        node = base
+        for step in at:
+            node = node[step]
+        for key in list(node) + ["zz_added"]:
+            if key in OPTIONAL_KEYS:
+                continue
+            if at and at[-1] == "params" and key != "zz_added" and len(at) >= 2 and at[-2] != "area":
+                pass                                                   # a parameter removed: its lineshape's set breaks
+            h = copy.deepcopy(base)
+            target = h
+            for step in at:
+                target = target[step]
+            if key == "zz_added":
+                target[key] = 1.0
+            else:
+                del target[key]
+            for pair in ((h, base), (base, h)):
+                r = client.post("/api/compare-fits", data=json.dumps({"a": pair[0], "b": pair[1]}), content_type="application/json")
+                assert r.status_code == 400, (at, key, r.status_code, r.get_json())
+            checked += 1
+    assert checked > 100, checked
+
+
+# real fits the server writes: every id it accepts, more methods and backgrounds, a required-component check
+@pytest.mark.parametrize("ids", [("", "2"), ("é", "b"), (None, "2"), (True, False), ("1", "1_x")])
+def test_any_id_the_server_accepts_is_compared(client, ids):  # noqa: F811
+    x, y, specs = SS._well_posed()
+    specs = [{**s, "id": i} for s, i in zip(specs, ids)]
+    specs[1].update(constrain_to=ids[0], splitting=0.5, area_ratio=0.5, fix_fwhm=True)
+    R, O = _seal(client, x, y, specs, background={"method": "shirley"}, fit_method="least_squares", n_perturb=0, n_starts=3)
+    assert fitting.response_structure_failure(O) is None, (ids, fitting.response_structure_failure(O))
+    assert _compare(client, O, copy.deepcopy(O))["same"]
+
+
+@pytest.mark.parametrize("method,bg", [
+    ("leastsq", {"method": "smart"}), ("nelder", {"method": "linear"}), ("least_squares", {"method": "none"}),
+    ("least_squares", {"method": "tougaard"}), ("least_squares", {"method": "smart_exp"}),
+    ("least_squares", {"method": "manual", "manual_bg": [[281.0, 210.0], [292.0, 190.0]]}),
+    ("differential_evolution", {"method": "shirley"}), ("basinhopping", {"method": "shirley"}),
+])
+def test_every_method_and_background_a_fit_writes_is_compared(client, method, bg):  # noqa: F811
+    x, y, specs = SS._well_posed()
+    R, O = _seal(client, x, y, specs, background=bg, fit_method=method, n_perturb=0, n_starts=3)
+    assert fitting.response_structure_failure(O) is None, (method, bg, fitting.response_structure_failure(O))
+    assert _compare(client, O, copy.deepcopy(O))["same"]
+
+
+def test_a_required_component_check_is_compared(client):  # noqa: F811
+    x, y, specs = SS._well_posed()
+    R, O = _seal(client, x, y, specs, background={"method": "shirley"}, fit_method="least_squares", n_perturb=0,
+                 require_component=specs[0]["id"])
+    assert O["required"] and O["required"]["ran"], O["required"]
+    assert fitting.response_structure_failure(O) is None, fitting.response_structure_failure(O)
+    assert _compare(client, O, copy.deepcopy(O))["same"]

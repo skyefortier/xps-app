@@ -48,7 +48,7 @@ EXCLUDED = {
     "_STARTS_T", "_REQUIRED_T", "_CERTIFICATE_T", "_SUPPORT_T", "_STATISTICS_T", "_typed", "_BG_EFFECT_T", "_BG_VERDICT_T", "_bg_effect_form_failure",
     "_non_finite_request", "verify_fit", "_verify", "_verify_relations",
     # the exact structure /api/compare-fits requires (seal 1d): a validator of responses, like the verifier's form check
-    "response_structure_failure", "_representable", "_COMPONENT_ID", "_FLOAT_TEXT",
+    "response_structure_failure", "_representable", "_FLOAT_TEXT", "_float_spelling",
 }
 APP_ROOT = "_normalise_fit_request"
 _LOG_OBJECTS = {"log", "logger", "logging"}
