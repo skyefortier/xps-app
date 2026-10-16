@@ -6,6 +6,24 @@ own bullet even when it shipped inside a larger unit, so it can be found
 later. Procedure: [DEPLOY.md](../DEPLOY.md). The xps2 droplet is deployed by
 scripts/deploy_xps2.sh with every deploy since 2026-10-16 (DEPLOY.md, step 5).
 
+## 2026-10-16 — Both machines from now on: `scripts/deploy_xps2.sh`, `constraints.txt`, manual failover (b5a4354)
+
+- **Process (owner):** every approved deploy goes to the i9 AND xps2 (DEPLOY.md step 5), in that
+  order, before the deploy-log commit. `scripts/deploy_xps2.sh <commit>` refuses unless the commit is
+  the i9's HEAD on main and on origin/main and `constraints.txt` matches production's venv; it backs
+  up the droplet's commit and venv, deploys, restarts `xps-app` only, and checks health (droplet and
+  public), the fit record's commit, and that port 5000 refuses outside connections; on a failure it
+  prints the exact rollback. `constraints.txt` (27 packages) is generated from the i9 by
+  `scripts/gen_constraints.py`; `--check` compares an environment with it exactly.
+- Manual failover to xps2 documented in plain steps (DEPLOY.md step 6); its one-time preparation (an
+  ingress line for xps.fortierlab.org on the droplet's tunnel) is NOT done — awaiting the owner.
+- Codex ×1 per round: NO-GO, NO-GO, GO at round 3 (git failures, partial-deploy reporting, rollback of
+  libraries via a whole-venv copy, constraint completeness, a raw TCP port probe, trap status);
+  `docs/ops/codex/deploy_xps2_r{1,2,3}.md`.
+- First run, b5a4354 (scripts and docs only since ef750f6; the i9 was not restarted): PASS in 50 s —
+  both venvs equal `constraints.txt` (click and packaging on the droplet came to production's versions),
+  record commit b5a4354 `git_dirty false`, `:5000` refused.
+
 ## 2026-10-16 — xps2 droplet brought up to production main (ef750f6)
 
 - **xps2.fortierlab.org only; the i9 was not touched.** The droplet (DigitalOcean, `/opt/xps-app`, systemd
