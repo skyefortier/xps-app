@@ -1,0 +1,19 @@
+# i9 final (55d99ca) vs xps2 (55d99ca)
+107 requests: the same fit within rounding 106; the same scattered starts 101; bit-identical responses (software aside) 0
+  03540b1537f7 (Cl2p_projfit_test.proj.zip): fit same; starts ['starts.not_better_chi2r.0: 2.156287072648899 vs 2.1562865653770436']
+  5326f6646fca (1-GTA UCl4-graphite one set of U doublets.proj.zip): fit same; starts ['starts.not_better_chi2r.0: 3.1192606457196907 vs 3.119261853512194']
+  8a64090b2824 (Cl2p_projfit_test.proj.zip): fit same; starts ['starts.not_better_chi2r.0: 2.6056695140869266 vs 2.6056761241087814']
+  8e1e701cdaff (B4C-UCl4.proj.zip): fit same; starts ['starts.not_better_chi2r.0: 15.887576387244014 vs 15.887541144256835']
+  8e934acda9cc (4-GTA UCl4-BN.proj.zip): fit same; starts ['starts.n_converged: 3 vs 2', 'starts.n_same_as_fit: 3 vs 2']
+  f91e7b75720c (UCl4_on_graphite.proj.zip): fit ['statistics.aic: 327.6827649147771 vs 327.6819584807506', 'statistics.bic: 373.97796276857866 vs 373.9771563345521']; starts ['starts.fit.chi2r: 2.465888778194441 vs 2.4658830965535112']
+
+# i9 before (5fad7de, np.convolve) vs after (1d2b255)
+107 requests: the same fit within rounding 106; the same scattered starts 102; bit-identical responses (software aside) 11
+  03540b1537f7 (Cl2p_projfit_test.proj.zip): fit same; starts ['starts.not_better_chi2r.0: 2.1562867456347177 vs 2.156287072648899']
+  0ee03370cb20 (B4C-UCl4.proj.zip): fit same; starts ['starts.not_better_chi2r.0: 5.505284992846018 vs 5.505286022496164']
+  8a64090b2824 (Cl2p_projfit_test.proj.zip): fit same; starts ['starts.not_better_chi2r.0: 2.605670849365567 vs 2.6056695140869266']
+  8e1e701cdaff (B4C-UCl4.proj.zip): fit same; starts ['starts.not_better_chi2r.0: 15.887579246863885 vs 15.887576387244014']
+  f91e7b75720c (UCl4_on_graphite.proj.zip): fit ['statistics.aic: 327.681953771675 vs 327.6827649147771', 'statistics.bic: 373.9771516254765 vs 373.97796276857866']; starts ['starts.fit.chi2r: 2.465883063376283 vs 2.465888778194441']
+
+# i9 after (1d2b255) vs final (55d99ca)
+107 requests: the same fit within rounding 107; the same scattered starts 107; bit-identical responses (software aside) 102

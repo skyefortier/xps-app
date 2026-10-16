@@ -46,7 +46,7 @@ records (`matrix/run.sh`): BEFORE on 5fad7de (seal-1d, np.convolve) and AFTER on
 detached checkout (`dirty=0`, `matrix/run.log`), one software identity per side (numerics 2026-10-13 / 2026-10-15,
 `matrix/*/provenance.json`, which also holds every record's R and O sha256), four gunicorn workers each
 (`matrix/*/gunicorn.log`). Every fit on both sides HTTP 200 with success true. `matrix/summary.txt`
-(`python scripts/seal_la_matrix.py summarise <dir>`):
+(`python scripts/seal_la_matrix.py summarise <dir> before after final xps2`):
 
 | setting | before: consistent / unconfirmed | after |
 |---|---|---|
@@ -60,6 +60,35 @@ No verification on either side read `mismatch`; every unconfirmed one failed the
 Every LA record that was unconfirmed is confirmed, in every setting. (1b's own run, at a46cd3f, had 53 of its 107
 unconfirmed at least once; the count per run varies with which processes differ, as 1b recorded — the fix is the
 difference between 121 and 0 on the same requests under the same harness.)
+
+### On the final code, and on the second machine (owner, 2026-10-16: the deploy goes to the i9 AND xps2)
+
+The AFTER side was run again on the final LA code (55d99ca: the tap range below, on 1d's round-12 fixes ac2fda6), on
+both machines, from the same 107 requests and the same script. (The branch was later rebased onto 1d's round-13 fixes;
+those touch the compare endpoint's validator, the link walks and the comparator, not LA's evaluation — the LA code is
+the same, and the full suite was rerun on the final stack.)
+
+| machine | environment | fresh 1 | fresh 2 | shaken | gunicorn | all |
+|---|---|---|---|---|---|---|
+| i9 (`matrix/final/`) | macOS x86_64, Python 3.12.13, Apple Accelerate | 107 / 0 | 107 / 0 | 107 / 0 | 107 / 0 (4 workers) | **428 / 428** |
+| xps2 (`matrix/xps2/`) | Linux 6.8 x86_64, 1 vCPU, Python 3.12.3, scipy-openblas 0.3.31 | 107 / 0 | 107 / 0 | 107 / 0 | 107 / 0 (2 workers) | **428 / 428** |
+
+(consistent / unconfirmed; no mismatch anywhere; every fit HTTP 200 with success true.) On xps2 the requests were
+re-fitted THERE and verified there: a record is confirmed only by a server of its own software identity, and the
+two machines' identities differ (Python 3.12.3 vs 3.12.13, the BLAS, the OS), so an i9 record checked on xps2 reads
+UNCONFIRMED ("other software") by design, never `mismatch`. xps2's run used production's virtualenv read-only
+(/opt/xps-app/venv: numpy 2.4.4, scipy 1.17.1, lmfit 1.3.4, asteval 1.0.8, the i9's pins) from a separate clone of the
+commit (`matrix/xps2/run_xps2.sh`, `provenance.json`: commit 55d99ca, clean, one software identity), at nice 19 beside
+production; its temporary gunicorn had 2 workers, production's count on that 961 MB machine.
+
+Across the machines (information, not verification — `python scripts/seal_la_matrix.py across`, the fit compared as
+/api/compare-fits compares it, `matrix/across.txt`): of the 107 requests fitted on the i9 and on xps2, 106 are the same
+fit within rounding and 101 have the same scattered starts; none is bit-identical (the optimiser's arithmetic differs
+between the BLAS libraries, CLAUDE.md "Reproducibility"). The one fit that differs (f91e7b75720c, UCl4_on_graphite)
+differs by 2e-6 of its χ² — the same record differs by the same amount on the i9 alone between np.convolve and the
+fixed-order sum (before vs after), a fit whose minimum is flat to that level; five differ only in a "not better" scattered start's χ²ᵣ (≤ 2e-6) and one in a scattered start
+that converged on one machine and not the other. LA's own evaluation is not the cause of any of these: a
+verification re-evaluates, and every one of the 856 re-evaluations above reproduced its record bit for bit.
 
 ## Measured through the page (`scripts/seal_la_confirm_measure.py`, `confirm_before.json`, `confirm_after.json`)
 
@@ -85,9 +114,18 @@ and m HELD at 0.6 / 6 / 40 / 499, so those kernels are the ones verified — res
 cross-process tests); tests/test_seal_1a_verify.py (the empty set; the mechanism with LA marked unstable).
 tests/envelope_identity.py no longer allows an LA component an extra rounding margin (it allowed for the BLAS dot).
 
-## Speed
+## Speed (owner 2026-10-16: accepted as is; no FFT convolution — repeatability on both machines first)
 
-Per evaluation the fixed-order loop is slower than `np.convolve` (0.31 vs 0.02 ms at 450 points and m = 50, 119
-taps; 3.9 vs 0.14 ms at the maximum m = 499, 1,167 taps). On whole fits it is small: 12 committed LA Run Fit
-requests (seal 1b's, `scripts/seal_la_fit_time.py`, in process) took median 1.16 s before and 1.38 s after
-(0.80–3.87 s before, 1.05–3.19 s after).
+Per evaluation the fixed-order sum is slower than `np.convolve`'s BLAS dot (0.21 vs 0.007 ms at 150 points and 119
+taps; with the tap range, 0.5 vs 0.04 ms at 150 points and m = 499). Whole fits, every seal-1b LA request (107) timed
+in process on clean checkouts of both sides AT THE SAME TIME, so both saw the same load (`scripts/seal_la_fit_time.py`,
+`matrix/time_before.json`, `matrix/time_after.json`; every response 200 with success true): median 1.26 s → 1.51 s,
+total 520 s → 564 s (+8 %), median ratio per request 1.23. The fitted kernels in this corpus are short (the widest 33
+taps). The largest increase is not the loop's cost: one request (5374a59f1c40) takes 17.5 s → 36 s reproducibly
+(three timings each side) and reaches the same fit (χ²ᵣ, areas, certificate and starts identical); profiled, the
+optimiser made 98,558 LA evaluations instead of 52,546 at the same cost each (0.11 vs 0.10 ms) — the new rounding sent
+a minimisation along a longer path to the same minimum. Synthetic worst cases (two LA components on the 150-point
+well-posed grid, Trust-Region, n_perturb 3, n_starts 3; three timings each): m held at the page default 50, about
+20 s → 45 s; m held at 150, 3.7 s → 16 s; m held at 499 (1,167 taps on 150 points), 1.4 s → 18.5 s before the tap
+range and ≈ 5 s with it; m free from 50, 1.6 s → 3.4 s. The tap range (only the taps that reach the window are summed)
+changes no bit (4,000 random cases against the every-tap form; the numerics manifest records it as equivalent).

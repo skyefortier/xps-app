@@ -11,8 +11,11 @@ seal-1b-measure, a46cd3f), with the request's session replaced by a fresh full-p
                                              POST /api/verify-fit for every record in THIS (fresh) process, or against
                                              a running server (--url: a 4-worker gunicorn); --shake allocates arrays of
                                              random size between verifications (the allocation history changes)
-  summarise DIR                              DIR/{before,after}: per setting, consistent / unconfirmed / mismatch,
-                                             committed and synthetic, and the records not consistent in some setting
+  summarise DIR [SIDE ...]                   DIR/<side> for each side (default: before after): per setting, consistent /
+                                             unconfirmed / mismatch, committed and synthetic, and the records not
+                                             consistent in some setting
+  across RECORDS_A RECORDS_B                 the same requests fitted on two machines (or code): per record, the same
+                                             fit within rounding (tests/fit_equality.py) or not, and bit-identical or not
   provenance RECORDS OUT.json                the commit and cleanliness of this checkout, the software identity every
                                              record carries, and per record sha256 of R and O as JSON
 
@@ -117,9 +120,9 @@ def provenance(recs, out):
 SETTINGS = ("fresh_1", "fresh_2", "shake", "gunicorn")
 
 
-def summarise(d):
+def summarise(d, sides=("before", "after")):
     from collections import Counter
-    for side in ("before", "after"):
+    for side in sides:
         recs = list(records(f"{d}/{side}/records.jsonl"))
         syn = {r["id"] for r in recs if r["project"] == "synthetic"}
         print(f"{side}: {len(recs)} records ({len(recs) - len(syn)} committed, {len(syn)} synthetic); "
@@ -139,6 +142,32 @@ def summarise(d):
               f"({len(bad - syn)} committed, {len(bad & syn)} synthetic)")
 
 
+def across(a_path, b_path):
+    """Information, not a verification: a record is confirmed only by a server of its own software identity, so the
+    two machines' records are compared as fits — the same fit within rounding (fit_equality, the measure 1d's re-run
+    uses), and whether every number is the same bit for bit."""
+    from fit_equality import fit_differences
+    A = {r["id"]: r for r in records(a_path)}
+    B = {r["id"]: r for r in records(b_path)}
+    same_fit = same_starts = bits = 0
+    differing = []
+    apart = ("starts", "software", "seed_source")          # as /api/compare-fits separates them (app.py)
+    for k in sorted(A):
+        oa, ob = A[k]["O"], B[k]["O"]
+        strip = lambda o: {f: v for f, v in o.items() if f not in ("software", "seed_source")}
+        bits += json.dumps(strip(oa), sort_keys=True) == json.dumps(strip(ob), sort_keys=True)
+        fit = fit_differences({f: v for f, v in oa.items() if f not in apart}, {f: v for f, v in ob.items() if f not in apart})
+        starts = [x for x in fit_differences(strip(oa), strip(ob)) if x.startswith("starts")]
+        same_fit += not fit
+        same_starts += not starts
+        if fit or starts:
+            differing.append((k, A[k]["project"], fit[:2], starts[:2]))
+    print(f"{len(A)} requests: the same fit within rounding {same_fit}; the same scattered starts {same_starts}; "
+          f"bit-identical responses (software aside) {bits}")
+    for k, proj, fit, starts in differing:
+        print(f"  {k} ({proj}): fit {fit or 'same'}; starts {starts or 'same'}")
+
+
 if __name__ == "__main__":
     phase, args = sys.argv[1], sys.argv[2:]
     if phase == "record":
@@ -147,7 +176,9 @@ if __name__ == "__main__":
         url = args[args.index("--url") + 1] if "--url" in args else None
         verify(args[0], args[1], shake="--shake" in args, url=url)
     elif phase == "summarise":
-        summarise(args[0])
+        summarise(args[0], tuple(args[1:]) or ("before", "after"))
+    elif phase == "across":
+        across(args[0], args[1])
     elif phase == "provenance":
         provenance(args[0], args[1])
     else:
