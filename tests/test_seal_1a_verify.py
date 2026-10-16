@@ -407,11 +407,17 @@ def test_reversed_bounds_verify_as_the_fitter_holds_them(client):
     _consistent(client, R, O)
 
 
-def test_a_lineshape_that_is_not_bit_stable_is_unconfirmed_not_mismatch(client):
-    # owner Q7 / V6.5: LA(α,β,m)'s np.convolve is not bit-stable, so ONLY the identity "this recorded curve
-    # is this server's evaluation of its parameters" cannot be judged for it: UNCONFIRMED, never a tolerance.
-    # Every relation of the recorded arrays, and every stable component, stays exact (Codex round 2).
-    assert fitting.NOT_BIT_STABLE_SHAPES == {"la_casaxps"}
+def test_no_lineshape_is_unstable_since_the_la_unit():
+    # the LA unit (2026-10-15): LA's convolution is summed in one fixed order, so every lineshape is bit-stable
+    assert fitting.NOT_BIT_STABLE_SHAPES == frozenset()
+
+
+def test_a_lineshape_that_is_not_bit_stable_is_unconfirmed_not_mismatch(client, monkeypatch):
+    # owner Q7 / V6.5, the MECHANISM (no lineshape needs it since the LA unit; LA is marked unstable here to test it):
+    # ONLY the identity "this recorded curve is this server's evaluation of its parameters" cannot be judged for
+    # such a shape: UNCONFIRMED, never a tolerance. Every relation of the recorded arrays, and every stable
+    # component, stays exact (Codex round 2).
+    monkeypatch.setattr(fitting, "NOT_BIT_STABLE_SHAPES", frozenset({"la_casaxps"}))
     x, y, specs = SS._well_posed()
     specs = [{**specs[0], "shape": "la_casaxps", **SHAPES["la_casaxps"]}, {**specs[1], "shape": "gaussian"}]
     R, O = _seal(client, x, y, specs)
@@ -441,20 +447,29 @@ def test_a_lineshape_that_is_not_bit_stable_is_unconfirmed_not_mismatch(client):
         assert v["state"] == "mismatch" and v["check"] == check, (path, v)
 
 
-def test_an_la_curve_that_is_not_its_parameters_is_unconfirmed():
+@pytest.mark.parametrize("unstable", [False, True], ids=["la-stable", "la-marked-unstable"])
+def test_an_la_curve_that_is_not_its_parameters(monkeypatch, unstable):
     # the evaluation identity itself, built consistently: an LA curve one ulp off its parameters, with every
-    # relation recomputed from it — the verifier cannot tell that from LA's own jitter
+    # relation recomputed from it. Since the LA unit LA is bit-stable: a MISMATCH. Marked unstable (the
+    # mechanism, owner Q7): the verifier cannot tell that from the shape's own jitter — UNCONFIRMED.
+    if unstable:
+        monkeypatch.setattr(fitting, "NOT_BIT_STABLE_SHAPES", frozenset({"la_casaxps"}))
     x, y, specs = SS._well_posed()
     specs = [{**specs[0], "shape": "la_casaxps", **SHAPES["la_casaxps"]}, {**specs[1], "shape": "gaussian"}]
     args = dict(energy=x, counts=y, peak_specs=specs, background_method="linear", n_perturb=0,
                 fit_kws={"method": "leastsq"})
     O = json.loads(json.dumps(fitting.run_fit(**args)))
     bg, cnt = np.asarray(O["background_y"]), np.asarray(O["counts"])
-    y0 = np.asarray(O["individual_peaks"][0]["y"]); y0[50] = np.nextafter(y0[50], np.inf)
+    # one ulp on the LA curve at a point where the model sum keeps its bits, so ONLY the identity "this curve is its
+    # parameters' evaluation" changes (the model sum, and every support built on it, stay as recorded; before the LA
+    # unit point 50 happened to be such a point)
+    y0 = np.asarray(O["individual_peaks"][0]["y"]); other = np.asarray(O["individual_peaks"][1]["y"])
+    i = next(k for k in range(len(y0)) if y0[k] > 0 and (np.nextafter(y0[k], np.inf) + other[k]) == (y0[k] + other[k]))
+    y0[i] = np.nextafter(y0[i], np.inf)
     O["individual_peaks"][0]["y"] = y0.tolist()
     O["individual_peaks"][0]["params"]["area"]["value"] = float(abs(fitting.trapezoid(y0, np.asarray(O["energy"]))))
     v = fitting.verify_fit(O, **args)
-    assert v["state"] == "unconfirmed" and v["check"] == "components", v
+    assert v["state"] == ("unconfirmed" if unstable else "mismatch") and v["check"] == "components", v
     # the same on a stable lineshape is a mismatch
     O = json.loads(json.dumps(fitting.run_fit(**{**args, "peak_specs": [{**specs[0], "shape": "gaussian"}, specs[1]]})))
     y0 = np.asarray(O["individual_peaks"][0]["y"]); y0[50] = np.nextafter(y0[50], np.inf)
@@ -552,16 +567,22 @@ def test_every_id_the_fit_route_accepts_verifies(client, pid):
     _consistent(client, R, O)
 
 
-def test_a_stable_components_mismatch_is_not_hidden_behind_an_unstable_one():
-    # Codex round 3: the first LA evaluation failure ended the checks before a later Gaussian's
+def test_a_stable_components_mismatch_is_not_hidden_behind_an_unstable_one(monkeypatch):
+    # Codex round 3: the first LA evaluation failure ended the checks before a later Gaussian's. The MECHANISM (no
+    # lineshape is unstable since the LA unit; LA is marked unstable here to test it)
+    monkeypatch.setattr(fitting, "NOT_BIT_STABLE_SHAPES", frozenset({"la_casaxps"}))
     x, y, specs = SS._well_posed()
     specs = [{**specs[0], "shape": "la_casaxps", **SHAPES["la_casaxps"]}, {**specs[1], "shape": "gaussian"}]
     args = dict(energy=x, counts=y, peak_specs=specs, background_method="linear", n_perturb=0,
                 fit_kws={"method": "leastsq"})
     O = json.loads(json.dumps(fitting.run_fit(**args)))
     xs = np.asarray(O["energy"])
-    for k in (0, 1):                                  # both curves one ulp off, every relation recomputed
-        yk = np.asarray(O["individual_peaks"][k]["y"]); yk[50] = np.nextafter(yk[50], np.inf)
+    # both curves one ulp off at a point where the model sum keeps its bits (only the curves' identities change)
+    ya, yb = (np.asarray(O["individual_peaks"][k]["y"]) for k in (0, 1))
+    i = next(j for j in range(len(ya)) if ya[j] > 0 and yb[j] > 0
+             and np.nextafter(ya[j], np.inf) + np.nextafter(yb[j], np.inf) == ya[j] + yb[j])
+    for k in (0, 1):
+        yk = np.asarray(O["individual_peaks"][k]["y"]); yk[i] = np.nextafter(yk[i], np.inf)
         O["individual_peaks"][k]["y"] = yk.tolist()
         O["individual_peaks"][k]["params"]["area"]["value"] = float(abs(fitting.trapezoid(yk, xs)))
     v = fitting.verify_fit(O, **args)

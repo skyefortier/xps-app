@@ -47,8 +47,10 @@ SEED_TAG = "xps-fit-seed-v2"                      # _request_seed's derivation t
 # (tests/fixtures/numerics_manifest.json) and fails on a math change without a bump, or a bump without one.
 # Recorded with every fit (owner 2026-10-10). History: "2026-10-09" — background math
 # (levels-only averaging, certified backgrounds, full-precision upload, seed v2), deployed then;
-# "2026-10-13" — the reported statistics formed from the returned arrays (seal 1a′, V6.6).
-NUMERICS_VERSION = "2026-10-13"
+# "2026-10-13" — the reported statistics formed from the returned arrays (seal 1a′, V6.6); "2026-10-15" —
+# LA(α,β,m)'s convolution summed in one fixed order (the LA unit: np.convolve's BLAS dot differed between
+# processes; values move by rounding only, ≤ 2.4e-15 relative).
+NUMERICS_VERSION = "2026-10-15"
 # The fields of a software record that DECLARE the numerics a fit was computed with (owner 2026-10-15, consistent
 # with Q4): the numerics version, the seed derivation, the numerical libraries (lmfit evaluates linked
 # parameters through asteval), the machine architecture, the operating system release and numpy's BLAS backend
@@ -1661,6 +1663,27 @@ def compute_background(x, y, method, n_avg=1, report=None) -> np.ndarray:
     return bg
 
 
+def _convolve_same_fixed_order(base: np.ndarray, kern: np.ndarray) -> np.ndarray:
+    """np.convolve(base, kern, 'same') trimmed to len(base) — the LA convolution — in ONE fixed summation order.
+
+    np.convolve's inner product is BLAS ddot, whose rounding on this machine (Apple Accelerate) depends on the
+    process: the same base and kernel gave 4 different outputs in 5 fresh processes, so a recorded LA curve was
+    not reproduced by its own verification (seal 1b: every unconfirmed record held LA; LA unit, 2026-10-15). Here
+    every output is the sum over the kernel taps t = 0 … K−1 of base[j − t]·kern[t], accumulated from 0 in
+    increasing t by elementwise numpy operations (no reduction, no BLAS), identical in every process (the order
+    the page's laTrueCasaXPS_array sums in too; the page still differs by rounding in exp / pow, inside its parity
+    tolerance). It differs from np.convolve by rounding only (≤ 2.4e-15 relative over 3,000 random sizes, tests).
+    Length and offset as before: 'same' is
+    full[off : off + N], off = (K − 1)/2 when K ≤ N, else ⌊(N − 1)/2⌋ + ⌊(K − N)/2⌋ (numpy's 'same' then the
+    trim to len(base))."""
+    n, k = len(base), len(kern)
+    full = np.zeros(n + k - 1)
+    for t in range(k):
+        full[t:t + n] += base * kern[t]
+    off = (k - 1) // 2 if k <= n else (n - 1) // 2 + (k - n) // 2
+    return full[off:off + n]
+
+
 def _la_casaxps_true(
     x: np.ndarray,
     amplitude: float,
@@ -1745,17 +1768,7 @@ def _la_casaxps_true(
     kern = np.exp(-(k ** 2) / (2.0 * sigma_pts ** 2))
     kern = kern / kern.sum()
 
-    convolved = np.convolve(base, kern, mode='same')
-    # np.convolve mode='same' returns max(len(base), len(kern)) — not
-    # len(base). When the input grid is shorter than the kernel, trim
-    # back to len(base) so the function's len(output) == len(x) contract
-    # holds. lmfit's composite-fit residual path will broadcast the
-    # per-peak arrays against the data grid, so a kernel-length return
-    # surfaces as a cryptic shape mismatch downstream.
-    if len(convolved) > len(base):
-        excess = len(convolved) - len(base)
-        start = excess // 2
-        convolved = convolved[start:start + len(base)]
+    convolved = _convolve_same_fixed_order(base, kern)
 
     peak_idx = int(np.argmin(np.abs(eps)))
     peak_val = convolved[peak_idx]
@@ -3476,10 +3489,11 @@ _PEAK_KEYS = frozenset({"id", "shape", "y", "params", "support"})
 _PARAM_KEYS = frozenset({"value", "stderr", "vary", "expr", "min", "max"})
 # Lineshapes whose evaluation is NOT bit-stable on this server (V6.5, owner Q7: such a fit is
 # UNCONFIRMED — never compared within a tolerance — until its evaluator is made deterministic, a
-# unit of its own). LA(α,β,m): np.convolve's inner product is an alignment-dependent BLAS dot
-# (CLAUDE.md "Reproducibility"); measured in seal 1a′ (docs/findings/seal-1a: two evaluations of one
-# model's LA components differ in one process) and 1b.
-NOT_BIT_STABLE_SHAPES = frozenset({"la_casaxps"})
+# unit of its own). None since the LA unit (2026-10-15): LA(α,β,m) was the one — np.convolve's
+# inner product, a BLAS ddot whose rounding differed between processes (seal 1a′, 1b) — and its
+# convolution is now summed in one fixed order (_convolve_same_fixed_order). The mechanism stays
+# for any future lineshape.
+NOT_BIT_STABLE_SHAPES = frozenset()
 
 
 class _Mismatch(Exception):
