@@ -329,6 +329,19 @@ def response_structure_failure(O):
                 return f"component {me[:20]}: its support does not follow its root component as a fit writes it"
         elif "follows" in sup:
             return f"component {me[:20]}: an unlinked component's support follows another"
+    # every parameter as lmfit holds it (Codex round 15): a bound is finite (the fit writes an infinite one as null),
+    # min < max (lmfit swaps reversed bounds and refuses equal ones), the value inside them (lmfit clips it); a linked
+    # parameter has none (above)
+    for ip in peaks:
+        for name, rec in ip["params"].items():
+            if name == "area" or rec["expr"] is not None:
+                continue
+            lo, hi, v = rec["min"], rec["max"], rec["value"]
+            if any(b is not None and not math.isfinite(b) for b in (lo, hi)) or (lo is not None and hi is not None and not lo < hi) \
+                    or (lo is not None and v < lo) or (hi is not None and v > hi):
+                return f"component {str(ip['id'])[:20]}: its {name} is not inside bounds a fit can write"
+    if O["fit_method"] not in _FIT_METHODS or O["seed_source"] not in ("caller", "request"):
+        return "the recorded method or seed source is not one a fit writes"
     # the bounds _make_peak_params gives a shape parameter whatever the request says (the others are the request's):
     # a free parameter carries them exactly, a held one the same widened to its held value (_set), a linked one none
     for ip in peaks:
@@ -356,11 +369,13 @@ def response_structure_failure(O):
     # the scattered starts: every component, in order; an alternative's components carry exactly their own parameters
     st = O["starts"]
     if isinstance(st, dict) and st.get("ran"):
-        if [f"{c['id']}" for c in st["fit"]["components"]] != ids:
+        same_ids = lambda cs: len(cs) == len(peaks) and all(type(c["id"]) is type(ip["id"]) and c["id"] == ip["id"]
+                                                            for c, ip in zip(cs, peaks))     # the id itself, copied
+        if not same_ids(st["fit"]["components"]):
             return "the scattered starts do not list the fit's components in order"
         own = {f"{ip['id']}": set(ip["params"]) - {"area"} for ip in peaks}
         for alt in st["alternatives"]:
-            if [f"{c['id']}" for c in alt["components"]] != ids:
+            if not same_ids(alt["components"]):
                 return "a scattered-start alternative does not list the fit's components in order"
             for c in alt["components"]:
                 if set(c["params"]) != own[f"{c['id']}"]:

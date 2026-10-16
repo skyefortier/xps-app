@@ -300,6 +300,15 @@ HOSTILE = {
     "id Python normalises (KELVIN SIGN)": lambda o: _renamed(o, "\u212a", "b"),
     "free gl_ratio with a bound no fit gives": lambda o: _peak(o)["params"]["gl_ratio"].update(min=-1.0),
     "held gl_ratio outside its bounds, not widened": lambda o: _peak(o)["params"]["gl_ratio"].update(vary=False, value=1.5),
+    # Codex round 15
+    "fwhm bounds reversed": lambda o: _peak(o)["params"]["fwhm"].update(min=15.0, max=0.1),
+    "fwhm bounds equal": lambda o: _peak(o)["params"]["fwhm"].update(min=1.0, max=1.0, value=1.0),
+    "an infinite bound": lambda o: _peak(o)["params"]["fwhm"].update(max=float("inf")),
+    "a free GL mix outside its bounds": lambda o: _peak(o)["params"]["gl_ratio"].update(value=1.5),
+    "a method no fit has": lambda o: o.__setitem__("fit_method", "not-a-method"),
+    "a seed source no fit writes": lambda o: o.__setitem__("seed_source", "impossible"),
+    "a scattered start's id of another type": lambda o: o["starts"]["fit"]["components"][0].__setitem__(
+        "id", str(o["starts"]["fit"]["components"][0]["id"])),
     "link to a component of another lineshape": lambda o: (_proper_link(o), _peak(o, 0).__setitem__("shape", "gaussian"),
                                                          _peak(o, 0)["params"].pop("gl_ratio", None)),
 }
@@ -414,7 +423,9 @@ def test_no_real_record_is_refused():
 
 
 # real fits of every lineshape and link form the page can send: never refused
-SHAPE_CASES = [(shape, link, lock) for shape in sorted(SHAPES) for link in (False, True) for lock in (False, True)]
+# link: False, "shape" (fix_fwhm true: every shape parameter linked) or "own" (fix_fwhm false: the child keeps its own
+# shape parameters, with the linked branch's bounds — Codex round 15: no real fit covered that branch)
+SHAPE_CASES = [(shape, link, lock) for shape in sorted(SHAPES) for link in (False, "shape", "own") for lock in (False, True)]
 
 
 @pytest.mark.parametrize("shape,link,lock", SHAPE_CASES)
@@ -424,7 +435,7 @@ def test_every_lineshape_link_and_lock_a_fit_writes_is_compared(client, shape, l
     if lock:
         specs[0].update(fix_fwhm=True, fix_center=True)
     if link:
-        specs[1].update(constrain_to=specs[0]["id"], splitting=1e-05, area_ratio=0.5, fix_fwhm=True)
+        specs[1].update(constrain_to=specs[0]["id"], splitting=1e-05, area_ratio=0.5, fix_fwhm=link == "shape")
     R, O = _seal(client, x, y, specs, background={"method": "shirley"}, fit_method="least_squares", n_perturb=0, n_starts=3)
     assert fitting.response_structure_failure(O) is None, (shape, link, lock, fitting.response_structure_failure(O))
     got = _compare(client, O, copy.deepcopy(O))
@@ -577,6 +588,15 @@ def test_an_id_python_would_normalise_is_refused_and_a_held_value_widens_its_bou
     assert o["individual_peaks"][0]["params"]["gl_ratio"]["max"] == 1.5
     assert fitting.response_structure_failure(o) is None, fitting.response_structure_failure(o)
     assert _compare(client, o, copy.deepcopy(o))["same"]
+
+
+def test_ids_of_different_types_are_different_fits(client):  # noqa: F811
+    """Codex round 15: the comparator compared JSON scalars with ==, so a component id 1 and true read the same."""
+    o = _record(client)
+    h = _renamed(copy.deepcopy(o), True, 2)
+    assert fitting.response_structure_failure(h) is None, fitting.response_structure_failure(h)
+    got = _compare(client, o, h)
+    assert got["same"] is False and any(".id" in d for d in got["problems"]), got
 
 
 def test_ids_equal_as_values_are_refused_as_one_id():

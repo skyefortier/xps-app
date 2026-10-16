@@ -1,0 +1,20 @@
+CORRECTNESS REVIEW, ROUND 16, of unit 1d ("Re-run this fit") of the sealed fit record in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software.
+
+REPO: this checkout, branch seal-1d, on seal-1c-s8. 1d is `git diff seal-1c-s8..HEAD`. Read docs/superpowers/plans/2026-10-15-seal-1d-rerun.md ("The exact structure") and docs/autofit/codex/seal_1d_r15_prompt.txt. The owner's decision (option 3): /api/compare-fits validates EACH response against the exact structure the server writes before comparing anything; anything else is a plain 4xx, never a 500.
+
+Round 15 (both runs NO-GO on MINORs; verdicts docs/autofit/codex/seal_1d_r15_verdict_run{A,B}.md): bounds lmfit cannot hold were accepted (reversed, equal, a lone infinite bound, a free value outside its bounds); a method or seed source no fit writes was accepted; a scattered start's component id of another JSON type (1 vs "1") was accepted; the comparator compared JSON scalars with ==, so ids 1 and true read the same; no real fit covered a linked component keeping its own shape parameters (fix_fwhm false), so the linked rows of _FIXED_BOUNDS were unprotected.
+
+WHAT THIS ROUND CHANGES:
+- response_structure_failure: every expression-free parameter's bounds finite or null, min < max, the value inside them; fit_method one of fitting._FIT_METHODS; seed_source "caller" or "request"; the scattered starts' (and alternatives') component ids the components' own by JSON type and value.
+- same_fit: scalars compared by type and value.
+- tests: hostile cases for each (on a, b, both); ids 1 vs true compare different; the lineshape matrix now has three link modes — none, every shape parameter linked (fix_fwhm true), and the child's own shape parameters (fix_fwhm false) — each with and without locks, all real fits. Mutants (each caught): the bound invariants off, method/seed unchecked, starts ids by spelling, the comparator ignoring types, and EVERY _FIXED_BOUNDS entry widened in turn (12 of 12 caught by the matrix). The 328 seal-1b records pass. Affected test files: 641 passed, 1 skipped.
+
+ANSWER EACH (cite file:line):
+1. Is every round-15 finding resolved?
+2. Does `response_structure_failure` now accept every response run_fit can write, and refuse everything else? Name any response the server writes that it refuses, or any non-response it accepts, with the path.
+3. Can /api/compare-fits answer 500 to any body?
+4. Do the tests establish what they claim?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

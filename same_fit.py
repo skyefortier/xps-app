@@ -291,7 +291,7 @@ def fit_differences(a, b, rel=SAME_MINIMUM_REL, objective_rel=OBJECTIVE_REL):
         if isinstance(x_, float) or isinstance(y_, float):
             number(x_, y_, path, comp_id, bounds, widths)
             return
-        if x_ != y_:
+        if type(x_) is not type(y_) or x_ != y_:        # 1 and true are different JSON values (Codex round 15)
             problems.append(f"{where}: {x_!r} vs {y_!r}")
 
     cmp(a, b, ())
