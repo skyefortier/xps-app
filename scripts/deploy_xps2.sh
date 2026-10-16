@@ -118,14 +118,14 @@ ok "/api/health on the droplet"
 curl -sf -m 20 "$XPS2_URL/api/health" | grep -q '"ok"' || fail "$XPS2_URL/api/health not ok"
 ok "$XPS2_URL/api/health"
 
-TMP=$(mktemp -d)
+TMP=$(mktemp -d) || fail "mktemp failed"
 python3 -c "
 import math
 with open('$TMP/c1s.csv', 'w') as f:
     for i in range(151):
         x = 280 + 0.1 * i
         f.write(f'{x:.4f},{200 + 5000 * math.exp(-((x - 284.8) / 0.6) ** 2) + 1500 * math.exp(-((x - 286.4) / 0.7) ** 2) + 30 * (1 + (i % 7) / 7):.4f}\n')
-"
+" || fail "writing the test spectrum failed"
 SID=$(curl -sf -m 30 -F "file=@$TMP/c1s.csv" "$XPS2_URL/api/upload" \
       | python3 -c 'import sys, json; print(json.load(sys.stdin)["session_id"])') || fail "upload through $XPS2_URL failed"
 REC=$(curl -sf -m 90 "$XPS2_URL/api/fit" -H 'Content-Type: application/json' -d "{\"session_id\": \"$SID\",
@@ -157,7 +157,7 @@ if r == "timeout":
     r = "filtered" if probe(22) == "open" else "timeout, and port 22 unreachable too"
 print(r)
 EOF
-)
+) || fail "the port probe itself failed"
 case "$PORT" in
   refused|filtered) ok "$XPS2_HOST:5000 from outside: $PORT" ;;
   open) fail "$XPS2_HOST:5000 accepts connections from outside — the app is reachable without Cloudflare" ;;
