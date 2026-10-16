@@ -41,7 +41,7 @@ MANIFEST = os.path.join(ROOT, "tests", "fixtures", "numerics_manifest.json")
 # not fitting math: the verifier, the software recording, the version itself
 EXCLUDED = {
     "NUMERICS_VERSION", "NUMERICS_IDENTITY_KEYS", "_NUMERICS_KEYS_SINCE_2026_10_15", "RECORD_KEYS", "fit_record",
-    "_git_state", "_env_sha256", "_software_identity", "SOFTWARE", "log", "software_failure", "numerics_difference",
+    "_git_state", "_env_sha256", "_software_identity", "SOFTWARE", "log", "software_failure", "numerics_difference", "numerics_reason", "_PLATFORM_KEYS",
     "response_form_failure",
     "RESPONSE_KEYS", "_PEAK_KEYS", "_PARAM_KEYS", "NOT_BIT_STABLE_SHAPES", "_Mismatch", "_Unverifiable",
     "_exact_float", "_is_number", "_same", "_as_json", "_non_finite", "_ID_T", "_MOVE_T", "_NOT_RUN_T",

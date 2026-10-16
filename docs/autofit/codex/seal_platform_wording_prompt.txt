@@ -1,0 +1,14 @@
+CORRECTNESS REVIEW of a small change on top of the sealed-fit-record stack in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software.
+
+REPO: this checkout, branch seal-la-deterministic. The change is `git diff HEAD~1..HEAD`. Context: the deploy goes to two machines (macOS i9, Linux xps2) whose math libraries round exp/pow differently, so about half of the records made on one read UNCONFIRMED on the other (docs/findings/seal-la/README.md "Across the machines"). The owner's instruction (2026-10-16): for this deploy, a cross-platform "unconfirmed" says why in plain words ("made on a different platform; exact recheck not possible here — use Re-run this fit"); the exact cross-platform comparison is logged as a follow-up unit (docs/autofit/PROGRESS.md).
+
+THE CHANGE: fitting.numerics_reason(sw, check) — "made on a different platform" when only the platform fields (python, machine, os, blas: _PLATFORM_KEYS) of NUMERICS_IDENTITY_KEYS differ, "made with other software" when only others differ, "made on a different platform with other software" when both, then "; exact recheck not possible here — use Re-run this fit (the recomputation differs in <check>; <the differing fields>)". Used by verify_fit's numerics branch and by /api/verify-fit's "cannot read its request" branch (app.py); excluded from the numerics digest like the verifier. Tests in tests/test_seal_1a_verify.py. CLAUDE.md and PROGRESS.md updated.
+
+ANSWER EACH (cite file:line):
+1. Is the classification right for every combination of differing fields, and does every UNCONFIRMED-because-of-numerics answer now carry this wording? Is any state, check or decision changed (it must be wording only)?
+2. Does the page show the reason as intended (where it renders an unconfirmed fit's reason), and does "use Re-run this fit" point to a control that exists for such a fit?
+3. Do the tests establish it?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

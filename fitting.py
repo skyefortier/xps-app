@@ -398,6 +398,23 @@ def response_structure_failure(O):
     return None
 
 
+# the numerics fields that describe the PLATFORM (the interpreter build, the operating system, the CPU, the BLAS)
+# rather than the software versions: a record from the other deployed machine differs in these only
+_PLATFORM_KEYS = ("python", "machine", "os", "blas")
+
+
+def numerics_reason(sw, check):
+    """Plain words for an UNCONFIRMED record made under other numerics (owner 2026-10-16): on another platform, with
+    other software, or both — an exact recheck is not possible here, and "Re-run this fit" is the way to test it."""
+    keys = [k for k in NUMERICS_IDENTITY_KEYS if sw.get(k) != SOFTWARE.get(k)]
+    platform = any(k in _PLATFORM_KEYS for k in keys)
+    software = any(k not in _PLATFORM_KEYS for k in keys)
+    lead = ("made on a different platform with other software" if platform and software
+            else "made on a different platform" if platform else "made with other software")
+    return (f"{lead}; exact recheck not possible here \u2014 use Re-run this fit "
+            f"(the recomputation differs in {check}; {'; '.join(numerics_difference(sw))})")
+
+
 def numerics_difference(sw):
     """The numerics fields in which the software record ``sw`` differs from this server's (a field it does not
     declare differs), as text; [] when the same numerics made it."""
@@ -3702,9 +3719,7 @@ def verify_fit(O, *, energy, counts, peak_specs, background_method="shirley", bg
         # a record not of a response's FORM was refused above, whatever made it; past that, a recomputation that
         # differs under other numerics is a check that cannot be made here
         if other and exc.check != "schema":
-            return answer("unconfirmed", "numerics",
-                          f"made under other numerics ({'; '.join(other)}) and the recomputation differs "
-                          f"({exc.check}: {exc.reason})")
+            return answer("unconfirmed", "numerics", numerics_reason(O["software"], exc.check))
         return answer("mismatch", exc.check, exc.reason)
     except Exception as exc:                 # never a 500 and never current: a record this verifier could not judge
         log.exception("verification raised")

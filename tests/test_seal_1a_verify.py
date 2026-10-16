@@ -302,7 +302,23 @@ def test_a_request_this_server_cannot_read_reads_by_the_numerics_that_made_it(cl
     assert v["state"] == "mismatch" and v["check"] == "request", v
     O2 = {**O, "software": {**O["software"], "numerics": "2026-10-09"}}
     v = _verify(client, bad, O2)                               # other numerics: a recheck that cannot be made here
-    assert v["state"] == "unconfirmed" and v["check"] == "numerics" and "cannot read its request" in v["reason"], v
+    assert v["state"] == "unconfirmed" and v["check"] == "numerics" and "differs in request" in v["reason"], v
+
+
+@pytest.mark.parametrize("change,lead", [
+    ({"python": "3.12.3", "os": "Linux 6.8.0-106-generic", "blas": "scipy-openblas 0.3.31.188.0"}, "made on a different platform;"),
+    ({"numerics": "2026-10-09"}, "made with other software;"),
+    ({"numerics": "2026-10-09", "os": "Linux 6.8.0-106-generic"}, "made on a different platform with other software;"),
+])
+def test_a_recheck_that_cannot_be_made_here_says_why_in_plain_words(client, sealed, change, lead):
+    """Owner 2026-10-16 (the deploy to the i9 and xps2): a fit made on the other machine whose recomputation differs
+    says so plainly, and points to Re-run this fit; which fields differ follows in brackets."""
+    R, O = sealed
+    bad = {**R, "request": {**R["request"], "background": {**R["request"].get("background", {}), "endpoint_avg": 0}}}
+    v = _verify(client, bad, {**O, "software": {**O["software"], **change}})
+    assert v["state"] == "unconfirmed" and v["check"] == "numerics", v
+    assert v["reason"].startswith(lead + " exact recheck not possible here \u2014 use Re-run this fit ("), v["reason"]
+    assert all(f"{k} {val} (here " in v["reason"] for k, val in change.items()), v["reason"]
 
 
 def test_a_record_paired_with_another_request_is_a_mismatch(client, sealed):

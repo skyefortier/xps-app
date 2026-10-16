@@ -1422,8 +1422,7 @@ def _register_routes(app: Flask) -> None:
             sw = O.get("software") if isinstance(O, dict) else None
             if fitting.software_failure(sw) is None and fitting.numerics_difference(sw):
                 return jsonify({"state": "unconfirmed", "check": "numerics",
-                                "reason": f"made under other numerics ({'; '.join(fitting.numerics_difference(sw))}) "
-                                          f"and this server cannot read its request ({reason})",
+                                "reason": fitting.numerics_reason(sw, "request"),
                                 "software": fitting.SOFTWARE})
             return jsonify({"state": "mismatch", "check": "request", "reason": reason, "software": fitting.SOFTWARE})
         try:
