@@ -1,0 +1,1938 @@
+[
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "C1s Scan",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "U4f Scan",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "C1s Scan_0",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "U4f Scan_0",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "C1s Scan_1",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "U4f Scan_1",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "C1s Scan_2",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "U4f Scan_2",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "C1s Scan_3",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "U4f Scan_3",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "C1s Scan_4",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "U4f Scan_4",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "C1s Scan_5",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "U4f Scan_5",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "C1s Scan_6",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "U4f Scan_6",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "C1s Scan_7",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "U4f Scan_7",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "C1s Scan_8",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "1-GTA UCl4-graphite one set of U doublets.proj.zip",
+  "tab": "U4f Scan_8",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "B1s Scan",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "U4f Scan",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "B1s Scan_0",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "U4f Scan_0",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "B1s Scan_1",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "U4f Scan_1",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "B1s Scan_2",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "U4f Scan_2",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "B1s Scan_3",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "U4f Scan_3",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "B1s Scan_4",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "U4f Scan_4",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "B1s Scan_5",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "U4f Scan_5",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "B1s Scan_6",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "U4f Scan_6",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "B1s Scan_7",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "U4f Scan_7",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "B1s Scan_8",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "4-GTA UCl4-BN.proj.zip",
+  "tab": "U4f Scan_8",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "8-JT Graphite.proj.zip",
+  "tab": "C1s Scan",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "8-JT Graphite.proj.zip",
+  "tab": "C1s Scan_0",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "8-JT Graphite.proj.zip",
+  "tab": "C1s Scan_1",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "8-JT Graphite.proj.zip",
+  "tab": "C1s Scan_2",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "8-JT Graphite.proj.zip",
+  "tab": "C1s Scan_3",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "8-JT Graphite.proj.zip",
+  "tab": "C1s Scan_4",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "8-JT Graphite.proj.zip",
+  "tab": "C1s Scan_5",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "8-JT Graphite.proj.zip",
+  "tab": "C1s Scan_6",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "8-JT Graphite.proj.zip",
+  "tab": "C1s Scan_7",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "8-JT Graphite.proj.zip",
+  "tab": "C1s Scan_8",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "B1s Scan",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "B1s Scan_0",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "B1s Scan_1",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "B1s Scan_2",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "B1s Scan_3",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "B1s Scan_4",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "B1s Scan_5",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "B1s Scan_6",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "B1s Scan_7",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "B1s Scan_8",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "U4f Scan",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "U4f Scan_0",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "U4f Scan_1",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "U4f Scan_2",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "U4f Scan_3",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "U4f Scan_4",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "U4f Scan_5",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "U4f Scan_6",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "U4f Scan_7",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "B4C-UCl4.proj.zip",
+  "tab": "U4f Scan_8",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "C1s Scan",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "C1s Scan_0",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "C1s Scan_1",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "C1s Scan_2",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "C1s Scan_3",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "C1s Scan_4",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "C1s Scan_5",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "U4f Scan",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "U4f Scan_0",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "U4f Scan_1",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "U4f Scan_2",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "U4f Scan_3",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "U4f Scan_4",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "U4f Scan_5",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "Cl2p Scan",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "Cl2p Scan_0",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "Cl2p_projfit_test.proj.zip",
+  "tab": "Cl2p Scan_1",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "Project9_CasaXPS_newfit.proj.zip",
+  "tab": "C1s Scan",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "Project9_CasaXPS_newfit.proj.zip",
+  "tab": "C1s Scan_0",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "Project9_CasaXPS_newfit.proj.zip",
+  "tab": "C1s Scan_1",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "Project9_CasaXPS_newfit.proj.zip",
+  "tab": "C1s Scan_2",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "Project9_CasaXPS_newfit.proj.zip",
+  "tab": "C1s Scan_3",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "Project9_CasaXPS_newfit.proj.zip",
+  "tab": "C1s Scan_4",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "Project9_CasaXPS_newfit.proj.zip",
+  "tab": "C1s Scan_5",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "Project9_CasaXPS_newfit.proj.zip",
+  "tab": "U4f Scan",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "Project9_CasaXPS_newfit.proj.zip",
+  "tab": "U4f Scan_0",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "Project9_CasaXPS_newfit.proj.zip",
+  "tab": "U4f Scan_1",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "Project9_CasaXPS_newfit.proj.zip",
+  "tab": "U4f Scan_2",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "Project9_CasaXPS_newfit.proj.zip",
+  "tab": "U4f Scan_3",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "Project9_CasaXPS_newfit.proj.zip",
+  "tab": "U4f Scan_4",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "Project9_CasaXPS_newfit.proj.zip",
+  "tab": "U4f Scan_5",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "C1s Scan",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "C1s Scan_0",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "C1s Scan_1",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "C1s Scan_2",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "C1s Scan_3",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "C1s Scan_4",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "C1s Scan_5",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "C1s Scan_6",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "C1s Scan_7",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "C1s Scan_8",
+  "la": false,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "U4f Scan",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "U4f Scan_0",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "U4f Scan_1",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "U4f Scan_2",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "U4f Scan_3",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "U4f Scan_4",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "U4f Scan_5",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "U4f Scan_6",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "U4f Scan_7",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ },
+ {
+  "project": "UCl4_on_graphite.proj.zip",
+  "tab": "U4f Scan_8",
+  "la": true,
+  "sealed": true,
+  "err": null,
+  "state": "current",
+  "again": [
+   "current",
+   "current",
+   "current",
+   "current",
+   "current"
+  ],
+  "page_errors": []
+ }
+]
