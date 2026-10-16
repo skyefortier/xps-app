@@ -1,0 +1,21 @@
+CORRECTNESS REVIEW, ROUND 2, of the LA unit (making the LA(α,β,m) lineshape bit-reproducible) in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software.
+
+REPO: this checkout, branch seal-la-deterministic, on seal-1d (the sealed-fit-record stack). The unit is `git diff seal-1d..HEAD`. Read docs/findings/seal-la/README.md, the PROGRESS.md entry ("LA(α,β,m) is not bit-reproducible across processes"), docs/autofit/codex/seal_la_r1_prompt.txt and the round-1 verdicts (docs/autofit/codex/seal_la_r1_verdict_run{A,B}.md: both NO-GO on one MAJOR — the logged acceptance criterion, seal 1b's 107 LA records in all four settings, had been replaced by a narrower measurement — and MINORs).
+
+OWNER DECISIONS SINCE (2026-10-16): the LA slowdown is accepted as is; no FFT convolution (repeatability across both machines, the i9 and the xps2 droplet, matters more than speed); the after-side matrix must also pass with the server on xps2's environment (Python 3.12.3, the same pinned libraries); the deploy goes to both machines.
+
+WHAT ROUND 2 CHANGES:
+- The acceptance matrix (scripts/seal_la_matrix.py; docs/findings/seal-la/matrix/): the 107 seal-1b LA requests re-fitted through /api/fit with their own requests and verified in 1b's four settings (two fresh processes, shaken memory, gunicorn), before (5fad7de, np.convolve) 307/428 consistent, 121 unconfirmed on 70 records; after 428/428; on the final LA code 428/428 on the i9 (4 workers) AND on xps2 (Linux x86_64, scipy-openblas, Python 3.12.3, production's virtualenv read-only, 2 workers, a separate clone at nice 19). Provenance per side (commit, clean, software identity, every R and O sha256), gunicorn logs, run scripts; an across-machine comparison as information (`across`: 106/107 the same fit within rounding).
+- `_convolve_same_fixed_order` sums only the taps that reach the 'same' window (bit-identical: tests/test_la_deterministic.py compares it with the every-tap form on 4,000 random cases, exact; the numerics manifest records it as equivalent).
+- Round-1 MINORs: CLAUDE.md (LA no longer named unstable; the np.convolve history qualified); tests/envelope_identity.py's LA allowance removed; exact length/offset test on every grid and kernel length 1-64 (odd and even) and even kernels in the random test; LA verification tests with m HELD at 0.6/6/40/499 besides free starts; tests/test_seal_1a_server.py reads the numerics version from the manifest (it pinned "2026-10-13"); README states the claim's limits (same floating-point environment; bounded exclusivity) and the provenance of the browser run; whole-corpus timing at equal load (scripts/seal_la_fit_time.py: every response checked; profile of the largest increase).
+- Full suite on the code before the last rebase (55d99ca): 2081 passed, 9 skipped; the last rebase changed only 1d's validator and graph check (git diff 55d99ca HEAD -- fitting.py).
+
+ANSWER EACH (cite file:line):
+1. Is the round-1 MAJOR resolved — does the matrix meet the logged criterion, measured soundly and identically on both sides and both machines? Are the MINORs resolved?
+2. Is the tap range bit-identical to the reviewed form for every grid and kernel length, and is the equivalence record right?
+3. Is anything in LA's evaluation, or in what a verification recomputes, still able to differ between processes or between the two machines' own processes? Is the xps2 evidence what the owner asked for, and is it stated correctly (incl. why an i9 record cannot be confirmed on xps2)?
+4. Do the tests fail without the fix and establish what they claim?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.
