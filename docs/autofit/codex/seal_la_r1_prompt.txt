@@ -1,0 +1,16 @@
+CORRECTNESS REVIEW, ROUND 1, of the LA unit (making the LA(α,β,m) lineshape bit-reproducible) in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software.
+
+REPO: this checkout, branch seal-la-deterministic, on seal-1d (the sealed-fit-record stack). The unit is `git diff seal-1d..HEAD`. Read docs/findings/seal-la/README.md (diagnosis, fix, measurement) and the logged entry in docs/autofit/PROGRESS.md ("LA(α,β,m) is not bit-reproducible across processes") with its acceptance criteria. Owner's request (2026-10-15): find the source (likely np.convolve/BLAS) and make LA fits reproduce so they confirm; measure how many of the "unconfirmed" become confirmed.
+
+WHAT THE UNIT DOES: `fitting._la_casaxps_true` convolves with `_convolve_same_fixed_order` (fitting.py) instead of `np.convolve(…, 'same')` + trim — every output the sum over kernel taps in increasing order, accumulated from 0 by elementwise numpy operations (no reduction, no BLAS), same length and offset; `NOT_BIT_STABLE_SHAPES` is empty (the UNCONFIRMED mechanism kept, its tests now mark LA unstable via monkeypatch); `NUMERICS_VERSION` "2026-10-15" with a new entry in tests/fixtures/numerics_manifest.json. Diagnosis scripts scripts/seal_la_recompute.py and scripts/seal_la_isolate.py; measurement scripts/seal_la_confirm_measure.py (121 committed fits, Run Fit + 5 re-checks each, 4-worker gunicorn, before at seal-1d 87679b1 vs after): LA fits current after Run Fit 37/54 → 54/54, re-checks 190/270 → 270/270, non-LA unchanged 67/67 and 335/335. Tests: tests/test_la_deterministic.py, tests/test_seal_1a_verify.py (updated: two LA tests that changed one curve point were fragile — their one-ulp change happened to vanish in the model sum before — and now pick a point where the model sum keeps its bits).
+
+ANSWER EACH (cite file:line):
+1. Is `np.convolve` the cause, and is it the only non-deterministic step in LA's evaluation (and in anything else a verification recomputes)? Does the evidence support it?
+2. Is `_convolve_same_fixed_order` exactly np.convolve 'same' + the old trim in length and offset, for every grid and kernel length (incl. kernel longer than the grid, even/odd), and deterministic in every process and alignment? Can its order or arithmetic ever depend on the machine state?
+3. Is emptying NOT_BIT_STABLE_SHAPES right, and does any reader, test or page code still assume LA is unstable? Is the NUMERICS_VERSION bump correct (and only for fitting math)?
+4. Is the measurement sound (the same script and server setup before and after; the counts as reported), and do the tests fail without the fix? Were the two test-fixture changes in tests/test_seal_1a_verify.py legitimate, not weakened?
+5. Speed: is the fixed-order loop acceptable for LA fits (kernels up to ~1,165 taps)?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

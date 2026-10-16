@@ -42,3 +42,10 @@ Every unconfirmed fit becomes confirmed. (The step-8 save-size run had seen 10 u
 Tests: tests/test_la_deterministic.py (numpy's semantics to rounding; the same bits at every alignment and in five
 fresh processes; LA fits verify consistent in four fresh processes at m = 0.6 / 6 / 40 — restoring np.convolve fails
 the cross-process tests); tests/test_seal_1a_verify.py (the empty set; the mechanism with LA marked unstable).
+
+## Speed
+
+Per evaluation the fixed-order loop is slower than `np.convolve` (0.31 vs 0.02 ms at 450 points and m = 50, 119
+taps; 3.9 vs 0.14 ms at the maximum m = 499, 1,167 taps). On whole fits it is small: 12 committed LA Run Fit
+requests (seal 1b's, `scripts/seal_la_fit_time.py`, in process) took median 1.16 s before and 1.38 s after
+(0.80–3.87 s before, 1.05–3.19 s after).
