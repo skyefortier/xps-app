@@ -280,9 +280,11 @@ def response_structure_failure(O):
             continue
         if any(ip["params"][name]["vary"] for name in exprs):
             return f"component {me[:20]}: a linked parameter varies"
+        if any(ip["params"][name]["min"] is not None or ip["params"][name]["max"] is not None for name in exprs):
+            return f"component {me[:20]}: a linked parameter carries bounds (a fit leaves it unbounded)"
         m_found = []
         for mid in ids:
-            if mid == me or by_id[mid]["shape"] != ip["shape"]:
+            if mid == me or by_id[mid]["shape"] != ip["shape"] or by_id[mid]["id"] is None:   # constrain_to null = unlinked
                 continue
             c = re.fullmatch(re.escape(f"p{mid}_center") + r" \+ (" + _FLOAT_TEXT + ")", exprs.get("center") or "")
             a = re.fullmatch(re.escape(f"p{mid}_amplitude") + r" \* (" + _FLOAT_TEXT + ")", exprs.get("amplitude") or "")
@@ -1739,6 +1741,19 @@ _SHAPE_FUNCS = {
 AVAILABLE_SHAPES = list(_SHAPE_FUNCS.keys())
 
 
+def _link_masters(peak_specs: list[dict]) -> dict:
+    """{str(id): str(master id) or None} — each peak's master found as _make_peak_params finds it: the FIRST spec
+    whose id EQUALS its constrain_to (so 1.0 and true name the peak with id 1). One reading for every walk over
+    the links — the graph check, the support verdict, the required-component refit and the verifier (seal 1d Codex round 12: they
+    compared string spellings, "1.0" != "1", so a peak linked by an equal reference was linked but not followed)."""
+    out = {}
+    for s in peak_specs:
+        mid = s.get("constrain_to")
+        m = None if mid is None else next((t for t in peak_specs if t.get("id") == mid), None)
+        out[str(s.get("id"))] = None if m is None else str(m.get("id"))
+    return out
+
+
 def _validate_constraint_graph(peak_specs: list[dict]) -> None:
     """Reject self-referential or circular spin-orbit constraints (audit F11).
 
@@ -1759,18 +1774,22 @@ def _validate_constraint_graph(peak_specs: list[dict]) -> None:
         if str(s.get("id")) in seen_ids:
             raise ValueError(f"Two peaks share the id '{s.get('id')}'; each peak must have its own id")
         seen_ids.add(str(s.get("id")))
+    # each master found as _make_peak_params finds it (_link_masters: the first peak whose id EQUALS constrain_to),
+    # on ids keyed by their spelling (unique, above) — a dict keyed by the ids themselves merged 1, 1.0 and true and
+    # kept the LAST (seal 1d Codex round 12)
     parent: dict = {}
-    by_id = {s.get("id"): s for s in peak_specs}
+    masters = _link_masters(peak_specs)
+    by_id = {str(s.get("id")): s for s in peak_specs}
     for s in peak_specs:
-        sid = s.get("id")
+        sid = str(s.get("id"))
         master = s.get("constrain_to")
         if master is None:
             continue
-        if master == sid:
-            raise ValueError(f"Peak '{sid}' cannot constrain to itself")
-        if master not in by_id:
-            raise ValueError(f"Peak '{s.get('name') or sid}' is linked to a peak that is not in the model ('{master}')")
-        parent[sid] = master
+        if masters[sid] is None:
+            raise ValueError(f"Peak '{s.get('name') or s.get('id')}' is linked to a peak that is not in the model ('{master}')")
+        if masters[sid] == sid:
+            raise ValueError(f"Peak '{s.get('id')}' cannot constrain to itself")
+        master = parent[sid] = masters[sid]
         # a linked peak has its parent's lineshape (Q10 0c', owner 2026-10-11): an expression on a
         # parameter the child's shape does not read was fitted but never drawn (a Voigt child of a
         # GL parent: fitted at the parent's mix, drawn at 0.5). Voigt and GL are one backend shape,
@@ -3096,13 +3115,13 @@ def _run_fit_impl(
         else:
             try:
                 # remove the component and everything linked to it, transitively
-                master_of = {str(sp["id"]): sp.get("constrain_to") for sp in peak_specs}
+                master_of = _link_masters(peak_specs)
                 removed = {str(require_component)}
                 grew = True
                 while grew:
                     grew = False
                     for pid, master in master_of.items():
-                        if master is not None and str(master) in removed and pid not in removed:
+                        if master is not None and master in removed and pid not in removed:
                             removed.add(pid); grew = True
                 removed_prefixes = [f"p{pid}_" for pid in removed]
                 without = None
@@ -3188,15 +3207,19 @@ def _run_fit_impl(
 
     # A linked component follows its ROOT ancestor (a grandchild follows the
     # root), whatever the request order; a cycle or a missing master leaves
-    # its own verdict.
+    # its own verdict. The master is found as _make_peak_params finds it — the
+    # first spec whose id EQUALS constrain_to — so `constrain_to: 1.0` (or true)
+    # for a peak with id 1 follows it as it is linked to it (seal 1d Codex round
+    # 12: the string spellings were compared here, "1.0" != "1", so such a
+    # component kept its own verdict while its parameters followed the master's).
     by_id = {str(ip["id"]): ip for ip in individual_peaks}
-    master_of = {str(spec["id"]): spec.get("constrain_to") for spec in peak_specs}
+    master_of = _link_masters(peak_specs)
 
     def root_of(pid: str) -> str:
         seen = set()
-        while master_of.get(pid) is not None and str(master_of[pid]) in by_id and pid not in seen:
+        while master_of.get(pid) is not None and master_of[pid] in by_id and pid not in seen:
             seen.add(pid)
-            pid = str(master_of[pid])
+            pid = master_of[pid]
         return pid
 
     for ip in individual_peaks:
@@ -3854,13 +3877,13 @@ def _verify_relations(O, peaks, peak_specs, owned, params, x, bg, y_sub, weights
         n_free_comp = sum(1 for nm in own if params[nm].vary and params[nm].expr is None)
         supports.append(_component_support(y_sub, fitted_sub, cy, weights, n_free_comp, n_varys))
     by_id = {str(s["id"]): sup for s, sup in zip(peak_specs, supports)}
-    master_of = {str(s["id"]): s.get("constrain_to") for s in peak_specs}
+    master_of = _link_masters(peak_specs)
     ids = {str(s["id"]): s["id"] for s in peak_specs}
     for s, sup in zip(peak_specs, supports):
         pid, seen = str(s["id"]), set()
-        while master_of.get(pid) is not None and str(master_of[pid]) in by_id and pid not in seen:
+        while master_of.get(pid) is not None and master_of[pid] in by_id and pid not in seen:
             seen.add(pid)
-            pid = str(master_of[pid])
+            pid = master_of[pid]
         if pid != str(s["id"]):
             sup["follows"] = ids[pid]
             sup["supported"] = by_id[pid]["supported"]

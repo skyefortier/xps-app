@@ -1,0 +1,18 @@
+**Two MINOR findings remain. No BLOCKER or MAJOR found.**
+
+1. **The specific round-11 findings are resolved.** IDs are exempted from float exactness; links require the complete arrangement and reject `-0.0`; support follows the root; oracle optionality now depends on path. See [fitting.py:222](/Users/skyefortier/xps-app/.claude/worktrees/seal-1d/fitting.py:222), [fitting.py:287](/Users/skyefortier/xps-app/.claude/worktrees/seal-1d/fitting.py:287), [fitting.py:312](/Users/skyefortier/xps-app/.claude/worktrees/seal-1d/fitting.py:312), and [tests/test_seal_1d_compare.py:423](/Users/skyefortier/xps-app/.claude/worktrees/seal-1d/tests/test_seal_1d_compare.py:423).
+
+2. **No: producer compatibility and exact-structure rejection remain incomplete.**
+
+   **MINOR — a successful server-written response is rejected.** With master ID `1` and child `constrain_to: 1.0`, `/api/fit` returns **200, `success: true`**, but its unchanged response self-compares with **400**. The affected path is `individual_peaks[1].support.follows`: it is absent. The parameter builder matches IDs by Python equality, whereas support traversal matches their string spellings; the validator then requires `follows`. I also reproduced this with `constrain_to: true`. See [fitting.py:1870](/Users/skyefortier/xps-app/.claude/worktrees/seal-1d/fitting.py:1870), [fitting.py:3197](/Users/skyefortier/xps-app/.claude/worktrees/seal-1d/fitting.py:3197), and [fitting.py:312](/Users/skyefortier/xps-app/.claude/worktrees/seal-1d/fitting.py:312).
+
+   **MINOR — linked parameters can carry bounds the producer never writes.** Starting with a real linked fit, set `individual_peaks[1].params.center.min = 0.0` and `.max = 10000.0`. Validation succeeds; comparison returns **200 on a, b, and both**, with self-comparison reporting **`same: true`**. The producer leaves expression-linked parameters unbounded and emits null bounds; validation only checks their types and arithmetic span. See [fitting.py:1856](/Users/skyefortier/xps-app/.claude/worktrees/seal-1d/fitting.py:1856), [fitting.py:3158](/Users/skyefortier/xps-app/.claude/worktrees/seal-1d/fitting.py:3158), and [fitting.py:349](/Users/skyefortier/xps-app/.claude/worktrees/seal-1d/fitting.py:349).
+
+3. **I did not reproduce a body-triggered 500.** The 3,000-mutation fuzz passed; additional malformed JSON, excessive nesting, oversized-integer, and wrong-content-type probes returned 400. This is bounded evidence, not proof for every body. Unexpected comparator exceptions still explicitly return 500 at [app.py:1486](/Users/skyefortier/xps-app/.claude/worktrees/seal-1d/app.py:1486).
+
+4. **The tests establish their sampled regressions, but not the universal claims.** The oracle’s round-11 omission is fixed. However, the positive-control helper preserves the unlinked fixture’s finite bounds when inserting expressions, so its “as a fit writes it” control contains the second finding above. Generate that control through `run_fit` and test the conditional null bounds. See [tests/test_seal_1d_compare.py:158](/Users/skyefortier/xps-app/.claude/worktrees/seal-1d/tests/test_seal_1d_compare.py:158) and [tests/test_seal_1d_compare.py:283](/Users/skyefortier/xps-app/.claude/worktrees/seal-1d/tests/test_seal_1d_compare.py:283).
+
+Read-only verification with in-memory sessions: **253 passed, 1 skipped, 5 deselected** using `-k 'not chain'`, including all **328 records**, fuzz, oracle, comparator, and digest checks. An earlier interrupted run passed 43 tests, including the first deep-chain rejection. I did not rerun the browser tests or thirteen-mutant campaign. No files changed.
+
+VERDICT: NO-GO
+

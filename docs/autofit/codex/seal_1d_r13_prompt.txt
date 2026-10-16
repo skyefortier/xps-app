@@ -1,0 +1,20 @@
+CORRECTNESS REVIEW, ROUND 13, of unit 1d ("Re-run this fit") of the sealed fit record in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software.
+
+REPO: this checkout, branch seal-1d, on seal-1c-s8. 1d is `git diff seal-1c-s8..HEAD`. Read docs/superpowers/plans/2026-10-15-seal-1d-rerun.md ("The exact structure") and docs/autofit/codex/seal_1d_r12_prompt.txt. The owner's decision (option 3): /api/compare-fits validates EACH response against the exact structure the server writes before comparing anything; anything else is a plain 4xx, never a 500.
+
+Round 12 (both runs NO-GO on MINORs; verdicts docs/autofit/codex/seal_1d_r12_verdict_run{A,B}.md): a real fit with `constrain_to: 1.0` (or true) for the peak with id 1 was refused (linked, but its support did not follow: the producer matched the link by equality and the support walk by string spelling); a link to a master whose id is null was accepted (the server cannot write one: `constrain_to: null` is no link); bounds on a linked parameter were accepted (the server leaves it unbounded); the positive controls' helper kept the unlinked fixture's bounds.
+
+WHAT THIS ROUND CHANGES:
+- fitting._link_masters: ONE reading of a link for every walk over links — the graph check (_validate_constraint_graph: it keyed a dict by the ids themselves, merging 1, 1.0 and true and keeping the LAST), the support verdict in run_fit, the required-component refit's "everything linked to it", and the verifier's support recomputation (fitting.verify_fit) — the master found as _make_peak_params finds it (the first spec whose id EQUALS constrain_to). No fitted number moves; the numerics digest records it as equivalent (tests/fixtures/numerics_manifest.json, with the reason).
+- response_structure_failure: a master's id is not null; a linked parameter carries no bound.
+- tests: positive controls written by run_fit itself (five link arrangements, incl. fix_fwhm false and a -0.0 splitting), each also proving the hostile cases' helper writes the same expressions, flags, bounds and support keys; constrain_to 1.0 / true: the support follows, the verifier reads it consistent, the required refit removes the child (nothing_left); hostile cases: bounds on a linked parameter, a floor on a linked amplitude, a link to a null-id master. a graph-check test (ids true and 1, a GL child of constrain_to 1: refused as a link across lineshapes, the fit's master being the first equal id). Mutation check: eighteen mutants (rounds 11-12 rules, the shared helper reading spellings, the graph check by the old dict, the oracle with an optional top-level message), each caught. Affected test files (1d, verifier, 1a server, support, required, basinhopping, link-graph refusal incl. browser, seal browser steps 3/4/1d): 582 passed, 1 skipped.
+
+ANSWER EACH (cite file:line):
+1. Is every round-12 finding resolved, and is _link_masters the one reading everywhere a link is walked (name any walk that still reads differently)?
+2. Does `response_structure_failure` now accept every response run_fit can write, and refuse everything else? Name any response the server writes that it refuses, or any non-response it accepts, with the path.
+3. Can /api/compare-fits answer 500 to any body?
+4. Do the tests establish what they claim?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

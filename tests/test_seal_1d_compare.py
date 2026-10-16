@@ -155,7 +155,7 @@ def _linked_as_written(c, m, off="0.5", ratio="0.5", others=True, root=None):
             continue
         expr = {"center": f"p{m['id']}_center + {off}", "amplitude": f"p{m['id']}_amplitude * {ratio}"}.get(
             name, f"p{m['id']}_{name}" if others else None)
-        c["params"][name] = {**rec, "vary": False if expr else rec["vary"], "expr": expr}
+        c["params"][name] = {**rec, "vary": False, "expr": expr, "min": None, "max": None} if expr else rec
     root = root or m
     c["support"] = {**c["support"], "follows": root["id"], "supported": root["support"]["supported"]}
     return c
@@ -266,7 +266,8 @@ HOSTILE = {
     "link offset -0.0": lambda o: _proper_link(o, off="-0.0"),
     "link ratio -0.0": lambda o: _proper_link(o, ratio="-0.0"),
     "some shape parameters linked": lambda o: (_proper_link(o, others=False),
-                                               _peak(o, 1)["params"]["fwhm"].update(vary=False, expr=f"p{_peak(o)['id']}_fwhm")),
+                                               _peak(o, 1)["params"]["fwhm"].update(vary=False, expr=f"p{_peak(o)['id']}_fwhm",
+                                                                                     min=None, max=None)),
     "shape parameter linked to itself": lambda o: (_proper_link(o), _peak(o, 1)["params"]["fwhm"].update(
         expr="p" + str(_peak(o, 1)["id"]) + "_fwhm")),
     "linked component following nothing": lambda o: _proper_link(o)["individual_peaks"][1]["support"].pop("follows"),
@@ -274,17 +275,65 @@ HOSTILE = {
     "linked component's own verdict": lambda o: _proper_link(o)["individual_peaks"][1]["support"].update(
         supported=not _peak(o, 0)["support"]["supported"]),
     "unlinked component following another": lambda o: _peak(o, 1)["support"].update(follows=_peak(o, 0)["id"]),
+    # Codex round 12
+    "linked parameter with bounds": lambda o: _proper_link(o)["individual_peaks"][1]["params"]["center"].update(
+        min=280.0, max=300.0),
+    "linked amplitude with a floor": lambda o: _proper_link(o)["individual_peaks"][1]["params"]["amplitude"].update(min=0.0),
+    "link to a null-id master": lambda o: (_peak(o, 0).__setitem__("id", None),
+                                           o["starts"]["fit"]["components"][0].__setitem__("id", None),
+                                           _proper_link(o)),
     "link to a component of another lineshape": lambda o: (_proper_link(o), _peak(o, 0).__setitem__("shape", "gaussian"),
                                                          _peak(o, 0)["params"].pop("gl_ratio", None)),
 }
 
 
-@pytest.mark.parametrize("kw", [{}, {"others": False}, {"off": "-0.5", "ratio": "2.0"}, {"off": "1e-05"}])
-def test_a_link_as_a_fit_writes_it_is_compared(client, kw):  # noqa: F811
-    """The positive control for the round-11 cases: the helper writes what a fit writes, so their refusal is the change."""
-    o = _proper_link(_record(client), **kw)
+_LINKS = [(0.5, 0.5, True), (0.5, 0.5, False), (-0.5, 2.0, True), (1e-05, 1.0, True), (-0.0, 0.5, True)]
+
+
+def _linked_fit(client, splitting, ratio, fix_fwhm, master_ref=None, record=False, **req):  # noqa: F811
+    x, y, specs = SS._well_posed()
+    specs = [dict(s) for s in specs]
+    specs[1].update(constrain_to=specs[0]["id"] if master_ref is None else master_ref, splitting=splitting,
+                    area_ratio=ratio, fix_fwhm=fix_fwhm)
+    R, O = _seal(client, x, y, specs, background={"method": "shirley"}, fit_method="least_squares", n_perturb=0,
+                 **{"n_starts": 3, **req})
+    return (R, O) if record else O
+
+
+@pytest.mark.parametrize("splitting,ratio,fix_fwhm", _LINKS)
+def test_a_link_as_a_fit_writes_it_is_compared(client, splitting, ratio, fix_fwhm):  # noqa: F811
+    """Positive controls written by run_fit itself (Codex round 12), and the hostile cases' helper writes the same
+    link structure — every expression, flag and bound of the linked component — so their refusal is the rule's."""
+    o = _linked_fit(client, splitting, ratio, fix_fwhm)
     assert fitting.response_structure_failure(o) is None, fitting.response_structure_failure(o)
     assert _compare(client, o, copy.deepcopy(o))["same"]
+    h = _proper_link(_record(client), off=str(float(splitting) + 0.0), ratio=str(float(ratio)), others=fix_fwhm)
+    meta = lambda c: {k: (v["expr"], v["vary"] if v["expr"] else None, v["min"], v["max"]) if v["expr"] else (None,)
+                      for k, v in c["params"].items() if k != "area"}
+    assert meta(h["individual_peaks"][1]) == meta(o["individual_peaks"][1])
+    assert h["individual_peaks"][1]["support"].keys() == o["individual_peaks"][1]["support"].keys()
+
+
+@pytest.mark.parametrize("ref", [1.0, True])
+def test_a_master_named_by_an_equal_id_is_followed(client, ref):  # noqa: F811
+    """Codex round 12: constrain_to 1.0 (or true) for the peak with id 1 links to it AND its support follows it — the
+    server reads the reference one way for both (it compared string spellings for the support, "1.0" != "1")."""
+    R, o = _linked_fit(client, 0.5, 0.5, True, master_ref=ref, record=True)
+    assert o["individual_peaks"][0]["id"] == 1 and o["individual_peaks"][1]["support"]["follows"] == 1
+    assert o["individual_peaks"][1]["support"]["supported"] == o["individual_peaks"][0]["support"]["supported"]
+    assert fitting.response_structure_failure(o) is None, fitting.response_structure_failure(o)
+    assert _compare(client, o, copy.deepcopy(o))["same"]
+    v = client.post("/api/verify-fit", json={"R": R, "O": o}).get_json()      # the verifier walks the links the same way
+    assert v["state"] == "consistent", v
+
+
+@pytest.mark.parametrize("ref", [1.0, True])
+def test_the_required_refit_removes_a_child_named_by_an_equal_id(client, ref):  # noqa: F811
+    """Removing component 1 removes what is linked to it, found the same way: the child named by 1.0 / true goes too
+    (with the string spelling it stayed, its expression naming a removed parameter)."""
+    R, o = _linked_fit(client, 0.5, 0.5, True, master_ref=ref, record=True, n_starts=0, require_component=1)
+    assert o["required"] == {"ran": False, "reason": "nothing_left"}, o["required"]     # both went: nothing is left
+    assert fitting.response_structure_failure(o) is None, fitting.response_structure_failure(o)
 
 
 def test_a_chain_within_the_depth_is_compared(client):  # noqa: F811
@@ -496,3 +545,15 @@ def test_a_required_component_check_is_compared(client):  # noqa: F811
     assert O["required"] and O["required"]["ran"], O["required"]
     assert fitting.response_structure_failure(O) is None, fitting.response_structure_failure(O)
     assert _compare(client, O, copy.deepcopy(O))["same"]
+
+
+def test_the_graph_check_finds_a_master_as_the_fit_links_it():
+    """Codex round 12 (one reading of a link): ids true and 1 both in the model, a GL child with constrain_to 1. The fit
+    links it to the FIRST equal id — true, a Gaussian — so it is refused as a link across lineshapes; the graph check's
+    dict keyed by the ids themselves merged true and 1 and checked the GL instead."""
+    specs = [{"id": True, "shape": "gaussian"}, {"id": 1, "shape": "pseudo_voigt_gl"},
+             {"id": "c", "shape": "pseudo_voigt_gl", "constrain_to": 1}]
+    with pytest.raises(ValueError, match="different lineshape"):
+        fitting._validate_constraint_graph(specs)
+    assert fitting._link_masters(specs) == {"True": None, "1": None, "c": "True"}
+    fitting._validate_constraint_graph([specs[1], specs[0], specs[2]])     # with 1 first, its GL is the master

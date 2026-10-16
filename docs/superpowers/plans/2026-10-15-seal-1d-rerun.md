@@ -64,7 +64,7 @@ sealed server result (not on local, legacy or stale ones); a re-run that reprodu
 solution (a stubbed replay reply); a re-run dropped by a replaced fit or a closed tab keeps nothing (an edit only hides its outcome, a tab switch keeps it); the seal,
 the model and the state never change; Cancel.
 
-## The exact structure (owner 2026-10-15, option 3, after Codex rounds 2-9; refined in rounds 10-11)
+## The exact structure (owner 2026-10-15, option 3, after Codex rounds 2-9; refined in rounds 10-12)
 
 Rounds 2-9 each found one more crafted request the endpoint compared or answered 500, check by check. The owner's
 decision: `/api/compare-fits` validates EACH response against the exact structure the server writes, before comparing
@@ -81,11 +81,16 @@ verified on seal 1b's 328 records:
 - a component's lineshape one the server has, its parameters EXACTLY that lineshape's arguments plus `area`;
 - links exactly as the fit writes them (`_make_peak_params`, round 11): a linked component's centre is
   `p<M>_center + <number>` and its amplitude `p<M>_amplitude * <number>` — both, always — and every other parameter
-  is either ALL `p<M>_<the same name>` or none (one flag, `fix_fwhm`), M one OTHER component of the SAME lineshape;
-  the numbers spelt as Python writes a finite float, never `-0.0` (the fit folds −0 to 0); no linked parameter
-  varies; an unlinked component has no expression; no cycle; no chain deeper than the comparison follows;
+  is either ALL `p<M>_<the same name>` or none (one flag, `fix_fwhm`), M one OTHER component of the SAME lineshape
+  whose id is not null (`constrain_to: null` is no link); the numbers spelt as Python writes a finite float, never
+  `-0.0` (the fit folds −0 to 0); a linked parameter neither varies nor carries a bound (the fit leaves it
+  unbounded, round 12); an unlinked component has no expression; no cycle; no chain deeper than the comparison
+  follows;
 - support as the fit writes it: a linked component's `support.follows` is its ROOT component's id and its verdict
-  the root's; an unlinked component's support follows nothing;
+  the root's; an unlinked component's support follows nothing. (Round 12 found the producer itself reading
+  `constrain_to` two ways — the link by equality, the support walk by string spelling, so `constrain_to: 1.0` for id 1
+  was linked but kept its own verdict; the walk now finds the master as `_make_peak_params` does. No fitted number
+  moves and the page never sends such a reference; the numerics digest records it as equivalent.)
 - the scattered starts list every component in order; an alternative's components likewise, each carrying exactly
   its own parameters;
 - every scale a comparison measures against finite: n × the energy span, every point of the background-subtracted
