@@ -4,7 +4,50 @@ What went to production (i9 LaunchAgent, xps.fortierlab.org), newest first.
 One entry per deploy; an item that changes behaviour for every user gets its
 own bullet even when it shipped inside a larger unit, so it can be found
 later. Procedure: [DEPLOY.md](../DEPLOY.md). The xps2 droplet is deployed by
-the owner and may lag.
+scripts/deploy_xps2.sh with every deploy since 2026-10-16 (DEPLOY.md, step 5).
+
+## 2026-10-16 — Both machines from now on: `scripts/deploy_xps2.sh`, `constraints.txt`, manual failover (b5a4354)
+
+- **Process (owner):** every approved deploy goes to the i9 AND xps2 (DEPLOY.md step 5), in that
+  order, before the deploy-log commit. `scripts/deploy_xps2.sh <commit>` refuses unless the commit is
+  the i9's HEAD on main and on origin/main and `constraints.txt` matches production's venv; it backs
+  up the droplet's commit and venv, deploys, restarts `xps-app` only, and checks health (droplet and
+  public), the fit record's commit, and that port 5000 refuses outside connections; on a failure it
+  prints the exact rollback. `constraints.txt` (27 packages) is generated from the i9 by
+  `scripts/gen_constraints.py`; `--check` compares an environment with it exactly.
+- Manual failover to xps2 documented in plain steps (DEPLOY.md step 6); its one-time preparation (an
+  ingress line for xps.fortierlab.org on the droplet's tunnel) is NOT done — awaiting the owner.
+- Codex ×1 per round: NO-GO, NO-GO, GO at round 3 (git failures, partial-deploy reporting, rollback of
+  libraries via a whole-venv copy, constraint completeness, a raw TCP port probe, trap status);
+  `docs/ops/codex/deploy_xps2_r{1,2,3}.md`.
+- First run, b5a4354 (scripts and docs only since ef750f6; the i9 was not restarted): PASS in 50 s —
+  both venvs equal `constraints.txt` (click and packaging on the droplet came to production's versions),
+  record commit b5a4354 `git_dirty false`, `:5000` refused.
+
+## 2026-10-16 — xps2 droplet brought up to production main (ef750f6)
+
+- **xps2.fortierlab.org only; the i9 was not touched.** The droplet (DigitalOcean, `/opt/xps-app`, systemd
+  `xps-app`, its own Cloudflare tunnel) ran `ee7e006` (2026-07-01), 655 commits behind; fast-forwarded to
+  `ef750f6`, the commit the i9 serves. Clean tree.
+- Libraries pinned to production's: numpy 2.4.4, scipy 1.17.1, lmfit 1.3.4 (already equal), gunicorn
+  25.3.0 → 26.0.0, pandas 3.0.1 → 3.0.2, Werkzeug 3.1.7 → 3.1.8; the rest equal. Python 3.12.3 (the i9:
+  3.12.13). `requirements.txt` unchanged.
+- **Security:** gunicorn was bound to `0.0.0.0:5000` with ufw off, so the app answered plain HTTP at
+  `137.184.183.202:5000`, bypassing Cloudflare. Now `127.0.0.1:5000` (the tunnel's target); from outside
+  the port is refused. Workers stay at 2.
+- 2 GB swapfile added (`/swapfile`, in fstab, swappiness 10): the droplet has 961 MB RAM and had no swap.
+- Backup before any change: `/root/backups/2026-10-16/` (app copy incl. `uploads/` and the old stash,
+  unit files, tunnel config, pip freeze, previous commit). No user data lives on the droplet (9 expired
+  April upload sessions; projects are saved client-side).
+- Check: `/api/health` ok locally and through xps2.fortierlab.org; `/api/xps-reference` loads (legacy +
+  6 curated elements); a fit through the public URL records `git_commit ef750f6`, `git_dirty false`,
+  numpy/scipy/lmfit as production. Real browser through xps2.fortierlab.org on the committed 8-JT
+  Graphite project: Run Fit through `/api/fit/start` + poll (χ²ᵣ 6.35, record commit ef750f6), Auto-Fit
+  complete (Graphite 284.500, R 1.83 %, as on production 2026-10-13), Batch Fit onto C1s Scan_0 (local
+  engine, by design); no 5xx, no page errors.
+- **Deferred until the owner regains DigitalOcean console access** (no rescue path if the droplet does not
+  come back): OS updates (69 pending, 21 security incl. openssh) and the reboot they need (5 kernels
+  pending; up 199 days); ufw (allow SSH first); disabling SSH password login.
 
 ## 2026-10-13 — One area definition; Auto-Fit refits after its charge shift (`q5q8-integration`, c4dd878)
 
