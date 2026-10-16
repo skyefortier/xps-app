@@ -174,6 +174,15 @@ def _unlinked(o, *names):
     return o
 
 
+def _renamed(o, *ids):
+    for ip, i in zip(o["individual_peaks"], ids):
+        ip["id"] = i
+    if o["starts"] and o["starts"].get("ran"):
+        for c, i in zip(o["starts"]["fit"]["components"], ids):
+            c["id"] = i
+    return o
+
+
 def _with_chain(o, n=1100):
     base = _peak(o)
     for i in range(n):                                                    # links through n more components
@@ -285,6 +294,12 @@ HOSTILE = {
     # Codex round 13
     "linked component's own width held": lambda o: _proper_link(o, others=False)["individual_peaks"][1]["params"][
         "fwhm"].update(vary=False),
+    # Codex round 14
+    "ids equal as values (true, 1)": lambda o: _renamed(o, True, 1),
+    "ids equal as values (0, false)": lambda o: _renamed(o, 0, False),
+    "id Python normalises (KELVIN SIGN)": lambda o: _renamed(o, "\u212a", "b"),
+    "free gl_ratio with a bound no fit gives": lambda o: _peak(o)["params"]["gl_ratio"].update(min=-1.0),
+    "held gl_ratio outside its bounds, not widened": lambda o: _peak(o)["params"]["gl_ratio"].update(vary=False, value=1.5),
     "link to a component of another lineshape": lambda o: (_proper_link(o), _peak(o, 0).__setitem__("shape", "gaussian"),
                                                          _peak(o, 0)["params"].pop("gl_ratio", None)),
 }
@@ -549,11 +564,26 @@ def test_a_required_component_check_is_compared(client):  # noqa: F811
     assert _compare(client, O, copy.deepcopy(O))["same"]
 
 
+def test_an_id_python_would_normalise_is_refused_and_a_held_value_widens_its_bounds(client):  # noqa: F811
+    """Codex round 14: an id Python reads otherwise inside an expression (KELVIN SIGN → K) is refused before a fit; a
+    GL mix held at 1.5 is written with its bound widened to 1.5 (_set), and the validator expects exactly that."""
+    x, y, specs = SS._well_posed()
+    with pytest.raises(ValueError, match="normalised form"):
+        fitting.run_fit(energy=x, counts=y, peak_specs=[{**specs[0], "id": "\u212a"}, specs[1]], background_method="shirley")
+    assert client.post("/api/fit", json={"session_id": _upload(client, x, y), "peaks": [{**specs[0], "id": "\u212a"}, specs[1]],
+                                         "background": {"method": "shirley"}}).status_code == 400
+    held = [{**specs[0], "gl_ratio": 1.5, "fix_gl_ratio": True}, specs[1]]
+    o = _seal(client, x, y, held, background={"method": "shirley"}, fit_method="least_squares", n_perturb=0)[1]
+    assert o["individual_peaks"][0]["params"]["gl_ratio"]["max"] == 1.5
+    assert fitting.response_structure_failure(o) is None, fitting.response_structure_failure(o)
+    assert _compare(client, o, copy.deepcopy(o))["same"]
+
+
 def test_ids_equal_as_values_are_refused_as_one_id():
     """Codex rounds 12-13: a link names its master by equality, so two ids equal as values (1, 1.0, true) cannot be
     told apart — /api/fit refused them as duplicates already; run_fit's graph check now does too (it compared
     spellings only, so the walks and the parameter builder could pick different masters by order)."""
-    for pair in ((True, 1), (1, 1.0), (0, False)):
+    for pair in ((True, 1), (0, False)):            # (1.0 cannot name a parameter at all: "p1.0_x")
         with pytest.raises(ValueError, match="share the id"):
             fitting._validate_constraint_graph([{"id": pair[0], "shape": "gaussian"}, {"id": pair[1], "shape": "gaussian"}])
     x, y, specs = SS._well_posed()          # round 13's reproducer, through run_fit itself
@@ -565,7 +595,7 @@ def test_ids_equal_as_values_are_refused_as_one_id():
     assert fitting._link_masters([{"id": 1}, {"id": "c", "constrain_to": 1.0}]) == {"1": None, "c": "1"}
 
 
-@pytest.mark.parametrize("master", ["e", "é"])
+@pytest.mark.parametrize("master", ["e", "é", "a\u0305", "a·b"])
 def test_a_linked_parameter_is_judged_on_its_masters_bounds_whatever_the_id(client, master):  # noqa: F811
     """Codex round 13: the comparator found a linked parameter's bounds through an ASCII-only pattern, so a master
     "é" lost them and the same perturbation compared differently. Both spellings must judge it alike: a child width

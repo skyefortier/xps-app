@@ -64,7 +64,7 @@ sealed server result (not on local, legacy or stale ones); a re-run that reprodu
 solution (a stubbed replay reply); a re-run dropped by a replaced fit or a closed tab keeps nothing (an edit only hides its outcome, a tab switch keeps it); the seal,
 the model and the state never change; Cancel.
 
-## The exact structure (owner 2026-10-15, option 3, after Codex rounds 2-9; refined in rounds 10-13)
+## The exact structure (owner 2026-10-15, option 3, after Codex rounds 2-9; refined in rounds 10-14)
 
 Rounds 2-9 each found one more crafted request the endpoint compared or answered 500, check by check. The owner's
 decision: `/api/compare-fits` validates EACH response against the exact structure the server writes, before comparing
@@ -77,7 +77,10 @@ verified on seal 1b's 328 records:
   id its support follows, which are labels the fit echoes (round 11: an id 9007199254740993 or 10^400 the server
   accepts); nesting no deeper than a response's; the software record no field a server does not record;
 - at least one component; ids any the server accepts — `f"p{id}_x"` an identifier (it builds every parameter name
-  so), not a list or object — unique by that spelling (round 10: "", "é", null, true, false are real ids);
+  so) written as Python reads it (NFKC: Python normalises identifiers in an expression, so a KELVIN SIGN id would
+  name "K"'s parameters — refused by the server too, round 14), not a list or object — unique by that spelling AND as
+  values (1 and true are one id to a link; /api/fit and run_fit refuse them) (round 10: "", "é", null, true, false
+  are real ids);
 - a component's lineshape one the server has, its parameters EXACTLY that lineshape's arguments plus `area`;
 - links exactly as the fit writes them (`_make_peak_params`, round 11): a linked component's centre is
   `p<M>_center + <number>` and its amplitude `p<M>_amplitude * <number>` — both, always — and every other parameter
@@ -87,13 +90,16 @@ verified on seal 1b's 328 records:
   unbounded, round 12); a linked component's own (unlinked) shape parameters vary (the fit's linked branch holds
   none, round 13); an unlinked component has no expression; no cycle; no chain deeper than the comparison
   follows;
+- the bounds `_make_peak_params` sets whatever the request says (the GL mix [0, 1], DS / DS+G / LA shape parameters;
+  `fitting._FIXED_BOUNDS`, by lineshape and whether the component is linked): exactly those on a free parameter, those
+  widened to the held value on a held one (round 14);
 - support as the fit writes it: a linked component's `support.follows` is its ROOT component's id and its verdict
   the root's; an unlinked component's support follows nothing. (Round 12 found the producer itself reading
   `constrain_to` two ways — the link by equality, the support walk by string spelling, so `constrain_to: 1.0` for id 1
   was linked but kept its own verdict; every walk now finds the master as `_make_peak_params` does — `_link_masters` —
 and run_fit refuses two ids equal as values (1, 1.0, true) as /api/fit already did, so a link names one peak whatever
-the order it is searched in (round 13). The comparator finds a linked parameter's master by any identifier, Unicode
-too, so a master "é" keeps its bounds' scale. No fitted number
+the order it is searched in (round 13). The comparator finds a linked parameter's master by every identifier Python's
+tokenizer reads (Unicode, combining marks, "·"), so such a master keeps its bounds' scale (rounds 13-14). No fitted number
   moves and the page never sends such a reference; the numerics digest records it as equivalent.)
 - the scattered starts list every component in order; an alternative's components likewise, each carrying exactly
   its own parameters;

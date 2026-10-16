@@ -238,6 +238,18 @@ def _representable(v, depth=0):
     return True
 
 
+# (shape, parameter, linked?) -> the bounds _make_peak_params always sets; None = either branch (keep in step with it:
+# the real-fit tests over every lineshape, link and lock fail if these drift)
+_FIXED_BOUNDS = {
+    ("pseudo_voigt_gl", "gl_ratio", None): (0.0, 1.0), ("asymmetric_gl", "gl_ratio", None): (0.0, 1.0),
+    ("doniach_sunjic", "alpha", None): (0.0, 0.5),
+    ("doniach_sunjic", "gamma_asym", False): (0.0, 5.0), ("doniach_sunjic", "gamma_asym", True): (0.0, 1.0),
+    ("ds_g", "alpha", None): (0.0, 0.49), ("ds_g", "beta", None): (0.05, 2.0),
+    ("ds_g", "m_gauss", False): (0.05, 4.0), ("ds_g", "m_gauss", True): (0.0, 4.0),
+    ("la_casaxps", "alpha", None): (0.1, 5.0), ("la_casaxps", "beta", None): (0.1, 5.0), ("la_casaxps", "m", None): (0.0, 499.0),
+}
+
+
 def response_structure_failure(O):
     """None if ``O`` has exactly the structure a fit response has (the rules above), else why not, in plain words."""
     if not isinstance(O, dict) or not isinstance(O.get("energy"), list) or not O["energy"]:
@@ -256,9 +268,9 @@ def response_structure_failure(O):
         return "it has no components (a fit has at least one)"
     # an id is one the server accepts: it builds every parameter name as f"p{id}_<name>", which must be an identifier
     ids = [f"{ip['id']}" for ip in peaks]
-    if any(isinstance(ip["id"], (list, dict)) or not f"p{ip['id']}_x".isidentifier() for ip in peaks):
+    if any(_id_failure(ip["id"]) for ip in peaks):
         return "a component id is not one a fit can have"
-    if len(set(ids)) != len(ids):
+    if len(set(ids)) != len(ids) or len({ip["id"] for ip in peaks}) != len(peaks):    # by spelling AND by value
         return "two components share an id"
     by_id = {f"{ip['id']}": ip for ip in peaks}
     for ip in peaks:
@@ -317,6 +329,19 @@ def response_structure_failure(O):
                 return f"component {me[:20]}: its support does not follow its root component as a fit writes it"
         elif "follows" in sup:
             return f"component {me[:20]}: an unlinked component's support follows another"
+    # the bounds _make_peak_params gives a shape parameter whatever the request says (the others are the request's):
+    # a free parameter carries them exactly, a held one the same widened to its held value (_set), a linked one none
+    for ip in peaks:
+        me = f"{ip['id']}"
+        for name, rec in ip["params"].items():
+            fixed = _FIXED_BOUNDS.get((ip["shape"], name, me in parent)) or _FIXED_BOUNDS.get((ip["shape"], name, None))
+            if fixed is None or rec["expr"] is not None:
+                continue
+            lo, hi = fixed
+            if not rec["vary"]:
+                lo, hi = min(lo, rec["value"]), max(hi, rec["value"])
+            if rec["min"] != lo or rec["max"] != hi:
+                return f"component {me[:20]}: its {name} bounds are not the ones a fit gives a {ip['shape']} component"
     import sys
     limit = sys.getrecursionlimit() // 4
     for start in master:
@@ -1743,6 +1768,19 @@ _SHAPE_FUNCS = {
 AVAILABLE_SHAPES = list(_SHAPE_FUNCS.keys())
 
 
+def _id_failure(pid) -> str | None:
+    """Why ``pid`` cannot be a component id, or None. Every parameter is named f"p{id}_<name>": that must be an
+    identifier, and one Python reads as written — Python normalises identifiers (NFKC) when it parses an expression,
+    so an id like "\u212a" (KELVIN SIGN) would name the parameters of "K" inside an expression while the links and
+    the records spell it otherwise (seal 1d Codex round 14)."""
+    import unicodedata
+    if isinstance(pid, (list, dict)) or not f"p{pid}_x".isidentifier():
+        return f"the peak id '{pid}' cannot name a parameter (p<id>_<name> must be an identifier)"
+    if unicodedata.normalize("NFKC", f"p{pid}_x") != f"p{pid}_x":
+        return f"the peak id '{pid}' is not written in normalised form (NFKC); write it as Python reads it"
+    return None
+
+
 def _link_masters(peak_specs: list[dict]) -> dict:
     """{str(id): str(master id) or None} — each peak's master found as _make_peak_params finds it: the FIRST spec
     whose id EQUALS its constrain_to (so 1.0 and true name the peak with id 1). One reading for every walk over
@@ -1775,6 +1813,9 @@ def _validate_constraint_graph(peak_specs: list[dict]) -> None:
     # tell them apart; /api/fit refused them already, run_fit now too — seal 1d Codex round 13)
     seen_ids: list = []
     for s in peak_specs:
+        why = _id_failure(s.get("id"))
+        if why:
+            raise ValueError(why[:1].upper() + why[1:])
         if any(str(s.get("id")) == str(t) or s.get("id") == t for t in seen_ids):
             raise ValueError(f"Two peaks share the id '{s.get('id')}'; each peak must have its own id")
         seen_ids.append(s.get("id"))

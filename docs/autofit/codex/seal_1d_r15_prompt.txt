@@ -1,0 +1,21 @@
+CORRECTNESS REVIEW, ROUND 15, of unit 1d ("Re-run this fit") of the sealed fit record in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software.
+
+REPO: this checkout, branch seal-1d, on seal-1c-s8. 1d is `git diff seal-1c-s8..HEAD`. Read docs/superpowers/plans/2026-10-15-seal-1d-rerun.md ("The exact structure") and docs/autofit/codex/seal_1d_r14_prompt.txt. The owner's decision (option 3): /api/compare-fits validates EACH response against the exact structure the server writes before comparing anything; anything else is a plain 4xx, never a 500.
+
+Round 14 (both runs NO-GO on MINORs; verdicts docs/autofit/codex/seal_1d_r14_verdict_run{A,B}.md): the comparator's identifier pattern missed combining marks and "·"; Python normalises identifiers (NFKC) when it parses an expression, so a KELVIN SIGN id named "K"'s parameters inside an expression while the links and records spelt it otherwise; the validator accepted ids equal as values (true and 1) that the producer refuses; it accepted bounds on an expression-free parameter that the producer never writes (a free GL mix with min -1).
+
+WHAT THIS ROUND CHANGES:
+- fitting._id_failure: an id must make `f"p{id}_x"` an identifier that NFKC leaves unchanged; the server refuses any other id before a fit (_validate_constraint_graph: every route and run_fit) and the validator refuses it in a response; the validator also refuses ids equal as values. The numerics digest records the producer side as equivalent (reason in the manifest).
+- same_fit._names: the identifiers of an expression exactly as Python's tokenizer reads them (Unicode, combining marks, "·").
+- fitting._FIXED_BOUNDS: the bounds _make_peak_params sets whatever the request says (GL mix [0, 1]; DS alpha, gamma_asym; DS+G alpha, beta, m_gauss; LA alpha, beta, m — by lineshape and by whether the component is linked); the validator requires exactly those on a free parameter and those widened to the held value on a held one (_set's widening).
+- tests: hostile (true/1 and 0/false as response ids, a KELVIN SIGN id, a free GL mix with min -1, a GL mix held at 1.5 without widened bounds); a real fit with a GL mix held at 1.5 (bound written 1.5) passes and compares same; the KELVIN SIGN id refused by run_fit and /api/fit; the 0.005 eV linked-width perturbation judged alike for masters "e", "é", "a̅", "a·b". Mutants: NFKC allowed, value-equal ids allowed, fixed bounds unchecked, held bound not widened, the ASCII pattern — each caught. The real-fit tests over every lineshape × link × lock pass (they would fail if _FIXED_BOUNDS drifted from the producer). Affected test files: 605 passed, 1 skipped; all 328 seal-1b records pass.
+
+ANSWER EACH (cite file:line):
+1. Is every round-14 finding resolved?
+2. Does `response_structure_failure` now accept every response run_fit can write, and refuse everything else? Name any response the server writes that it refuses, or any non-response it accepts, with the path.
+3. Can /api/compare-fits answer 500 to any body?
+4. Do the tests establish what they claim?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

@@ -55,9 +55,10 @@ seed — must be identical; non-finite values must sit in the same places.
 """
 import inspect
 import math
-import re
 
 import numpy as np
+import io
+import tokenize
 
 import fitting
 
@@ -118,6 +119,15 @@ def _half_max_width(x, y):
     return max(int(np.count_nonzero(y >= y.max() / 2)), 1) * step
 
 
+def _names(expr):
+    """The identifiers in an expression, exactly as Python's tokenizer reads them (a pattern missed combining marks and
+    "·", seal 1d Codex round 14; ids that Python would normalise are refused upstream, fitting._id_failure)."""
+    try:
+        return [t.string for t in tokenize.generate_tokens(io.StringIO(expr).readline) if t.type == tokenize.NAME]
+    except (tokenize.TokenError, SyntaxError):
+        return []
+
+
 def fit_differences(a, b, rel=SAME_MINIMUM_REL, objective_rel=OBJECTIVE_REL):
     """Where two fit responses are NOT the same fit (the rules above): a list of plain statements; [] when they
     are the same fit."""
@@ -140,7 +150,7 @@ def fit_differences(a, b, rel=SAME_MINIMUM_REL, objective_rel=OBJECTIVE_REL):
 
     def linked_bounds(info, seen=()):
         # through a chain of links (p4_m -> p3_m -> p2_m) to the bounded master
-        for ref in re.findall(r"[^\W\d]\w*", info.get("expr") or ""):   # any identifier, Unicode too ("pé_gl_ratio")
+        for ref in _names(info.get("expr") or ""):   # every identifier as Python reads one (Unicode, combining marks, ·)
             master = info_of.get(ref)
             if master is None or ref in seen:
                 continue

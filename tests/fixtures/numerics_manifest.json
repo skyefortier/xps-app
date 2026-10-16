@@ -6,8 +6,8 @@
     },
     {
       "numerics": "2026-10-13",
-      "math_sha256": "c88cbd509819df94ec5dea1a2be419e3f2d89ff26e9b3691dc2a80562314e5aa",
-      "equivalence": "seal 1d Codex round 12: the walks over links (graph check, support verdict, required-component refit, verifier) find a peak's master as _make_peak_params does (equality) instead of by string spelling (_link_masters). Round 13: run_fit's graph check also refuses two ids equal as values (1, 1.0, true), as /api/fit already did, so a link names one peak. No fitted number moves; only a constrain_to spelled differently from its master's id (1.0 or true for id 1), which the page never sends, now follows its master. Evidence: all 328 seal-1b records validate unchanged (support follows its root); tests/test_seal_1d_compare.py equal-id tests."
+      "math_sha256": "cf9cb64e23e266d3f07227ee2a9dfa6e555e9ab9444d170d3bf2561ed9531422",
+      "equivalence": "seal 1d Codex round 12: the walks over links (graph check, support verdict, required-component refit, verifier) find a peak's master as _make_peak_params does (equality) instead of by string spelling (_link_masters). Round 13: run_fit's graph check also refuses two ids equal as values (1, 1.0, true), as /api/fit already did, so a link names one peak; round 14: an id whose parameter names Python would normalise (NFKC) is refused. No fitted number moves; only a constrain_to spelled differently from its master's id (1.0 or true for id 1), which the page never sends, now follows its master. Evidence: all 328 seal-1b records validate unchanged (support follows its root); tests/test_seal_1d_compare.py equal-id tests."
     }
   ]
 }
