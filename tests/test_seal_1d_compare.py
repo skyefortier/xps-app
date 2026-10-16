@@ -148,14 +148,43 @@ def _with_span(o, lo, hi):
     p["min"], p["max"] = lo, hi
 
 
+def _linked_as_written(c, m, off="0.5", ratio="0.5", others=True, root=None):
+    """Component c linked to m exactly as a fit writes it (_make_peak_params; support follows the root)."""
+    for name, rec in c["params"].items():
+        if name == "area":
+            continue
+        expr = {"center": f"p{m['id']}_center + {off}", "amplitude": f"p{m['id']}_amplitude * {ratio}"}.get(
+            name, f"p{m['id']}_{name}" if others else None)
+        c["params"][name] = {**rec, "vary": False if expr else rec["vary"], "expr": expr}
+    root = root or m
+    c["support"] = {**c["support"], "follows": root["id"], "supported": root["support"]["supported"]}
+    return c
+
+
+def _proper_link(o, **kw):
+    m, c = _peak(o, 0), _peak(o, 1)
+    c["shape"] = m["shape"]
+    _linked_as_written(c, m, **kw)
+    return o
+
+
+def _unlinked(o, *names):
+    for name in names:
+        _peak(o, 1)["params"][name].update(vary=True, expr=None)
+    return o
+
+
 def _with_chain(o, n=1100):
     base = _peak(o)
-    for i in range(n):                                                    # centre links through n more components
+    for i in range(n):                                                    # links through n more components
         c = copy.deepcopy(base)
         c["id"] = f"k{i}"
-        nxt = f"pk{i + 1}_center + 0.0" if i < n - 1 else f"p{base['id']}_center + 0.0"
-        c["params"]["center"] = {**base["params"]["center"], "min": None, "max": None, "vary": False, "expr": nxt}
         o["individual_peaks"].append(c)
+        if o["starts"] and o["starts"].get("ran"):                         # the starts list every component, in order
+            o["starts"]["fit"]["components"].append({**o["starts"]["fit"]["components"][0], "id": c["id"]})
+    for i in range(n):
+        nxt = o["individual_peaks"][-n + i + 1] if i < n - 1 else base
+        _linked_as_written(o["individual_peaks"][-n + i], nxt, off="0.0", ratio="1.0", root=base)
 
 
 def _with_link(o, expr):
@@ -227,7 +256,41 @@ HOSTILE = {
     "no components": lambda o: (o.__setitem__("individual_peaks", []), o.__setitem__("starts", None)),
     "integer a float cannot hold": lambda o: o["counts"].__setitem__(0, 9007199254740993),
     "software field no server records": lambda o: o["software"].__setitem__("zz", "x"),
+    # Codex round 11: links and support exactly as a fit writes them
+    # each with the support a linked component carries, so the LINK rule alone refuses it
+    "fwhm linked alone": lambda o: _unlinked(_proper_link(o), "center", "amplitude"),
+    "fwhm linked alone, support unlinked": lambda o: _unlinked(_proper_link(o), "center", "amplitude")[
+        "individual_peaks"][1]["support"].pop("follows"),                 # round 11's case exactly
+    "centre linked alone": lambda o: _unlinked(_proper_link(o, others=False), "amplitude"),
+    "amplitude linked alone": lambda o: _unlinked(_proper_link(o, others=False), "center"),
+    "link offset -0.0": lambda o: _proper_link(o, off="-0.0"),
+    "link ratio -0.0": lambda o: _proper_link(o, ratio="-0.0"),
+    "some shape parameters linked": lambda o: (_proper_link(o, others=False),
+                                               _peak(o, 1)["params"]["fwhm"].update(vary=False, expr=f"p{_peak(o)['id']}_fwhm")),
+    "shape parameter linked to itself": lambda o: (_proper_link(o), _peak(o, 1)["params"]["fwhm"].update(
+        expr="p" + str(_peak(o, 1)["id"]) + "_fwhm")),
+    "linked component following nothing": lambda o: _proper_link(o)["individual_peaks"][1]["support"].pop("follows"),
+    "linked component following another": lambda o: _proper_link(o)["individual_peaks"][1]["support"].update(follows="zz"),
+    "linked component's own verdict": lambda o: _proper_link(o)["individual_peaks"][1]["support"].update(
+        supported=not _peak(o, 0)["support"]["supported"]),
+    "unlinked component following another": lambda o: _peak(o, 1)["support"].update(follows=_peak(o, 0)["id"]),
+    "link to a component of another lineshape": lambda o: (_proper_link(o), _peak(o, 0).__setitem__("shape", "gaussian"),
+                                                         _peak(o, 0)["params"].pop("gl_ratio", None)),
 }
+
+
+@pytest.mark.parametrize("kw", [{}, {"others": False}, {"off": "-0.5", "ratio": "2.0"}, {"off": "1e-05"}])
+def test_a_link_as_a_fit_writes_it_is_compared(client, kw):  # noqa: F811
+    """The positive control for the round-11 cases: the helper writes what a fit writes, so their refusal is the change."""
+    o = _proper_link(_record(client), **kw)
+    assert fitting.response_structure_failure(o) is None, fitting.response_structure_failure(o)
+    assert _compare(client, o, copy.deepcopy(o))["same"]
+
+
+def test_a_chain_within_the_depth_is_compared(client):  # noqa: F811
+    o = _record(client)
+    _with_chain(o, n=20)
+    assert fitting.response_structure_failure(o) is None, fitting.response_structure_failure(o)
 
 
 @pytest.mark.parametrize("name", sorted(HOSTILE))
@@ -319,7 +382,8 @@ def test_random_mutations_never_answer_500(client):  # noqa: F811
     the key-level oracle below does, for deletions and additions.)"""
     import random
     rng = random.Random(20261015)
-    base = _with_alternative(_record(client))
+    base = _with_alternative(_proper_link(_record(client)))
+    assert "follows" in base["individual_peaks"][1]["support"]
     values = [None, True, False, 0, -1, 1.5, 1e308, -1e308, 10 ** 400, "", "x", "p1_center", [], [1], {}, {"value": 1},
               float("inf"), float("nan")]
 
@@ -356,7 +420,10 @@ def test_random_mutations_never_answer_500(client):  # noqa: F811
     assert counts[400] > 0 and counts[200] > 0, counts
 
 
-OPTIONAL_KEYS = {"error", "reason", "message", "follows", "asteval", "machine", "os", "blas"}   # keys a response MAY omit
+def _optional(at, key):
+    """A key a response MAY omit, by its object's PATH (Codex round 11: never by key name alone): the software fields
+    recorded since 2026-10-15. (A linked component's support.follows is REQUIRED; the base below holds one.)"""
+    return at == ("software",) and key in fitting._NUMERICS_KEYS_SINCE_2026_10_15
 
 
 def _dict_paths(o, at=()):
@@ -372,17 +439,16 @@ def _dict_paths(o, at=()):
 def test_every_deleted_or_added_key_is_refused(client):  # noqa: F811
     """An ORACLE the random fuzz lacks: a fit response has exactly its keys, so deleting a key it must have, or adding
     any key, anywhere — every object of a real response with an alternative, on either side — is refused."""
-    base = _with_alternative(_record(client))
+    base = _with_alternative(_proper_link(_record(client)))
+    assert "follows" in base["individual_peaks"][1]["support"]
     checked = 0
     for at in _dict_paths(base):
         node = base
         for step in at:
             node = node[step]
         for key in list(node) + ["zz_added"]:
-            if key in OPTIONAL_KEYS:
+            if _optional(at, key):
                 continue
-            if at and at[-1] == "params" and key != "zz_added" and len(at) >= 2 and at[-2] != "area":
-                pass                                                   # a parameter removed: its lineshape's set breaks
             h = copy.deepcopy(base)
             target = h
             for step in at:
@@ -399,7 +465,8 @@ def test_every_deleted_or_added_key_is_refused(client):  # noqa: F811
 
 
 # real fits the server writes: every id it accepts, more methods and backgrounds, a required-component check
-@pytest.mark.parametrize("ids", [("", "2"), ("é", "b"), (None, "2"), (True, False), ("1", "1_x")])
+@pytest.mark.parametrize("ids", [("", "2"), ("é", "b"), (None, "2"), (True, False), ("1", "1_x"),
+                                 (9007199254740993, "2"), (10 ** 400, "2")])
 def test_any_id_the_server_accepts_is_compared(client, ids):  # noqa: F811
     x, y, specs = SS._well_posed()
     specs = [{**s, "id": i} for s, i in zip(specs, ids)]

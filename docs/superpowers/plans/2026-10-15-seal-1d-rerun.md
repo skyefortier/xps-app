@@ -64,7 +64,7 @@ sealed server result (not on local, legacy or stale ones); a re-run that reprodu
 solution (a stubbed replay reply); a re-run dropped by a replaced fit or a closed tab keeps nothing (an edit only hides its outcome, a tab switch keeps it); the seal,
 the model and the state never change; Cancel.
 
-## The exact structure (owner 2026-10-15, option 3, after Codex rounds 2-9)
+## The exact structure (owner 2026-10-15, option 3, after Codex rounds 2-9; refined in rounds 10-11)
 
 Rounds 2-9 each found one more crafted request the endpoint compared or answered 500, check by check. The owner's
 decision: `/api/compare-fits` validates EACH response against the exact structure the server writes, before comparing
@@ -73,18 +73,28 @@ anything; anything else is refused with a plain 4xx message, never a 500. `fitti
 verified on seal 1b's 328 records:
 
 - the response's form (`response_form_failure`: exact keys, types, arrays of n numbers);
-- every number one a float represents; nesting no deeper than a response's;
-- component ids unique, each one lmfit accepts in a parameter prefix (`[A-Za-z0-9_]+`);
+- every number one a float represents (an integer only if a float holds it exactly) — except a component's id and the
+  id its support follows, which are labels the fit echoes (round 11: an id 9007199254740993 or 10^400 the server
+  accepts); nesting no deeper than a response's; the software record no field a server does not record;
+- at least one component; ids any the server accepts — `f"p{id}_x"` an identifier (it builds every parameter name
+  so), not a list or object — unique by that spelling (round 10: "", "é", null, true, false are real ids);
 - a component's lineshape one the server has, its parameters EXACTLY that lineshape's arguments plus `area`;
-- a link exactly as the fit writes it: `p<master>_<the same parameter>`, the centre `+ <number>`, the amplitude
-  `* <number>` (the number as Python writes a float), to exactly one OTHER component, on a parameter that does not
-  vary; no cycle; no chain deeper than the comparison follows;
+- links exactly as the fit writes them (`_make_peak_params`, round 11): a linked component's centre is
+  `p<M>_center + <number>` and its amplitude `p<M>_amplitude * <number>` — both, always — and every other parameter
+  is either ALL `p<M>_<the same name>` or none (one flag, `fix_fwhm`), M one OTHER component of the SAME lineshape;
+  the numbers spelt as Python writes a finite float, never `-0.0` (the fit folds −0 to 0); no linked parameter
+  varies; an unlinked component has no expression; no cycle; no chain deeper than the comparison follows;
+- support as the fit writes it: a linked component's `support.follows` is its ROOT component's id and its verdict
+  the root's; an unlinked component's support follows nothing;
 - the scattered starts list every component in order; an alternative's components likewise, each carrying exactly
   its own parameters;
 - every scale a comparison measures against finite: n × the energy span, every point of the background-subtracted
   signal, every bound span; and across the two sides, the longest curve × a's span.
 
 Evidence: every real record and every lineshape × link × lock a fit writes passes (tests); each hostile case of
-rounds 1-9 is refused on side a, side b and both; a seeded fuzz of 3,000 random mutations of a real response answers
+rounds 1-11 is refused on side a, side b and both; an oracle deletes every key a response must have and adds a key,
+in every object of a real response holding a link and an alternative, on either side, and requires 400 for each
+(which keys a response may omit is decided by the object's PATH: only the software fields recorded since 2026-10-15);
+a seeded fuzz of 3,000 random mutations of a real response answers
 only 200 or 400. Stated limit: a fit the server accepts with a bound span no comparison can measure (±1e308) is
 refused a re-run, with the reason; the page never sends such bounds.

@@ -219,14 +219,15 @@ def _float_spelling(t):
         f = float(t)
     except ValueError:
         return False
-    return math.isfinite(f) and str(f) == t
+    return math.isfinite(f) and str(f) == t and t != "-0.0"     # the fit folds −0 to 0 before writing
 
 
 def _representable(v, depth=0):
     if depth > 64:
         return False
     if isinstance(v, dict):
-        return all(_representable(e, depth + 1) for e in v.values())
+        # an id (and the id a support follows) is a label the fit echoes, never a number it computes with
+        return all(_representable(e, depth + 1) for k, e in v.items() if k not in ("id", "follows"))
     if isinstance(v, list):
         return all(_representable(e, depth + 1) for e in v)
     if isinstance(v, int) and not isinstance(v, bool):
@@ -267,27 +268,51 @@ def response_structure_failure(O):
         want = set(list(inspect.signature(func).parameters)[1:]) | {"area"}
         if set(ip["params"]) != want:
             return f"component {str(ip['id'])[:20]}: its parameters are not those of a {ip['shape']} component"
-    # links: each to exactly one OTHER component's same parameter, in the form the fit writes
-    master = {}
+    # links, as the fit writes a component linked to a master M (_make_peak_params): its centre `p<M>_center + <number>`,
+    # its amplitude `p<M>_amplitude * <number>` (the numbers spelt as the fit writes a float, −0 folded to 0), and every
+    # other parameter either ALL `p<M>_<the same name>` or none (one flag, fix_fwhm); M a different component of the same
+    # lineshape. An unlinked component has no expression at all.
+    master, parent = {}, {}
     for ip in peaks:
-        for name, rec in ip["params"].items():
-            e = rec.get("expr") if name != "area" else None
-            if e is None:
+        me = f"{ip['id']}"
+        exprs = {name: rec["expr"] for name, rec in ip["params"].items() if name != "area" and rec["expr"] is not None}
+        if not exprs:
+            continue
+        if any(ip["params"][name]["vary"] for name in exprs):
+            return f"component {me[:20]}: a linked parameter varies"
+        m_found = []
+        for mid in ids:
+            if mid == me or by_id[mid]["shape"] != ip["shape"]:
                 continue
-            if rec["vary"]:
-                return f"component {str(ip['id'])[:20]}: a linked parameter ({name}) varies"
-            tail = {"center": r" \+ (" + _FLOAT_TEXT + ")", "amplitude": r" \* (" + _FLOAT_TEXT + ")"}.get(name, "")
-            found = []
-            for mid in ids:
-                m = re.fullmatch(re.escape(f"p{mid}_{name}") + tail, e) if mid != f"{ip['id']}" else None
-                # to a component of the SAME lineshape (a linked peak takes its parent's), which has this parameter,
-                # the number spelt as the fit writes a float
-                if m and by_id[mid]["shape"] == ip["shape"] and name in by_id[mid]["params"] \
-                        and (not tail or _float_spelling(m.group(1))):
-                    found.append(mid)
-            if len(found) != 1:
-                return f"component {str(ip['id'])[:20]}: a link ({e[:40]}) is not one a fit writes"
-            master[(f"{ip['id']}", name)] = (found[0], name)
+            c = re.fullmatch(re.escape(f"p{mid}_center") + r" \+ (" + _FLOAT_TEXT + ")", exprs.get("center") or "")
+            a = re.fullmatch(re.escape(f"p{mid}_amplitude") + r" \* (" + _FLOAT_TEXT + ")", exprs.get("amplitude") or "")
+            if c and a and _float_spelling(c.group(1)) and _float_spelling(a.group(1)):
+                m_found.append(mid)
+        if len(m_found) != 1:
+            return f"component {me[:20]}: its links are not as a fit writes them"
+        mid = m_found[0]
+        rest = [name for name in ip["params"] if name not in ("area", "center", "amplitude")]
+        linked = [name for name in rest if name in exprs]
+        if linked and (len(linked) != len(rest) or any(exprs[name] != f"p{mid}_{name}" for name in rest)):
+            return f"component {me[:20]}: its links are not as a fit writes them"
+        parent[me] = mid
+        for name in exprs:
+            master[(me, name)] = (mid, name)
+    # support: a linked component FOLLOWS its root ancestor (its id, its verdict); an unlinked one follows nothing
+    def root_of(cid):
+        seen = set()
+        while cid in parent and cid not in seen:
+            seen.add(cid)
+            cid = parent[cid]
+        return cid
+    for ip in peaks:
+        me, sup = f"{ip['id']}", ip["support"]
+        if me in parent:
+            root = by_id[root_of(me)]
+            if "follows" not in sup or not _same(sup["follows"], root["id"]) or sup["supported"] != root["support"]["supported"]:
+                return f"component {me[:20]}: its support does not follow its root component as a fit writes it"
+        elif "follows" in sup:
+            return f"component {me[:20]}: an unlinked component's support follows another"
     import sys
     limit = sys.getrecursionlimit() // 4
     for start in master:

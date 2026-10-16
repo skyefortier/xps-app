@@ -1,0 +1,21 @@
+CORRECTNESS REVIEW, ROUND 12, of unit 1d ("Re-run this fit") of the sealed fit record in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software.
+
+REPO: this checkout, branch seal-1d, on seal-1c-s8. 1d is `git diff seal-1c-s8..HEAD`. Read docs/superpowers/plans/2026-10-15-seal-1d-rerun.md ("The exact structure") and docs/autofit/codex/seal_1d_r11_prompt.txt. The owner's decision (option 3): /api/compare-fits validates EACH response against the exact structure the server writes before comparing anything; anything else is a plain 4xx, never a 500.
+
+Round 11 (both runs NO-GO on MINORs; verdicts docs/autofit/codex/seal_1d_r11_verdict_run{A,B}.md): an integer id the server accepts (9007199254740993, 10**400) was refused by the float-exactness rule; the link check judged each expression alone, so a centre linked without its amplitude, an isolated fwhm link and `+ -0.0` passed; a bogus `support.follows` passed; the oracle decided optionality by key NAME, so it never deleted the required top-level `message` or `background_verdict.reason`.
+
+WHAT THIS ROUND CHANGES (fitting.response_structure_failure):
+- ids exempt from float exactness (a component's `id` and `support.follows`: labels the fit echoes) — `_representable`;
+- links as `_make_peak_params` writes them: a linked component's centre `p<M>_center + <num>` AND amplitude `p<M>_amplitude * <num>`, to exactly one other component M of the same lineshape; every other non-area parameter ALL `p<M>_<same name>` or none; numbers a finite float's spelling, never "-0.0"; an unlinked component carries no expression;
+- support as the fit writes it (fitting.py, the `follows` block in run_fit): a linked component's `support.follows` equals its ROOT's id and its `supported` the root's; an unlinked component has no `follows`.
+Tests (tests/test_seal_1d_compare.py): new hostile cases (fwhm / centre / amplitude linked alone — each with the support a linked component carries, so the link rule alone refuses it; offset and ratio -0.0; some shape parameters linked; a shape parameter linked to itself; follows absent / another id / own verdict; an unlinked component following another; a master of another lineshape) on a, b and both; a positive control (`test_a_link_as_a_fit_writes_it_is_compared`, four link arrangements) and a 20-deep chain accepted; the chain helper now writes complete links and lists the chain in the starts, so the 1,100-deep case is refused by the DEPTH rule; real fits with ids 9007199254740993 and 10**400 compare `same`; the oracle decides optionality by PATH (only the software fields recorded since 2026-10-15) and its base holds a link (so `support.follows` deletion is tested) and an alternative. All 328 seal-1b records still pass. Mutation check: thirteen mutants (each new rule removed or weakened: -0.0, id exemption, all-or-none, centre required, amplitude required, centre required for any link, follows present / the root's id / the root's verdict, unlinked follows, master of the same lineshape, the oracle with top-level message optional) — each fails its tests. 1d's test files: 258 passed, 1 skipped (main has no manifest), with SEAL_1B_RECORDS set.
+
+ANSWER EACH (cite file:line):
+1. Is every round-11 finding resolved?
+2. Does `response_structure_failure` now accept every response run_fit can write, and refuse everything else? Name any response the server writes that it refuses, or any non-response it accepts, with the path.
+3. Can /api/compare-fits answer 500 to any body?
+4. Do the tests (oracle and positive controls included) establish what they claim?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.
