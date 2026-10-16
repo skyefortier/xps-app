@@ -1,0 +1,21 @@
+CORRECTNESS REVIEW, ROUND 14, of unit 1d ("Re-run this fit") of the sealed fit record in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software.
+
+REPO: this checkout, branch seal-1d, on seal-1c-s8. 1d is `git diff seal-1c-s8..HEAD`. Read docs/superpowers/plans/2026-10-15-seal-1d-rerun.md ("The exact structure") and docs/autofit/codex/seal_1d_r13_prompt.txt. The owner's decision (option 3): /api/compare-fits validates EACH response against the exact structure the server writes before comparing anything; anything else is a plain 4xx, never a 500.
+
+Round 13 (both runs NO-GO on the same three MINORs; verdicts docs/autofit/codex/seal_1d_r13_verdict_run{A,B}.md): with ids equal as values (true and 1) in one request — refused by /api/fit, reachable through run_fit directly — _link_masters searched request order while _make_peak_params searched unlinked-first order, so the support could follow another peak than the expression named; same_fit's bounds walk read only ASCII identifiers, so a master "é" lost its bounds' scale; a held, expression-free shape parameter on a linked component was accepted (the fit's linked branch never holds one).
+
+WHAT THIS ROUND CHANGES:
+- fitting._validate_constraint_graph (run_fit and every route): two ids equal as values OR as spellings are one id, refused ("Two peaks share the id"), as /api/fit's uniqueness check already refused them — so a link names exactly one peak, whatever order it is searched in. The numerics digest records it as equivalent (reason in tests/fixtures/numerics_manifest.json).
+- same_fit.linked_bounds: any identifier, Unicode included (`[^\W\d]\w*`).
+- response_structure_failure: a linked component's own (unlinked) shape parameters vary.
+- tests: equal ids refused (true/1, 1/1.0, 0/false; round 13's reproducer through run_fit itself); a child width moved by 0.005 eV judged alike with master "e" and "é"; a linked component's own width held refused; the positive controls compare EVERY parameter's expression, flag and bounds (not only the linked ones) between run_fit's output and the hostile cases' helper. Mutants (each caught): equal ids allowed, the ASCII pattern, a linked component's width held; the earlier eighteen stand. Affected test files: 587 passed, 1 skipped.
+
+ANSWER EACH (cite file:line):
+1. Is every round-13 finding resolved? Is there any remaining place where a link is read differently (server, verifier, comparator)?
+2. Does `response_structure_failure` now accept every response run_fit can write, and refuse everything else? Name any response the server writes that it refuses, or any non-response it accepts, with the path.
+3. Can /api/compare-fits answer 500 to any body?
+4. Do the tests establish what they claim?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

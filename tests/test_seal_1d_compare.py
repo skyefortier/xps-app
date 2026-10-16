@@ -282,6 +282,9 @@ HOSTILE = {
     "link to a null-id master": lambda o: (_peak(o, 0).__setitem__("id", None),
                                            o["starts"]["fit"]["components"][0].__setitem__("id", None),
                                            _proper_link(o)),
+    # Codex round 13
+    "linked component's own width held": lambda o: _proper_link(o, others=False)["individual_peaks"][1]["params"][
+        "fwhm"].update(vary=False),
     "link to a component of another lineshape": lambda o: (_proper_link(o), _peak(o, 0).__setitem__("shape", "gaussian"),
                                                          _peak(o, 0)["params"].pop("gl_ratio", None)),
 }
@@ -308,8 +311,7 @@ def test_a_link_as_a_fit_writes_it_is_compared(client, splitting, ratio, fix_fwh
     assert fitting.response_structure_failure(o) is None, fitting.response_structure_failure(o)
     assert _compare(client, o, copy.deepcopy(o))["same"]
     h = _proper_link(_record(client), off=str(float(splitting) + 0.0), ratio=str(float(ratio)), others=fix_fwhm)
-    meta = lambda c: {k: (v["expr"], v["vary"] if v["expr"] else None, v["min"], v["max"]) if v["expr"] else (None,)
-                      for k, v in c["params"].items() if k != "area"}
+    meta = lambda c: {k: (v["expr"], v["vary"], v["min"], v["max"]) for k, v in c["params"].items() if k != "area"}
     assert meta(h["individual_peaks"][1]) == meta(o["individual_peaks"][1])
     assert h["individual_peaks"][1]["support"].keys() == o["individual_peaks"][1]["support"].keys()
 
@@ -547,13 +549,31 @@ def test_a_required_component_check_is_compared(client):  # noqa: F811
     assert _compare(client, O, copy.deepcopy(O))["same"]
 
 
-def test_the_graph_check_finds_a_master_as_the_fit_links_it():
-    """Codex round 12 (one reading of a link): ids true and 1 both in the model, a GL child with constrain_to 1. The fit
-    links it to the FIRST equal id — true, a Gaussian — so it is refused as a link across lineshapes; the graph check's
-    dict keyed by the ids themselves merged true and 1 and checked the GL instead."""
-    specs = [{"id": True, "shape": "gaussian"}, {"id": 1, "shape": "pseudo_voigt_gl"},
-             {"id": "c", "shape": "pseudo_voigt_gl", "constrain_to": 1}]
-    with pytest.raises(ValueError, match="different lineshape"):
-        fitting._validate_constraint_graph(specs)
-    assert fitting._link_masters(specs) == {"True": None, "1": None, "c": "True"}
-    fitting._validate_constraint_graph([specs[1], specs[0], specs[2]])     # with 1 first, its GL is the master
+def test_ids_equal_as_values_are_refused_as_one_id():
+    """Codex rounds 12-13: a link names its master by equality, so two ids equal as values (1, 1.0, true) cannot be
+    told apart — /api/fit refused them as duplicates already; run_fit's graph check now does too (it compared
+    spellings only, so the walks and the parameter builder could pick different masters by order)."""
+    for pair in ((True, 1), (1, 1.0), (0, False)):
+        with pytest.raises(ValueError, match="share the id"):
+            fitting._validate_constraint_graph([{"id": pair[0], "shape": "gaussian"}, {"id": pair[1], "shape": "gaussian"}])
+    x, y, specs = SS._well_posed()          # round 13's reproducer, through run_fit itself
+    g = {k: v for k, v in specs[0].items() if k != "id"}
+    specs = [{**g, "id": True, "constrain_to": "r", "splitting": 0.5}, {**g, "id": 1}, {**g, "id": "r", "center": 287.0},
+             {**g, "id": "c", "constrain_to": 1, "splitting": 0.5}]
+    with pytest.raises(ValueError, match="share the id"):
+        fitting.run_fit(energy=x, counts=y, peak_specs=specs, background_method="shirley", n_perturb=0)
+    assert fitting._link_masters([{"id": 1}, {"id": "c", "constrain_to": 1.0}]) == {"1": None, "c": "1"}
+
+
+@pytest.mark.parametrize("master", ["e", "é"])
+def test_a_linked_parameter_is_judged_on_its_masters_bounds_whatever_the_id(client, master):  # noqa: F811
+    """Codex round 13: the comparator found a linked parameter's bounds through an ASCII-only pattern, so a master
+    "é" lost them and the same perturbation compared differently. Both spellings must judge it alike: a child width
+    moved by 0.005 eV is within rounding on its master's bounds' scale (0.1-15 eV) for both."""
+    x, y, specs = SS._well_posed()
+    specs = [{**specs[0], "id": master}, {**specs[1], "id": "b", "constrain_to": master, "splitting": 0.5,
+                                          "area_ratio": 0.5, "fix_fwhm": True}]
+    o = _seal(client, x, y, specs, background={"method": "shirley"}, fit_method="least_squares", n_perturb=0)[1]
+    h = copy.deepcopy(o)
+    h["individual_peaks"][1]["params"]["fwhm"]["value"] += 0.005
+    assert same_fit.fit_differences(o, h) == []

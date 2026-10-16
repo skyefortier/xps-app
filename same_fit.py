@@ -140,7 +140,7 @@ def fit_differences(a, b, rel=SAME_MINIMUM_REL, objective_rel=OBJECTIVE_REL):
 
     def linked_bounds(info, seen=()):
         # through a chain of links (p4_m -> p3_m -> p2_m) to the bounded master
-        for ref in re.findall(r"[A-Za-z_][A-Za-z0-9_]*", info.get("expr") or ""):   # any lmfit identifier
+        for ref in re.findall(r"[^\W\d]\w*", info.get("expr") or ""):   # any identifier, Unicode too ("pé_gl_ratio")
             master = info_of.get(ref)
             if master is None or ref in seen:
                 continue

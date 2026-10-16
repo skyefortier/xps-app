@@ -297,6 +297,8 @@ def response_structure_failure(O):
         linked = [name for name in rest if name in exprs]
         if linked and (len(linked) != len(rest) or any(exprs[name] != f"p{mid}_{name}" for name in rest)):
             return f"component {me[:20]}: its links are not as a fit writes them"
+        if not linked and not all(ip["params"][name]["vary"] for name in rest):    # the linked branch holds none
+            return f"component {me[:20]}: a linked component's own shape parameter is held (a fit lets it vary)"
         parent[me] = mid
         for name in exprs:
             master[(me, name)] = (mid, name)
@@ -1769,11 +1771,13 @@ def _validate_constraint_graph(peak_specs: list[dict]) -> None:
     # constraint naming a peak that is there — refused HERE, before a job starts and on every route
     # (Q10 0c' Codex round 1: /api/fit/start admitted a missing master, /api/analyze answered 500
     # for a shared id)
-    seen_ids: set = set()
+    # — and every id once as a VALUE too (1, 1.0 and true are equal: a link names peaks by equality, so it could not
+    # tell them apart; /api/fit refused them already, run_fit now too — seal 1d Codex round 13)
+    seen_ids: list = []
     for s in peak_specs:
-        if str(s.get("id")) in seen_ids:
+        if any(str(s.get("id")) == str(t) or s.get("id") == t for t in seen_ids):
             raise ValueError(f"Two peaks share the id '{s.get('id')}'; each peak must have its own id")
-        seen_ids.add(str(s.get("id")))
+        seen_ids.append(s.get("id"))
     # each master found as _make_peak_params finds it (_link_masters: the first peak whose id EQUALS constrain_to),
     # on ids keyed by their spelling (unique, above) — a dict keyed by the ids themselves merged 1, 1.0 and true and
     # kept the LAST (seal 1d Codex round 12)
