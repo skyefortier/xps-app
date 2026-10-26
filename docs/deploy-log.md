@@ -6,6 +6,18 @@ own bullet even when it shipped inside a larger unit, so it can be found
 later. Procedure: [DEPLOY.md](../DEPLOY.md). The xps2 droplet is deployed by
 scripts/deploy_xps2.sh with every deploy since 2026-10-16 (DEPLOY.md, step 5).
 
+## 2026-10-26 — An old fit's label points to Run Fit (c25c400) — both machines
+
+- **Release note:** a fit saved before sealed records now reads "saved before sealed records — press Run Fit to
+  confirm" (it said "re-run this fit to confirm", but the "Re-run this fit" button exists only for sealed fits).
+  The same string reaches Results, the status tooltips, the R-factor tooltip and the CSV / XLSX "LEGACY:" line
+  (`_LEGACY_FIT_NOTE`, `sealedState`). The held student note (`docs/comms/2026-10-16-sealed-fit-record-note.md`)
+  is updated to match. No number, state or decision changes.
+- Tests: the seal browser tests (steps 3-8, 1d) and the export test, 209 passed; the JS suite, no file failing.
+- **Deploy:** i9 ff-only to c25c400, constraints equal, kickstart, :5050 + public health ok, reference ok;
+  `scripts/deploy_xps2.sh c25c400` PASS. `scripts/seal_production_check.py` PASS on dev, xps.fortierlab.org and
+  xps2.fortierlab.org; the new label rendered on both public sites (Cl2p_projfit_test.proj.zip).
+
 ## 2026-10-16 — Sealed fit record (option b), "Re-run this fit", LA made reproducible — both machines (651c756)
 
 - **What students see (release note: `docs/comms/2026-10-16-sealed-fit-record-note.md`, HELD for the owner to
