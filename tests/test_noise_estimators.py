@@ -71,8 +71,9 @@ def test_the_regression_does_not_select_on_the_noise():
 
 @pytest.mark.parametrize("t", [0.137, 0.12345, 0.005, 2.0, 50.0])
 def test_counts_divided_by_any_counting_time_have_a_common_quantum(t):
-    """Codex Unit B round 1: a search over chosen spacings missed counting times between them. Testing the smallest
-    gap's divisors finds the quantum 1/t for any t; a continuous series has none."""
+    """Codex Unit B round 1: a search over chosen spacings missed counting times between them. The divisor search finds
+    the quantum 1/t at these counting times, and accepts none in a continuous series. It is a heuristic: it is not
+    complete (Codex round 3 found grids it misses) — tested here only where it should succeed."""
     rng = np.random.default_rng(7)
     s = 5000 + 60000 * np.exp(-((np.arange(191) - 90) / 8.0) ** 2)
     u = ne.common_quantum(rng.poisson(s * t) / t)

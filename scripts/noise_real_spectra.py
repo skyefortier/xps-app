@@ -84,7 +84,7 @@ def main():
               f" d4 {s['rho1_d4'][1]:+.2f} [{s['rho1_d4'][0]:+.2f}, {s['rho1_d4'][2]:+.2f}] (white -0.80);"
               f" lag profile " + " ".join(f"{v:.2f}" for v in s["lag_profile"]))
         print(f"  non-integer values: at least {s['non_integer_fraction_min']:.1%} of every file's points;"
-              f" files on a common grid (u = smallest gap / j, j ≤ 1000): {s['files_with_a_common_quantum']}"
+              f" files where the heuristic grid search accepted a candidate: {s['files_with_a_common_quantum']}"
               f" (median smallest gap {s['smallest_gap_median']:.3g} CPS)")
         for est in ("scaled_d1", "scaled_d2", "scaled_d4", "scaled_d2_lag3", "flat_ends", "varmean", "der_snr", "constant_d4"):
             lo, md, hi = s[est + "_k"]
@@ -93,13 +93,18 @@ def main():
         lo, md, hi = s["varmean_a_over_median_y"]
         print(f"  varmean intercept a / median(y): median {md:8.3f}   10-90 % [{lo:8.3f}, {hi:8.3f}]")
     g = np.array([r["smallest_gap"] for r in rows]); npts = np.array([r["n"] for r in rows])
-    print(f"\nsmallest gap between a file's values: {g.min():.3g} - {g.max():.3g} CPS; were the values counts / t with m = 1,"
-          f" t = 1/gap: {1 / g.max():.3g} - {1 / g.min():.3g} s per point; points x that t, the least: {(npts / g).min():.0f} s")
+    # were the values counts / t, every gap would be ≥ 1/t; for STORED (rounded) values the gap may read up to the
+    # two endpoints' rounding smaller, so the bound uses gap + 2 ulp(max)
+    t = 1.0 / (g + 2 * np.spacing(np.array([r["max"] for r in rows])))
+    print(f"\nsmallest gap between a file's values: {g.min():.3g} - {g.max():.3g} CPS. Were the values counts / t,"
+          f" t >= 1/(gap + rounding): {t.min():.3g} - {t.max():.3g} s per point (median {np.median(t):.3g} s)."
+          f" Counted point by point, points x t >= {(npts * t).min():.0f} s for every file; with 128 channels counting"
+          f" in parallel (an assumed acquisition model), points x t / 128 < 120 s for {(npts * t / 128 < 120).sum()} of {len(t)} files")
     proj = _projects_vs_vgds(values)
     matched = sum(1 for r in proj if r["matches_vgd"])
     print(f"\ncommitted project spectra: {len(proj)}; identical to a committed VGD's values: {matched};"
           f" non-integer in every spectrum: {all(r['non_integer_fraction'] > 0.99 for r in proj)};"
-          f" on a common grid: {sum(r['common_quantum'] is not None for r in proj)}")
+          f" heuristic grid search accepted a candidate in: {sum(r['common_quantum'] is not None for r in proj)}")
     if a.json:
         json.dump({"rows": rows, "summary": summary, "projects": proj}, open(a.json, "w"), indent=1)
 

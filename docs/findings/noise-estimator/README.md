@@ -43,7 +43,7 @@ Two uses of a noise estimate must be kept apart (round 1):
 | source | what the intensities are | label | evidence |
 |---|---|---|---|
 | Thermo Avantage `.vgd` (all 230 committed raw files) | **counts per second** | VERIFIED | each file's chart sidecar `.xml` titles the intensity axis `Counts / s` (e.g. `docs/autofit/test_data/1 UCl4-graphite …DATA/C1s Scan.xml`); at least 99.8 % of every file's stored values are non-integer (`real_spectra.txt`). The instrument is a Nexsa G2, Avantage v6.7.0 (strings in the files' main property stream) |
-| the same — raw counts divided by a per-point counting time t? | **only with counting times far beyond the acquisition** | VERIFIED (the bound), HYPOTHESIS (that the bound excludes it) | raw counts / t are all multiples of u = 1/t, so every gap between distinct values is at least u: **t ≥ 1/(smallest gap)** whatever t is, with no search and no tolerance (round 3: the search's negative result could not certify an exclusion). The smallest gaps are 1.7e-5–0.44 CPS per file, so t ≥ 2.3–60 000 s per point, i.e. at least 435 s of counting for the whole spectrum in every file (points × t; `real_spectra.txt`). HYPOTHESIS: impossible, each whole spectrum having taken about a minute (the files' start/end timestamps, in undocumented property ids). Supporting only: the heuristic search `noise_estimators.common_quantum` (divisors m ≤ 1000 of the smallest gap, least-squares refinement, values checked against 2 ulps + 4 ulps of u per multiple) finds the quantum in every tested counts / t case, refuses an incommensurate offset lattice, and accepts no candidate in any of the 230 files or 166 project spectra; it is not complete (round 3 found grids it misses) and its tolerance admits near-grids |
+| the same — raw counts divided by a per-point counting time t? | **not established either way** (round 4) | VERIFIED (the bound), HYPOTHESIS (whether the acquisition allows it) | were the values counts / t, all would be multiples of 1/t, so every gap would be at least 1/t: **t ≥ 1/(smallest gap)**, no search needed; for stored (rounded) values the gap is taken plus its endpoints' rounding (round 4). That gives t ≥ 2.3–60 000 s per point (median 99 s; smallest gaps 1.7e-5–0.44 CPS; `real_spectra.txt`). Whether such counting times are possible depends on the acquisition model, which is not established here: counted point by point, every whole spectrum would need at least 435 s, against about a minute (the files' start/end timestamps, in undocumented property ids); but the Nexsa G2's detector is multichannel (HYPOTHESIS: 128 channels collecting several energies at once, per Thermo's Nexsa G2 datasheet and application note 31009 as cited by the round-4 review; not checked here), and with full 128-fold parallelism 99 of the 230 files would need under 2 minutes — for them the bound excludes nothing. Supporting only: the heuristic search `noise_estimators.common_quantum` (divisors m ≤ 1000 of the smallest gap, least-squares refinement, values checked against 2 ulps + 4 ulps of u per multiple) finds the quantum in every tested counts / t case and refuses an incommensurate offset lattice, and accepts no candidate in any of the 230 files or 166 project spectra; it is not complete (round 3 found grids it misses) and its tolerance admits near-grids |
 | what Avantage did between counting and the stored CPS | unknown | HYPOTHESIS | a continuous correction (detector efficiency, dead time, transmission) would explain the absence of any grid; not established — the acquisition parameters (dwell, scans, corrections) sit in undocumented numeric property ids and are not decoded here |
 | the app's VGD reader | returns the stored values unchanged; a multi-scan ("overlay") file becomes the **per-point mean of its scans** | VERIFIED | `vgd_parser.py:95-98` (the mean at `:98`; round 2: the line was off by one); the page always parses VGDs on the server (`templates/index.html:4032`, `:5404` → `app.py:1022`); its heuristic `parseVGD` (`templates/index.html:5322`) has no caller. All 230 committed VGDs hold one series, so the mean never applies to them |
 | committed projects (`*.proj.zip`, 166 spectra) | 70 are, value for value, a committed VGD's intensities; all 166 are non-integer, and the search above accepts no grid in any | VERIFIED (the 70; non-integer; the search's outcome) / HYPOTHESIS (that the other 96 are the same Avantage CPS — their tab names are VGD scan names) | `real_spectra.json` → `projects` (round 1: "all 166 are the same CPS" was not established) |
@@ -84,7 +84,8 @@ normalisation and the outlier clipping), and the lag profile k(lag L)/k(lag 1) o
 independent noise until the signal's curvature lifts it). On the synthetic set (`synthetic.txt`): the 1st-difference
 reading is moved by the signal from −0.5 to −0.29…+0.51 even for independent noise; the 4th-difference reading stays
 at −0.76…−0.79 for every independent case, moves to −0.34…−0.69 for 5–7-point smoothing, the half-bin shift and
-upsampling, and does NOT move for a 3-point moving average (−0.82) — smoothing need not move it up (round 1). The
+upsampling, and does NOT move for a 3-point moving average (−0.82) — smoothing need not move it up (round 1; the lag
+profile does move for it, 3.20 at lag 2 — round 4). The
 lag profile at lag 2 is 1.09–1.51 for the independent cases and 2.87–4.20 for the smoothed and shifted ones (the
 upsampled case gives none: its second differences have a zero MAD). Evidence only, not a test with a threshold, and
 the synthetic correlation families are few.
@@ -154,7 +155,8 @@ What the measurement shows (per-level medians; individual spectra scatter around
   point (above) — a property of plug-in weighting, not of the estimators.
 - No estimator is right in every regime. Which one is right depends on the variance law (one scale, a per-point
   factor, a constant), the correlation, and the signal's structure at the ends and at high counts (round 3); the
-  diagnostics of §3 bear only on the correlation, and incompletely (they miss a 3-point moving average).
+  diagnostics of §3 bear only on the correlation, and incompletely (the 4th-difference correlation misses a 3-point
+  moving average; the lag profile does not, but no rule on either is validated).
 
 ## 5. The committed real data (part d) — report only
 
@@ -175,7 +177,8 @@ a / median(y) has median 0.000 in every region (90th percentile 0.04–0.40):
 Set beside §4 — comparisons, with interpretations labelled (round 1: the first version stated them as facts):
 - The core levels' 4th-difference correlation (−0.75…−0.78) equals the synthetic independent cases' (−0.76…−0.79);
   their lag profiles at lag 2 (1.38–1.55) are at or just above the top of the synthetic independent range
-  (1.09–1.51) and below the smoothed and shifted ones (2.87–4.20). Neither rules out a 3-point moving average (§3).
+  (1.09–1.51) and below the smoothed and shifted ones (2.87–4.20). The 4th-difference reading cannot rule out a 3-point moving average (§3); the lag profiles sit well below
+  the one it gives (3.20 at lag 2).
 - On B 1s, C 1s and N 1s (whose `flat_ends` medians are stable; their 90th percentiles reach 1.4–19) `flat_ends`
   reads 1.4–1.5× `scaled_d4`; on the synthetic set that ratio is ≈ 0.9–1.1 for independent noise, 3.8–7.4 for the
   smoothed and shifted cases and 14–21 upsampled.
@@ -184,7 +187,7 @@ Set beside §4 — comparisons, with interpretations labelled (round 1: the firs
   behave; a mild correlation or imperfectly flat ends would explain the gap between them, and these measurements do
   not separate the two.
 - HYPOTHESIS: an estimated k of order 1 in CPS units means today's weighting happens to be near this data's noise —
-  an accident of the acquisition (§2: none of it is counts), not a derivation.
+  an accident of the acquisition (§2: the stored values are CPS, not counts), not a derivation.
 - The earlier flat-end measurement on the C 1s scans (dispersion 0.4–1.2 × the mean;
   `docs/findings/find-peaks-scale/README.md` §2, on branch `fix-occupancy-f-test`) is of the same order.
 

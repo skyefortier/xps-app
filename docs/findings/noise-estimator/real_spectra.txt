@@ -1,7 +1,7 @@
 
 B1s: 50 files, 251 points, step 0.10 eV
   rho1 d1 +0.29 [-0.25, +0.61] (white -0.50); d4 -0.78 [-0.81, -0.74] (white -0.80); lag profile 1.00 1.38 1.71 2.22
-  non-integer values: at least 100.0% of every file's points; files on a common grid (u = smallest gap / j, j ≤ 1000): 0 (median smallest gap 0.0056 CPS)
+  non-integer values: at least 100.0% of every file's points; files where the heuristic grid search accepted a candidate: 0 (median smallest gap 0.0056 CPS)
   scaled_d1        k median    1.614   10-90 % [   0.904,    2.010]
   scaled_d2        k median    0.845   10-90 % [   0.690,    1.136]
   scaled_d4        k median    0.727   10-90 % [   0.547,    0.884]
@@ -14,7 +14,7 @@ B1s: 50 files, 251 points, step 0.10 eV
 
 C1s: 60 files, 191 points, step 0.10 eV
   rho1 d1 +0.35 [+0.05, +0.58] (white -0.50); d4 -0.75 [-0.81, -0.66] (white -0.80); lag profile 1.00 1.51 1.76 2.16
-  non-integer values: at least 100.0% of every file's points; files on a common grid (u = smallest gap / j, j ≤ 1000): 0 (median smallest gap 0.0305 CPS)
+  non-integer values: at least 100.0% of every file's points; files where the heuristic grid search accepted a candidate: 0 (median smallest gap 0.0305 CPS)
   scaled_d1        k median    1.720   10-90 % [   1.050,    2.426]
   scaled_d2        k median    0.890   10-90 % [   0.671,    1.223]
   scaled_d4        k median    0.709   10-90 % [   0.542,    0.964]
@@ -27,7 +27,7 @@ C1s: 60 files, 191 points, step 0.10 eV
 
 N1s: 40 files, 181 points, step 0.10 eV
   rho1 d1 +0.33 [-0.34, +0.56] (white -0.50); d4 -0.78 [-0.81, -0.75] (white -0.80); lag profile 1.00 1.46 1.72 2.30
-  non-integer values: at least 100.0% of every file's points; files on a common grid (u = smallest gap / j, j ≤ 1000): 0 (median smallest gap 0.0492 CPS)
+  non-integer values: at least 100.0% of every file's points; files where the heuristic grid search accepted a candidate: 0 (median smallest gap 0.0492 CPS)
   scaled_d1        k median    1.690   10-90 % [   0.715,    2.436]
   scaled_d2        k median    0.882   10-90 % [   0.691,    1.130]
   scaled_d4        k median    0.617   10-90 % [   0.479,    0.821]
@@ -40,7 +40,7 @@ N1s: 40 files, 181 points, step 0.10 eV
 
 Survey: 60 files, 1361 points, step 1.00 eV
   rho1 d1 -0.20 [-0.25, -0.13] (white -0.50); d4 -0.75 [-0.78, -0.72] (white -0.80); lag profile 1.00 1.19 1.32 1.50
-  non-integer values: at least 99.8% of every file's points; files on a common grid (u = smallest gap / j, j ≤ 1000): 0 (median smallest gap 0.00067 CPS)
+  non-integer values: at least 99.8% of every file's points; files where the heuristic grid search accepted a candidate: 0 (median smallest gap 0.00067 CPS)
   scaled_d1        k median    1.240   10-90 % [   1.134,    1.332]
   scaled_d2        k median    1.071   10-90 % [   0.956,    1.160]
   scaled_d4        k median    1.008   10-90 % [   0.906,    1.124]
@@ -53,7 +53,7 @@ Survey: 60 files, 1361 points, step 1.00 eV
 
 U4f: 20 files, 351 points, step 0.10 eV
   rho1 d1 +0.57 [+0.49, +0.64] (white -0.50); d4 -0.78 [-0.80, -0.76] (white -0.80); lag profile 1.00 1.55 2.21 2.97
-  non-integer values: at least 100.0% of every file's points; files on a common grid (u = smallest gap / j, j ≤ 1000): 0 (median smallest gap 0.034 CPS)
+  non-integer values: at least 100.0% of every file's points; files where the heuristic grid search accepted a candidate: 0 (median smallest gap 0.034 CPS)
   scaled_d1        k median    1.843   10-90 % [   1.461,    2.354]
   scaled_d2        k median    0.818   10-90 % [   0.626,    0.880]
   scaled_d4        k median    0.661   10-90 % [   0.537,    0.806]
@@ -64,6 +64,6 @@ U4f: 20 files, 351 points, step 0.10 eV
   constant_d4      a/median(y) median    0.640   10-90 % [   0.509,    0.749]
   varmean intercept a / median(y): median    0.000   10-90 % [   0.000,    0.293]
 
-smallest gap between a file's values: 1.66e-05 - 0.439 CPS; were the values counts / t with m = 1, t = 1/gap: 2.28 - 6.03e+04 s per point; points x that t, the least: 435 s
+smallest gap between a file's values: 1.66e-05 - 0.439 CPS. Were the values counts / t, t >= 1/(gap + rounding): 2.28 - 6.03e+04 s per point (median 99 s). Counted point by point, points x t >= 435 s for every file; with 128 channels counting in parallel (an assumed acquisition model), points x t / 128 < 120 s for 99 of 230 files
 
-committed project spectra: 166; identical to a committed VGD's values: 70; non-integer in every spectrum: True; on a common grid: 0
+committed project spectra: 166; identical to a committed VGD's values: 70; non-integer in every spectrum: True; heuristic grid search accepted a candidate in: 0
