@@ -1,0 +1,19 @@
+**No BLOCKER or MAJOR findings. Two MINOR wording issues remain.**
+
+Read-only verification: **27 tests passed**. The full 14,040-spectrum benchmark and both real-data analyses reproduced all seven committed outputs exactly using in-memory capture. No files changed; no fresh refits were collected.
+
+1. **Is every round-4 finding resolved? Substantively, yes.** Sequential acquisition is now conditional, the bound includes rounding, grid-search wording describes accepted candidates, and the MA3 statement identifies the fourth-difference correlation specifically. See [README:46](/Users/skyefortier/xps-app/.claude/worktrees/noise/docs/findings/noise-estimator/README.md:46), [generator:87](/Users/skyefortier/xps-app/.claude/worktrees/noise/scripts/noise_real_spectra.py:87), [tests:74](/Users/skyefortier/xps-app/.claude/worktrees/noise/tests/test_noise_estimators.py:74), and [README:158](/Users/skyefortier/xps-app/.claude/worktrees/noise/docs/findings/noise-estimator/README.md:158). The revised acquisition sentence still needs the precision correction below.
+
+2. **Are VERIFIED claims true and unestablished claims labelled HYPOTHESIS? The explicit code/data claims checked hold; two surrounding assertions need narrowing.** The corrected bound reproduces **2.2777–60,272.7 seconds per point**, median **98.9771 seconds**, and a sequential minimum of **435.0385 seconds**. Acquisition applicability is labelled HYPOTHESIS, as are the interpretations of real-data noise. [Generator:95](/Users/skyefortier/xps-app/.claude/worktrees/noise/scripts/noise_real_spectra.py:95), [README:185](/Users/skyefortier/xps-app/.claude/worktrees/noise/docs/findings/noise-estimator/README.md:185).
+
+3. **Do tables and sentences match generated outputs? The numerical tables do, within displayed rounding.** The **99/230** count and MA3 lag-2 profile **3.19696 → 3.20** reproduce. The sentence-level exceptions are below. [real_spectra.txt:67](/Users/skyefortier/xps-app/.claude/worktrees/noise/docs/findings/noise-estimator/real_spectra.txt:67), [synthetic.txt:98](/Users/skyefortier/xps-app/.claude/worktrees/noise/docs/findings/noise-estimator/synthetic.txt:98).
+
+4. **Does any sentence conclude more than supported? Yes, in two limited places.**
+
+   **MINOR — a lower bound is described as a required duration.** “99 … would need under 2 minutes” overstates the calculation: **99 optimistic lower bounds** fall below 120 seconds. This establishes neither actual durations nor compatibility with the quoted “about a minute”; only **68** bounds fall below 60 seconds. Say: “Under assumed full 128-fold parallelism, 99 files have lower bounds below 120 seconds; compatibility with their actual acquisitions remains unestablished.” The overall “not established either way” conclusion remains appropriate. [README:46](/Users/skyefortier/xps-app/.claude/worktrees/noise/docs/findings/noise-estimator/README.md:46), [generator:98](/Users/skyefortier/xps-app/.claude/worktrees/noise/scripts/noise_real_spectra.py:98).
+
+   **MINOR — “independent noise” is too broad in the estimator-ratio comparison.** The stated `flat_ends`/`scaled_d4` range of approximately **0.9–1.1** excludes independent constant noise: its per-level ratios are **1.44–1.49**. Restrict that comparison to the relevant scaled-Poisson cases. The design section already distinguishes variance families correctly. [README:182](/Users/skyefortier/xps-app/.claude/worktrees/noise/docs/findings/noise-estimator/README.md:182), [synthetic_tables.md:8](/Users/skyefortier/xps-app/.claude/worktrees/noise/docs/findings/noise-estimator/synthetic_tables.md:8), [README:227](/Users/skyefortier/xps-app/.claude/worktrees/noise/docs/findings/noise-estimator/README.md:227).
+
+These wording issues do not invalidate the reproduced measurements or the explicitly undecided design.
+
+VERDICT: GO

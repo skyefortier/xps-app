@@ -99,7 +99,8 @@ def main():
     print(f"\nsmallest gap between a file's values: {g.min():.3g} - {g.max():.3g} CPS. Were the values counts / t,"
           f" t >= 1/(gap + rounding): {t.min():.3g} - {t.max():.3g} s per point (median {np.median(t):.3g} s)."
           f" Counted point by point, points x t >= {(npts * t).min():.0f} s for every file; with 128 channels counting"
-          f" in parallel (an assumed acquisition model), points x t / 128 < 120 s for {(npts * t / 128 < 120).sum()} of {len(t)} files")
+          f" in parallel (an assumed acquisition model) the lower bound points x t / 128 is < 120 s for {(npts * t / 128 < 120).sum()}"
+          f" of {len(t)} files (< 60 s for {(npts * t / 128 < 60).sum()})")
     proj = _projects_vs_vgds(values)
     matched = sum(1 for r in proj if r["matches_vgd"])
     print(f"\ncommitted project spectra: {len(proj)}; identical to a committed VGD's values: {matched};"
