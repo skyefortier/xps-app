@@ -34,7 +34,7 @@ Two uses of a noise estimate must be kept apart (round 1):
 2. **New fitting weights.** If the new variance is the current one times ONE positive constant k, the objective is
    divided by k: its minimiser is mathematically unchanged, lmfit's covariance scaling cancels k (so the σ are
    unchanged at that solution), the support F is unchanged; the raw χ² and Δχ² scale by 1/k and the current AIC /
-   BIC shift by −n·log k; a numerical optimiser's path is not guaranteed bit-identical. A variance of any other
+   BIC shift by −n·log k (while χ² stays above its numerical floor, `fitting.py:3388`); a numerical optimiser's path is not guaranteed bit-identical. A variance of any other
    relative shape (a constant term, per-point factors) changes the objective and can change fitted parameters;
    correlated noise needs a covariance matrix, not different diagonal weights.
 
@@ -43,9 +43,9 @@ Two uses of a noise estimate must be kept apart (round 1):
 | source | what the intensities are | label | evidence |
 |---|---|---|---|
 | Thermo Avantage `.vgd` (all 230 committed raw files) | **counts per second** | VERIFIED | each file's chart sidecar `.xml` titles the intensity axis `Counts / s` (e.g. `docs/autofit/test_data/1 UCl4-graphite …DATA/C1s Scan.xml`); at least 99.8 % of every file's stored values are non-integer (`real_spectra.txt`). The instrument is a Nexsa G2, Avantage v6.7.0 (strings in the files' main property stream) |
-| the same — raw counts divided by a per-point counting time t? | **not for any t the acquisition allows** | VERIFIED (the arithmetic), HYPOTHESIS (the bound on t) | raw counts / t lie on the grid 1/t, so every gap between sorted values is an integer multiple of (smallest gap)/m for some integer m. Tested for every m ≤ 1000 (`noise_estimators.common_quantum`, which finds the quantum for counting times 0.005–50 s incl. 0.137 and 0.12345 s and none in continuous data — `tests/test_noise_estimators.py`): **0 of 230 files** and **0 of 166 project spectra** lie on such a grid (`real_spectra.txt`). A grid finer than that would mean a quantum below (smallest gap)/1000 — counting times of thousands of seconds per point; even m = 1 already requires t ≥ 20–1 700 s for these files (smallest gaps 0.0006–0.05 CPS). HYPOTHESIS: impossible, each whole spectrum taking about a minute (the files' start/end timestamps, in undocumented property ids). Round 1: the first version searched 4 000 chosen spacings and could miss counting times between them |
+| the same — raw counts divided by a per-point counting time t? | **not for any t the acquisition allows** | VERIFIED (the arithmetic and its outcome), HYPOTHESIS (the bound on t) | raw counts / t lie on the grid u·ℤ, u = 1/t, so the smallest gap between sorted values is m·u for an integer m. `noise_estimators.common_quantum` tries every m ≤ 1000: it assigns every value its nearest multiple, refines u by least squares from those assignments, and accepts u only if every VALUE (not only every gap — that would accept an offset lattice) lies within the arithmetic's own error of a multiple (round 2: the first version trusted the rounded smallest gap, whose error a large gap's quotient amplifies). It finds the quantum for counting times 0.005–50 s incl. 0.137 and 0.12345 s and both round-2 counterexamples, refuses an incommensurate offset lattice, and finds none in continuous data (`tests/test_noise_estimators.py`). **0 of 230 files and 0 of 166 project spectra** lie on such a grid (`real_spectra.txt`). A finer grid (m > 1000) cannot be told from none; even m = 1 already needs t = 1/(smallest gap) = 2.3–60 000 s per point (smallest gaps 1.7e-5–0.44 CPS per file), i.e. at least 435 s of counting for the whole spectrum in every file (points × t; `real_spectra.txt`). HYPOTHESIS: impossible, each whole spectrum having taken about a minute (the files' start/end timestamps, in undocumented property ids) |
 | what Avantage did between counting and the stored CPS | unknown | HYPOTHESIS | a continuous correction (detector efficiency, dead time, transmission) would explain the absence of any grid; not established — the acquisition parameters (dwell, scans, corrections) sit in undocumented numeric property ids and are not decoded here |
-| the app's VGD reader | returns the stored values unchanged; a multi-scan ("overlay") file becomes the **per-point mean of its scans** | VERIFIED | `vgd_parser.py:94-97` (the mean at `:97`); the page always parses VGDs on the server (`templates/index.html:4032`, `:5404` → `app.py:1022`); its heuristic `parseVGD` (`templates/index.html:5322`) has no caller. All 230 committed VGDs hold one series, so the mean never applies to them |
+| the app's VGD reader | returns the stored values unchanged; a multi-scan ("overlay") file becomes the **per-point mean of its scans** | VERIFIED | `vgd_parser.py:95-98` (the mean at `:98`; round 2: the line was off by one); the page always parses VGDs on the server (`templates/index.html:4032`, `:5404` → `app.py:1022`); its heuristic `parseVGD` (`templates/index.html:5322`) has no caller. All 230 committed VGDs hold one series, so the mean never applies to them |
 | committed projects (`*.proj.zip`, 166 spectra) | 70 are, value for value, a committed VGD's intensities; all 166 are non-integer and on no common grid | VERIFIED (the 70; non-integer; no grid) / HYPOTHESIS (that the other 96 are the same Avantage CPS — their tab names are VGD scan names) | `real_spectra.json` → `projects` (round 1: "all 166 are the same CPS" was not established) |
 | `.csv` / `.tsv` / `.txt` / `.xy` / `.xlsx` | **unknown to the app**: whatever the exporting program wrote (counts, CPS, normalised, smoothed) | VERIFIED (that it is not known) | `parser.py:47` ("intensity (counts or CPS)"); no unit is read or stored |
 | the page's smoothing | display only — it never reaches a fit | VERIFIED | `savitzkyGolay` has one caller, the "Smoothed" chart overlay (`templates/index.html:12958-12969`) |
@@ -109,12 +109,13 @@ conflated the estimation error with the plug-in: at the lowest CPS level (15 cou
 the scaled estimators, where their level error is 0.97–1.11 and their χ²ᵣ with v̂(s) 0.87–1.01 (`synthetic.json`).
 
 The level error by peak level (300 / 3·10³ / 3·10⁴ / 3·10⁵ counts), medians over 9 shapes × 30 seeds, from
-`synthetic_tables.md` (all 8 estimators, and the shape spreads and plug-in χ²ᵣ, are there; 5–95 % ranges per
+`synthetic_tables.md` (all 10 estimators, with the shape spreads and plug-in χ²ᵣ, are there; 5–95 % ranges per
 spectrum in `synthetic.json`):
 
 | noise (truth) | today, v = y | `scaled_d4` | `scaled_d2` | `flat_ends` | `scaled_d2_lag3` | `der_snr` |
 |---|---|---|---|---|---|---|
 | Poisson counts | 1 / 1 / 1 / 1 | 1 / 1 / 1.1 / 1.1 | 1 / 1.1 / 1.3 / 1.5 | 0.97 / 1 / 1 / 1.1 | 1.2 / 1.5 / 1.9 / 3.1 | 1.2 / 1.3 / 1.5 / 2 |
+| CPS, t = 1 s | 1 (all) | 1 / 1 / 1.1 / 1.1 | 1 / 1.1 / 1.2 / 1.5 | 0.99 / 0.99 / 0.98 / 1.1 | 1.2 / 1.5 / 2 / 3.1 | 1.2 / 1.2 / 1.5 / 2 |
 | CPS, t = 0.05 s | 0.05 (all) | 1.1 / 1 / 1 / 1.1 | 1.1 / 1 / 1.1 / 1.2 | 0.97 / 1 / 0.98 / 1 | 1.1 / 1.1 / 1.4 / 1.7 | 1.1 / 1.1 / 1.2 / 1.5 |
 | CPS, t = 20 s | 20 (all) | 1.1 / 1 / 1.1 / 1.2 | 1.1 / 1.3 / 1.6 / 2.1 | 0.98 / 1 / 1.1 / 1.2 | 1.6 / 2.1 / 4.2 / 17 | 1.4 / 1.7 / 2.3 / 5.6 |
 | mean of 10 sweeps | 10 (all) | 1 / 1.1 / 1.1 / 1.1 | 1.1 / 1.2 / 1.5 / 1.9 | 0.99 / 0.99 / 1.1 / 1.1 | 1.5 / 1.9 / 3.1 / 11 | 1.3 / 1.5 / 2 / 4 |
@@ -133,13 +134,17 @@ with the level.)
 What the measurement shows (per-level medians; individual spectra scatter around them):
 - **Today's v = y** has a level error of exactly the unit's factor whenever the noise is scaled Poisson (×0.05 for
   CPS at 50 ms, ×20 at 20 s, ×10 for 10 averaged sweeps), and the wrong shape for constant noise.
-- **Independent noise of any scale** (counts, CPS, sweeps, transmission): `scaled_d4` 1.0–1.2 and `flat_ends`
-  0.97–1.2 at every level. `scaled_d2`, `scaled_d2_lag3`, `der_snr` and `varmean` overestimate as the counts rise
+- **Independent noise whose variance follows the intensity** (scaled Poisson: counts, CPS, sweeps, transmission):
+  `scaled_d4` 1.0–1.2 and `flat_ends` 0.97–1.2 at every level, both with the right shape. `scaled_d2`, `scaled_d2_lag3`, `der_snr` and `varmean` overestimate as the counts rise
   (the signal's differences; at the highest level 1.2–2.1, 1.7–17, 1.5–5.6 and 1.3–130).
-- **Constant noise:** the constant estimators get its level (`constant_d4` 1.1) and shape (spread 1); every scaled
-  estimator gets the wrong shape (spread 3.9). Under shot noise the reverse (the constant estimators' spread 3.5–3.9).
-- **Correlated noise** (smoothing, the half-bin shift, upsampling): every lag-1 difference estimator underestimates
-  the variance — `scaled_d4` by 4–30×, `scaled_d2` by 1.7× to failure (zero MAD on the upsampled grid); `flat_ends`
+- **Independent constant noise:** `constant_d4` gets its level (1.05–1.07) and shape (spread 1); `constant_d2`
+  (1.25–1.28) and `der_snr` (1.60–1.63) get its shape but overestimate its level; every scaled estimator gets the
+  wrong shape (spread 3.9), `scaled_d4` at a level of 0.88–0.91 (round 2: independence alone does not select the
+  variance model). Under shot noise the reverse (the constant estimators' spread 3.5–3.9).
+- **Correlated noise** (smoothing, the half-bin shift, upsampling): the 2nd- and 4th-difference estimators at lag 1,
+  scaled and constant, underestimate the variance — `scaled_d4` by 4–30×, `scaled_d2` by 1.7× to failure (zero MAD on
+  the upsampled grid), `constant_d4` by 4–20×; `scaled_d1` runs from below 1 at low counts to above 1 at high counts
+  (0.29–6.6: the signal's first differences outgrow the noise's cancellation — round 2); `flat_ends`
   is biased low too (0.61–1.1, MA5 the worst) — less affected, not immune (round 1); `scaled_d2_lag3` and `der_snr`
   (lag > 1) range over 0.36–5.5, rising with the counts — near 1 only at some levels of some cases.
 - **Low counts:** the plug-in χ²ᵣ (weights from the observed y) departs from the estimation error at 15 counts per
@@ -172,7 +177,7 @@ Set beside §4 — comparisons, with interpretations labelled (round 1: the firs
   reads 1.4–1.5× `scaled_d4`; on the synthetic set that ratio is ≈ 0.9–1.1 for independent noise, 3.8–7.4 for the
   smoothed and shifted cases and 14–21 upsampled.
 - HYPOTHESIS: the noise of these files is nearly independent between neighbouring points, with an estimated k of
-  0.6–1.0 by `scaled_d4` (the estimator §4 found best for independent noise) and 0.9–1.1 by `flat_ends` where its ends
+  0.6–1.0 by `scaled_d4` (the closest estimator in §4 for independent scaled-Poisson noise) and 0.9–1.1 by `flat_ends` where its ends
   behave; a mild correlation or imperfectly flat ends would explain the gap between them, and these measurements do
   not separate the two.
 - HYPOTHESIS: an estimated k of order 1 in CPS units means today's weighting happens to be near this data's noise —
@@ -213,8 +218,9 @@ low; this measurement does not separate the two, and the expert fits are a refer
 1. **The diagnostic needs no fit change.** χ²ᵣ under any variance model can be computed on the fit's own residuals
    (§1, use 1); showing a "noise-calibrated χ²ᵣ" this way changes no fitted number. Adopting new weights is a fitting
    change (§1, use 2) and its own unit.
-2. **Which estimate.** On the synthetic set `scaled_d4` is the best for independent noise and badly wrong for
-   correlated noise; `flat_ends` is less affected by correlation but needs flat ends and is itself biased by
+2. **Which estimate.** On the synthetic set, by the level error and shape spread of §4: `scaled_d4` is the closest
+   for independent scaled-Poisson noise and `constant_d4` for independent constant noise (independence alone does
+   not select the variance model), and both are badly wrong for correlated noise; `flat_ends` is less affected by correlation but needs flat ends and is itself biased by
    correlation; the lag > 1 estimators trade one bias for another. A design needs a rule for the regime, and the only
    model-free evidence of the regime (the diagnostics) is incomplete. Any rule on them is a threshold on a scale-free
    quantity (CLAUDE.md, "Thresholds on data-scaled quantities fail": scale-free, but still a choice that needs its

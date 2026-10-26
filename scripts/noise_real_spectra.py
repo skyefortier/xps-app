@@ -92,6 +92,9 @@ def main():
             print(f"  {est:16s} {unit} median {md:8.3f}   10-90 % [{lo:8.3f}, {hi:8.3f}]")
         lo, md, hi = s["varmean_a_over_median_y"]
         print(f"  varmean intercept a / median(y): median {md:8.3f}   10-90 % [{lo:8.3f}, {hi:8.3f}]")
+    g = np.array([r["smallest_gap"] for r in rows]); npts = np.array([r["n"] for r in rows])
+    print(f"\nsmallest gap between a file's values: {g.min():.3g} - {g.max():.3g} CPS; were the values counts / t with m = 1,"
+          f" t = 1/gap: {1 / g.max():.3g} - {1 / g.min():.3g} s per point; points x that t, the least: {(npts / g).min():.0f} s")
     proj = _projects_vs_vgds(values)
     matched = sum(1 for r in proj if r["matches_vgd"])
     print(f"\ncommitted project spectra: {len(proj)}; identical to a committed VGD's values: {matched};"

@@ -189,23 +189,38 @@ def correlation_diagnostics(y):
     return out
 
 
-def common_quantum(y, max_divisor=1000, tol=1e-3):
-    """Is y on a grid u·ℤ for some u? Raw counts divided by a counting time t lie on the grid u = 1/t, and then the
-    smallest gap g between sorted distinct values is m·u for the smallest count difference m among them; so every
-    gap is an integer multiple of g / m. Tests u = g / j for j = 1 … max_divisor: the first u for which every gap
-    is within `tol` (absolute, in units of u) of an integer multiple — 50× above the worst rounding of these
-    intensities at the finest u tested, while a continuous gap lands that close by chance with probability 2·tol. Returns u, or None — "no quantum u ≥ g / max_divisor"; a quantum finer
-    than that (a smallest count difference above max_divisor counts) cannot be told from none. (A running gcd by
-    Euclid's algorithm was tried first: its float remainders amplify an ulp-level error by each quotient.)"""
+def common_quantum(y, max_divisor=1000):
+    """Is y on a grid u·ℤ for some u? Raw counts divided by a counting time t lie on u = 1/t (origin 0), and then the
+    smallest gap g between sorted distinct values is m·u for the smallest count difference m among them, so every
+    gap is an integer multiple of g / m. For each m = 1 … max_divisor: assign every gap and every value its nearest
+    integer multiple of g / m, REFINE u by least squares from those assignments (the rounded g itself is not exact:
+    its error, amplified by a gap's quotient, defeated a fixed candidate — Codex Unit B round 2), reassign, and accept
+    u when every value lies within the arithmetic's own error of an integer multiple of it: the values' rounding
+    (each within half an ulp of its largest magnitude) plus u's own uncertainty times the multiple. Checking the
+    VALUES, not only the gaps, also refuses an offset lattice (0.2, 1.2, 2.2 has gaps of 1 but is not on 1·ℤ).
+    Returns u, or None — "no quantum u ≥ g / max_divisor"; a finer quantum (a smallest count difference above
+    max_divisor) cannot be told from none."""
     v = np.unique(np.asarray(y, float))
-    gaps = np.diff(v)
-    if gaps.size < 2:
+    if v.size < 3:
         return None
+    gaps = np.diff(v)
     g = float(gaps.min())
-    for j in range(1, max_divisor + 1):
-        q = gaps / (g / j)
-        if np.all(np.abs(q - np.round(q)) <= tol):
-            return g / j
+    ulp = np.spacing(float(np.max(np.abs(v))))
+    for m in range(1, max_divisor + 1):
+        u = g / m
+        for _ in range(4):                                      # assign, refine, reassign
+            n = np.round(v / u)
+            if not np.any(n):
+                break
+            u_new = float(np.dot(n, v) / np.dot(n, n))
+            if u_new == u:
+                break
+            u = u_new
+        n = np.round(v / u)
+        resid = np.abs(v - n * u)
+        allowed = 2 * ulp + np.abs(n) * 4 * np.spacing(u)       # value rounding + u's own rounding × the multiple
+        if np.all(resid <= allowed) and np.all(n[1:] > n[:-1]):
+            return u
     return None
 
 

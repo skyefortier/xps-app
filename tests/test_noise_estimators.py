@@ -80,6 +80,21 @@ def test_counts_divided_by_any_counting_time_have_a_common_quantum(t):
     assert ne.common_quantum(s + rng.normal(0, 50, s.size)) is None
 
 
+@pytest.mark.parametrize("counts", [[1000, 203000, 345000, 5500000, 5500001],          # Codex Unit B round 2, run A
+                                    [1000, 123456, 200000, 500000, 5800000, 5800001]])  # run B
+def test_a_quantum_is_found_whatever_the_quotient_of_the_largest_gap(counts):
+    """The rounded smallest gap's error, multiplied by a large gap's quotient, defeated a fixed candidate."""
+    u = ne.common_quantum(np.array(counts, float) / 50.0)
+    assert u is not None and abs(u * 50.0 - 1.0) < 1e-9
+
+
+def test_an_offset_lattice_is_not_a_quantum():
+    """Codex Unit B round 2: equal gaps do not put the values on a grid u·ℤ (origin 0) as counts / t are — an
+    offset incommensurate with the spacing (π/10; 0.2 + k would be on 0.2·ℤ) is on no such grid."""
+    assert ne.common_quantum(np.pi / 10 + np.array([0.0, 1.0, 2.0, 3.0, 5.0, 8.0])) is None
+    assert ne.common_quantum(0.2 + np.array([0.0, 1.0, 2.0, 3.0, 5.0])) == pytest.approx(0.2)
+
+
 def test_der_snr_and_constant_fourth_differences_recover_gaussian_noise():
     rng = np.random.default_rng(8)
     y = 1000.0 + rng.normal(0, 7.0, 40000)

@@ -64,4 +64,6 @@ U4f: 20 files, 351 points, step 0.10 eV
   constant_d4      a/median(y) median    0.640   10-90 % [   0.509,    0.749]
   varmean intercept a / median(y): median    0.000   10-90 % [   0.000,    0.293]
 
+smallest gap between a file's values: 1.66e-05 - 0.439 CPS; were the values counts / t with m = 1, t = 1/gap: 2.28 - 6.03e+04 s per point; points x that t, the least: 435 s
+
 committed project spectra: 166; identical to a committed VGD's values: 70; non-integer in every spectrum: True; on a common grid: 0

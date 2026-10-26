@@ -187,7 +187,8 @@ def main():
             print(f"  {est:20s} scale {sc['median']:6.2f} [{sc['p05']:5.2f}, {sc['p95']:6.2f}] by level {pl} | spread {m['spread']['median']:5.2f}"
                   f" | chi2r est {m['chi2r_est']['median']:5.2f} plug-in {m['chi2r_plugin']['median']:6.2f}")
     if a.markdown:
-        cols = ["poisson_file_units", "scaled_d4", "scaled_d2", "scaled_d2_lag3", "flat_ends", "varmean", "der_snr", "constant_d4"]
+        cols = ["poisson_file_units", "scaled_d1", "scaled_d2", "scaled_d4", "scaled_d2_lag3", "flat_ends", "varmean",
+                "der_snr", "constant_d2", "constant_d4"]
         with open(a.markdown, "w") as fh:
             fh.write("Direct error in the variance's LEVEL, median v̂(s)/σ² by peak level (300 / 3e3 / 3e4 / 3e5 counts), over "
                      "the 9 shapes and all seeds; 1 is right, below 1 the variance is underestimated:\n\n")
