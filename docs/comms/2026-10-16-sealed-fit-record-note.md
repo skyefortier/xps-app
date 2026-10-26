@@ -40,9 +40,8 @@ What the labels mean
   numbers belonged to the previous model. Press Run Fit.
 - **"saved before sealed records"** — a fit from a project saved before this update. Its peaks and
   numbers are shown as they were saved, but the app cannot check them (those saves do not hold
-  the record). **Press Run Fit** to fit it again in this version. (The label says "re-run this fit";
-  for these older fits that means pressing Run Fit — the "Re-run this fit" button below is only
-  for fits made in this version.)
+  the record). **Press Run Fit** to fit it again in this version, as the label says. (The
+  "Re-run this fit" button below is only for fits made in this version.)
 - **Peaks only** — an older fit that could not be reconstructed at all opens with its peaks and no
   fit. Press Run Fit.
 

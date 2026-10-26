@@ -9588,7 +9588,7 @@ function _repaintForSeal(owner) {
 function sealedState(fr, owner, opts) {
   if (!fr) return { state: 'none', check: null, reason: '', view: null };
   const seal = fr.seal;
-  if (!seal) return { state: 'legacy', check: null, reason: 'saved before sealed records — re-run this fit to confirm', view: null };
+  if (!seal) return { state: 'legacy', check: null, reason: 'saved before sealed records — press Run Fit to confirm', view: null };
   let view;
   try {
     const schema = _sealSchemaFailure(seal);
@@ -9773,7 +9773,8 @@ function _rerunHtml(fr) {
 // statistics and curves, not these claims. And what an UNSEALED fit is: saved before this release (Q1) — shown as
 // today, never confirmed current.
 const _SEAL_NOT_PROVEN = 'as recorded \u2014 not proven';
-const _LEGACY_FIT_NOTE = 'saved before sealed records \u2014 re-run this fit to confirm';
+// the action is Run Fit: "Re-run this fit" exists only for sealed fits (owner 2026-10-26)
+const _LEGACY_FIT_NOTE = 'saved before sealed records \u2014 press Run Fit to confirm';
 function _isLegacyFit(fr) { return !!fr && !fr.seal; }
 // The state line an EXPORT carries: a sealed fit's state, or LEGACY for an unsealed one (saves are untouched:
 // a legacy fit re-saves its fields as main writes them)

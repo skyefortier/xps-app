@@ -18,7 +18,7 @@ from test_browser_bg_window_request import browser, server  # noqa: F401,E402
 from test_browser_seal_requests import SCENARIOS, _setup  # noqa: E402
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
-NOTE = "saved before sealed records — re-run this fit to confirm"
+NOTE = "saved before sealed records — press Run Fit to confirm"
 SETTLE = """async () => { for (let k = 0; k < 600 && tabManager.tabs.some(t => _sealAttempts.has(t)); k++)
   await new Promise(r => setTimeout(r, 50)); }"""
 CAPTURE = """() => { window.__files = {}; window._downloadBlob = async (blob, name) => { window.__files[name] = await blob.text(); };
