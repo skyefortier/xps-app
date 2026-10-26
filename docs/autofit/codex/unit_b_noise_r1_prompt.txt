@@ -1,0 +1,16 @@
+DESIGN REVIEW, ROUND 1, of Unit B (estimating each spectrum's noise from the data) in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software. DESIGN + MEASUREMENT ONLY: nothing a user sees and no fitted number changes; nothing is deployed.
+
+REPO: this checkout, branch unit-b-noise-estimator, on main. The unit is `git diff main..HEAD`: docs/findings/noise-estimator/README.md (read it first), scripts/noise_estimators.py (the candidate estimators), scripts/noise_synthetic_benchmark.py (ground truth: synthetic spectra with KNOWN noise), scripts/noise_real_spectra.py (the 230 committed VGD spectra), scripts/noise_real_fits.py (the committed fits refitted, χ²ᵣ under each estimate), their outputs in the findings folder, and tests/test_noise_estimators.py.
+
+THE OWNER'S BRIEF (2026-10-26): estimate each spectrum's noise from the data itself, independent of any fit model, so χ²ᵣ can mean something (about 1 for a fit that explains the data down to the noise). (a) What the data are, per file type (raw counts, CPS, averaged sweeps, smoothed, normalised) and where Poisson σ = √N holds. (b) Candidate estimators with their assumptions and failure modes, especially for smoothed or interpolated data. (c) Ground truth only: synthetic spectra with known noise; measure each estimator's error; never use expert fits as the reference. (d) On the committed real spectra: what each estimator gives and the resulting χ²ᵣ of existing fits — report, don't conclude. (e) Every claim about current code labelled VERIFIED (file:line) or HYPOTHESIS. Whether and how the displayed χ²ᵣ changes is a separate decision after this review.
+
+ANSWER EACH (cite file:line):
+1. Is every VERIFIED claim true at the cited lines, and is every claim that is not established labelled HYPOTHESIS? Name any mislabelled claim.
+2. Are the estimators' mathematics right (the normalisation of each difference filter, the variance-mean regression, the white-noise correlation values, MAD consistency), and are their stated assumptions and failure modes complete and correct? Is any obviously better model-free estimator missing?
+3. Is the synthetic benchmark a sound ground truth: is each noise model's TRUE variance computed correctly (including the smoothed / interpolated cases and their edges), is the figure of merit meaningful, and do the tables in the README match the generated outputs?
+4. Is part (d) a report and not a conclusion, and are its numbers reproduced by the committed generators? Does any sentence conclude more than the measurement supports?
+5. Is the design section's statement of consequences right (in particular: a single constant scale k changes only the displayed χ²ᵣ; any other variance shape changes the weights and so the fits)?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

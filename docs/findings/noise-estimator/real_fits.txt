@@ -1,0 +1,21 @@
+121 converged server fits (of 121 tabs with a model)
+displayed χ²ᵣ recomputed from the residuals: max relative difference 1.8e-15
+displayed (var = max(y,1))         median    2.44  10-90 % [   1.74,   17.48]
+scaled_d2 @ window                 median    3.18  10-90 % [   1.71,   15.88]
+scaled_d2 @ spectrum               median    3.19  10-90 % [   1.74,   18.76]
+scaled_d4 @ window                 median    3.75  10-90 % [   2.40,   22.08]
+scaled_d4 @ spectrum               median    3.75  10-90 % [   2.41,   23.91]
+scaled_d2_lag3 @ window            median    1.65  10-90 % [   0.84,    7.36]
+scaled_d2_lag3 @ spectrum          median    1.64  10-90 % [   0.95,    8.60]
+flat_ends @ window                 median    2.81  10-90 % [   1.58,    8.43]
+flat_ends @ spectrum               median    2.74  10-90 % [   1.56,    6.20]
+varmean @ window                   median    2.58  10-90 % [   0.74,   12.36]
+varmean @ spectrum                 median    2.58  10-90 % [   0.79,   12.35]
+constant_d2 @ window               median    4.26  10-90 % [   2.54,   33.14]
+constant_d2 @ spectrum             median    4.25  10-90 % [   2.59,   37.74]
+
+by region (median): displayed | scaled_d4@window | scaled_d2@window | varmean@window | flat_ends@window
+  B1s       20 fits     9.95 |    9.83 |    8.12 |    7.64 |    9.61
+  C1s       44 fits     2.34 |    3.88 |    2.74 |    0.95 |    3.16
+  Cl2p       3 fits     3.28 |    5.25 |    4.20 |    5.09 |    2.93
+  U4f       54 fits     2.38 |    3.64 |    3.23 |    3.28 |    2.43
