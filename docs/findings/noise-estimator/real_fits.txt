@@ -9,13 +9,27 @@ scaled_d2_lag3 @ window            median    1.65  10-90 % [   0.84,    7.36]
 scaled_d2_lag3 @ spectrum          median    1.64  10-90 % [   0.95,    8.60]
 flat_ends @ window                 median    2.81  10-90 % [   1.58,    8.43]
 flat_ends @ spectrum               median    2.74  10-90 % [   1.56,    6.20]
-varmean @ window                   median    2.58  10-90 % [   0.74,   12.36]
-varmean @ spectrum                 median    2.58  10-90 % [   0.79,   12.35]
+varmean @ window                   median    2.60  10-90 % [   0.76,   11.30]
+varmean @ spectrum                 median    2.60  10-90 % [   0.81,   13.44]
 constant_d2 @ window               median    4.26  10-90 % [   2.54,   33.14]
 constant_d2 @ spectrum             median    4.25  10-90 % [   2.59,   37.74]
+constant_d4 @ window               median    4.56  10-90 % [   2.88,   43.25]
+constant_d4 @ spectrum             median    4.55  10-90 % [   2.92,   46.03]
+der_snr @ window                   median    2.79  10-90 % [   1.70,   23.58]
+der_snr @ spectrum                 median    2.72  10-90 % [   1.80,   25.02]
+
+the same estimator from the fit window and from the whole spectrum, PER FIT (ratio of the two χ²ᵣ):
+  scaled_d2        window/spectrum median  1.00  10-90 % [ 0.89,  1.03]  extreme 13.22 vs 21.21 (4-GTA UCl4-BN.proj.z / B1s Scan_6)
+  scaled_d4        window/spectrum median  1.00  10-90 % [ 0.94,  1.04]  extreme 15.50 vs 25.65 (4-GTA UCl4-BN.proj.z / B1s Scan_6)
+  scaled_d2_lag3   window/spectrum median  0.99  10-90 % [ 0.74,  1.01]  extreme 9.07 vs 22.03 (4-GTA UCl4-BN.proj.z / B1s Scan_8)
+  flat_ends        window/spectrum median  1.00  10-90 % [ 0.90,  1.63]  extreme 46.46 vs 4.41 (4-GTA UCl4-BN.proj.z / B1s Scan_6)
+  varmean          window/spectrum median  0.99  10-90 % [ 0.72,  1.06]  extreme 0.21 vs 1.09 (UCl4_on_graphite.pro / C1s Scan_8)
+  constant_d2      window/spectrum median  0.99  10-90 % [ 0.82,  1.02]  extreme 27.81 vs 50.50 (4-GTA UCl4-BN.proj.z / B1s Scan_1)
+  constant_d4      window/spectrum median  1.00  10-90 % [ 0.87,  1.03]  extreme 24.89 vs 49.67 (4-GTA UCl4-BN.proj.z / B1s Scan_6)
+  der_snr          window/spectrum median  1.00  10-90 % [ 0.76,  1.01]  extreme 22.98 vs 45.22 (4-GTA UCl4-BN.proj.z / B1s Scan_1)
 
 by region (median): displayed | scaled_d4@window | scaled_d2@window | varmean@window | flat_ends@window
-  B1s       20 fits     9.95 |    9.83 |    8.12 |    7.64 |    9.61
-  C1s       44 fits     2.34 |    3.88 |    2.74 |    0.95 |    3.16
-  Cl2p       3 fits     3.28 |    5.25 |    4.20 |    5.09 |    2.93
-  U4f       54 fits     2.38 |    3.64 |    3.23 |    3.28 |    2.43
+  B1s       20 fits     9.95 |    9.83 |    8.12 |    7.45 |    9.61
+  C1s       44 fits     2.34 |    3.88 |    2.74 |    0.98 |    3.16
+  Cl2p       3 fits     3.28 |    5.25 |    4.20 |    4.94 |    2.93
+  U4f       54 fits     2.38 |    3.64 |    3.23 |    3.52 |    2.43

@@ -28,8 +28,8 @@ def _robust_sigma(z):
     return MAD_TO_SIGMA * float(np.median(np.abs(z - np.median(z))))
 
 
-# binomial difference filters of order 1, 2 and 4: each annihilates polynomials below its order, so a slope
-# (order 1), a curvature (order 2) or a cubic (order 4) of the signal does not enter the difference
+# binomial difference filters of order 1, 2 and 4: each annihilates polynomials of degree below its order — a
+# constant (order 1), a straight line (order 2), a cubic (order 4) of the signal does not enter the difference
 DIFF = {1: np.array([-1.0, 1.0]), 2: np.array([1.0, -2.0, 1.0]), 4: np.array([1.0, -4.0, 6.0, -4.0, 1.0])}
 
 
@@ -72,21 +72,39 @@ def scaled_poisson_differences(y, order=2, lag=1):
                       extra={"n": int(z.size)})
 
 
-def constant_second_difference(y):
-    """σ = robust σ of (y_{i−1} − 2y_i + y_{i+1}) / √6 (the DER_SNR-type estimator, Stoehr et al. 2008): ONE
-    constant variance for the whole spectrum. Assumes the noise does not depend on the intensity."""
+def constant_differences(y, order=2, lag=1):
+    """σ = robust σ of the order-N difference / √(Σ c²): ONE constant variance for the whole spectrum. Assumes the
+    noise does not depend on the intensity (no shot noise) and neighbouring points are independent."""
     y = np.asarray(y, float)
-    d2 = y[:-2] - 2 * y[1:-1] + y[2:]
-    return NoiseModel("constant_d2", a=(_robust_sigma(d2) / np.sqrt(6.0)) ** 2, k=0.0)
+    c = DIFF[order]
+    n = len(y) - (len(c) - 1) * lag
+    idx = np.arange(n)[:, None] + lag * np.arange(len(c))[None, :]
+    d = (y[idx] * c).sum(axis=1)
+    return NoiseModel(f"constant_d{order}" + (f"_lag{lag}" if lag > 1 else ""),
+                      a=(_robust_sigma(d) / np.sqrt(float(np.dot(c, c)))) ** 2, k=0.0)
+
+
+def der_snr(y):
+    """DER_SNR (Stoehr et al. 2008, ADASS XVII): σ = 1.482602 / √6 · median |2y_i − y_{i−2} − y_{i+2}| — the
+    second difference at lag 2 and the median of its absolute value (not the MAD about its median). Constant
+    noise; points two apart independent (so it tolerates correlation between immediate neighbours)."""
+    y = np.asarray(y, float)
+    d = 2 * y[2:-2] - y[:-4] - y[4:]
+    return NoiseModel("der_snr", a=(MAD_TO_SIGMA / np.sqrt(6.0) * float(np.median(np.abs(d)))) ** 2, k=0.0)
 
 
 def variance_mean_regression(y, bins=12):
     """var = a + k·y: the robust variance of second differences in bins of the local mean, fitted by weighted least
     squares with a, k ≥ 0. Tests the scaled-Poisson hypothesis itself (a ≈ 0) and admits a constant (read or
-    background) term. Needs a spread of intensities in the spectrum; a narrow range leaves a and k confounded."""
+    background) term. Needs a spread of intensities in the spectrum; a narrow range leaves a and k confounded.
+    The local mean a difference is binned by is taken from the points JUST OUTSIDE it (y_{i−2}, y_{i+2}), not from
+    the points it is made of: binning by a mean built from the same noisy points selects on the noise (for flat
+    independent noise the second difference and its own weighted mean have covariance −v, and narrow bins of that
+    mean pull the difference's variance from 6v towards 4v — Codex Unit B round 1). With correlated noise the
+    outside points are not independent either. The weights are a heuristic (MAD-based, overlapping differences)."""
     y = np.asarray(y, float)
-    d2 = y[:-2] - 2 * y[1:-1] + y[2:]
-    m = (y[:-2] + 4 * y[1:-1] + y[2:]) / 6.0                   # the local mean the difference's variance follows
+    d2 = (y[:-2] - 2 * y[1:-1] + y[2:])[1:-1]                 # differences centred on i = 2 … n−3
+    m = (y[:-4] + y[4:]) / 2.0                                  # the local mean from y_{i−2} and y_{i+2}
     order = np.argsort(m)
     groups = [g for g in np.array_split(order, bins) if g.size >= 8]
     xs, vs, ws = [], [], []
@@ -118,7 +136,9 @@ def variance_mean_regression(y, bins=12):
 
 def flat_ends(y, frac=0.1):
     """k = var / mean on the first and last `frac` of the window after removing a straight line from each end
-    (the approach of docs/findings/find-peaks-scale §2). Assumes both ends are free of peaks and of curvature."""
+    (the approach of docs/findings/find-peaks-scale §2). Assumes both ends are free of peaks and of curvature, and
+    independent points: removing a fitted line also removes part of a correlated noise (for a 24-point end with
+    5-point moving-average noise the expected variance is ≈ 0.70 of the true one — Codex Unit B round 1)."""
     y = np.asarray(y, float)
     n = max(5, int(round(frac * len(y))))
     ks = []
@@ -136,7 +156,9 @@ ESTIMATORS = {
     "scaled_d2": lambda y: scaled_poisson_differences(y, 2),
     "scaled_d4": lambda y: scaled_poisson_differences(y, 4),
     "scaled_d2_lag3": lambda y: scaled_poisson_differences(y, 2, lag=3),
-    "constant_d2": constant_second_difference,
+    "constant_d2": lambda y: constant_differences(y, 2),
+    "constant_d4": lambda y: constant_differences(y, 4),
+    "der_snr": der_snr,
     "varmean": variance_mean_regression,
     "flat_ends": flat_ends,
 }
@@ -155,8 +177,9 @@ def _rho1(z):
 def correlation_diagnostics(y):
     """Not estimators — what the data say about whether neighbouring points are independent.
     rho1_dN = lag-1 correlation of the normalised N-th differences, against WHITE_RHO1[N] for independent points
-    (−0.5 for N = 1, −0.8 for N = 4); smoothing or interpolation moves it up. The signal's own differences move it
-    too (towards +1 where they dominate), less for higher N — so rho1_d4 is the cleaner reading.
+    (−0.5 for N = 1, −0.8 for N = 4; approximate after the normalisation and the clipping); smoothing or
+    interpolation CAN move it (a 3-point moving average leaves rho1_d4 at −0.8). The signal's own differences move
+    it too (towards +1 where they dominate), less for higher N — so rho1_d4 is the cleaner reading.
     lag_profile = k from lag-L second differences relative to L = 1 (flat for independent noise until the signal's
     curvature lifts it; rising from L = 1 when neighbours are positively correlated)."""
     y = np.asarray(y, float)
@@ -164,6 +187,26 @@ def correlation_diagnostics(y):
     k1 = scaled_poisson_differences(y, 2, 1).k
     out["lag_profile"] = [scaled_poisson_differences(y, 2, L).k / k1 if k1 > 0 else float("nan") for L in (1, 2, 3, 4)]
     return out
+
+
+def common_quantum(y, max_divisor=1000, tol=1e-3):
+    """Is y on a grid u·ℤ for some u? Raw counts divided by a counting time t lie on the grid u = 1/t, and then the
+    smallest gap g between sorted distinct values is m·u for the smallest count difference m among them; so every
+    gap is an integer multiple of g / m. Tests u = g / j for j = 1 … max_divisor: the first u for which every gap
+    is within `tol` (absolute, in units of u) of an integer multiple — 50× above the worst rounding of these
+    intensities at the finest u tested, while a continuous gap lands that close by chance with probability 2·tol. Returns u, or None — "no quantum u ≥ g / max_divisor"; a quantum finer
+    than that (a smallest count difference above max_divisor counts) cannot be told from none. (A running gcd by
+    Euclid's algorithm was tried first: its float remainders amplify an ulp-level error by each quotient.)"""
+    v = np.unique(np.asarray(y, float))
+    gaps = np.diff(v)
+    if gaps.size < 2:
+        return None
+    g = float(gaps.min())
+    for j in range(1, max_divisor + 1):
+        q = gaps / (g / j)
+        if np.all(np.abs(q - np.round(q)) <= tol):
+            return g / j
+    return None
 
 
 def reduced_chi2(residual, variance, n_free):

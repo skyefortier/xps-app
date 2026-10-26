@@ -1,4 +1,4 @@
-# Unit B — estimating a spectrum's noise from the data (design + measurement, 2026-10-26)
+# Unit B — estimating a spectrum's noise from the data (design + measurement, 2026-10-26; revised after the round-1 design review)
 
 **Scope (owner, 2026-10-26):** design and measurement only. Nothing a user sees changes, no fitted number changes,
 nothing is deployed. Whether and how the displayed χ²ᵣ changes is a separate decision after this review.
@@ -7,181 +7,234 @@ nothing is deployed. Whether and how the displayed χ²ᵣ changes is a separate
 only if the variance it divides by is the data's real noise. Can that variance be estimated from each spectrum
 itself, independent of any fit model?
 
-Every claim about the current code is labelled **VERIFIED** (file:line, read on main at a192f78) or **HYPOTHESIS**.
-Numbers come from the committed generators (end of this file) and their outputs in this folder.
+Every claim about the current code or the data is labelled **VERIFIED** (file:line or a committed output, read on
+main at a192f78) or **HYPOTHESIS**. Every number comes from a committed generator (end of this file) and its output
+in this folder; where the round-1 design review corrected the first version, the correction is marked "round 1".
 
 ---
 
-## 1. What the fit assumes today
+## 1. What the fit assumes today, and what a noise scale would and would not change
 
-- **VERIFIED** — the server weights every point by σ_i = √max(y_i, 1), y in the file's own units, before
-  background subtraction (`fitting.py:3006-3007`, comment `fitting.py:3002-3005`); the verifier recomputes the same
-  (`fitting.py:3821`). The reported χ²ᵣ = Σ((y_sub − fitted_sub)·w)² / max(1, n − n_free) (`fitting.py:3384-3387`).
-  Recomputed from the residuals of the 121 committed fits below it agrees to 1.8e-15.
-- **VERIFIED** — the local engine and the page's own support test use the same weighting, 1/√max(counts, 1)
-  (`templates/index.html:8214`, `:10759`; its record names it `poisson_weighted_chi_square`, `:7388`, `:7399`).
-- **VERIFIED** — the σ of every parameter is scaled by χ²ᵣ: lmfit's `Model.fit` defaults to `scale_covar=True`
-  (`venv/.../lmfit/model.py:1034`) and `fitting.py` never passes it (every `model.fit(...)` call,
-  e.g. `fitting.py:2198`, `:2209`, `:2246`, `:2283`). The support statistic is a ratio of χ² differences
-  (`fitting.py:2697-2712`).
-- Consequence (arithmetic, from the above): if the true variance is k·y for ONE constant k per spectrum, the fit
-  itself, every parameter, every σ and every support F are unchanged by k; only the displayed χ²ᵣ is k times the
-  calibrated one. If the true variance has any other shape (a constant term, a correlation, a per-point factor),
-  the weights themselves are wrong in relative terms, and correcting them would change fitted numbers.
+- **VERIFIED** — the server weights each point by w_i = 1/√max(y_i, 1), y in the file's own units, before
+  background subtraction (`fitting.py:3006-3007`; the comment `fitting.py:3002-3005` calls it Poisson); the
+  verifier recomputes the same (`fitting.py:3821`). The reported χ²ᵣ = Σ((y_sub − fitted_sub)·w)² / max(1, n − n_free)
+  (`fitting.py:3384-3387`); recomputed from the residuals of the 121 committed fits in §5 it agrees to 1.8e-15.
+- **VERIFIED** — the local engine and the page's support twin use the same weights (`templates/index.html:8214`,
+  `:10759`; the record names the objective `poisson_weighted_chi_square`, `:7388`, `:7399`).
+- **VERIFIED** — lmfit multiplies the parameters' COVARIANCE by χ²ᵣ, so each σ by √χ²ᵣ (round 1: "σ by χ²ᵣ" was
+  wrong): `Model.fit` defaults to `scale_covar=True` (`venv/.../lmfit/model.py:1034`; the scaling at
+  `lmfit/minimizer.py:812-813`), and `fitting.py` never passes it (each `model.fit(...)`, e.g. `fitting.py:2198`,
+  `:2209`, `:2246`, `:2283`). The support statistic is a ratio of χ² differences (`fitting.py:2697-2712`).
+
+Two uses of a noise estimate must be kept apart (round 1):
+
+1. **A diagnostic on frozen residuals** — the fit unchanged, its χ²ᵣ recomputed under another variance model.
+   Changes no fitted number whatever the model's shape; §5 does exactly this. For a scaled-Poisson model
+   (v = k·max(y, 1)) it is the displayed χ²ᵣ / k.
+2. **New fitting weights.** If the new variance is the current one times ONE positive constant k, the objective is
+   divided by k: its minimiser is mathematically unchanged, lmfit's covariance scaling cancels k (so the σ are
+   unchanged at that solution), the support F is unchanged; the raw χ² and Δχ² scale by 1/k and the current AIC /
+   BIC shift by −n·log k; a numerical optimiser's path is not guaranteed bit-identical. A variance of any other
+   relative shape (a constant term, per-point factors) changes the objective and can change fitted parameters;
+   correlated noise needs a covariance matrix, not different diagonal weights.
 
 ## 2. What the data are (part a)
 
 | source | what the intensities are | label | evidence |
 |---|---|---|---|
-| Thermo Avantage `.vgd` (all 230 committed raw files; the instrument is a Nexsa G2, Avantage v6.7.0, per the files' property stream) | **counts per second**, not counts | VERIFIED | each file's chart sidecar `.xml` titles the intensity axis `Counts / s` (e.g. `docs/autofit/test_data/1 UCl4-graphite …DATA/C1s Scan.xml`); at least 99.8 % of every file's stored values are non-integer (`real_spectra.txt`) |
-| the same — raw counts divided by a counting time? | **no**: the values are not on any grid 1/t | VERIFIED (data); cause HYPOTHESIS | for counting times t from 5 ms to 2 s, at most 0.55 % of any file's values lie on the grid 1/t — chance level (`real_spectra.txt`, `best_quantum`). HYPOTHESIS: Avantage applies a continuous correction (detector efficiency / dead time / transmission) before storing — not established; its acquisition parameters (dwell, scans) sit in undocumented numeric property ids of the files' main property stream and are not decoded here |
-| the app's VGD reader | returns the stored values unchanged; a multi-scan ("overlay") file is returned as the **per-point mean of its scans** | VERIFIED | `vgd_parser.py:94-97`; the page always parses VGDs on the server (`templates/index.html:4032`, `:5404` → `app.py:1022`); its heuristic `parseVGD` (`templates/index.html:5322`) has no caller. All 230 committed VGDs hold one series, so the mean never applies to them |
-| committed projects (`*.proj.zip`, 166 spectra) | the same Avantage CPS (non-integer in every spectrum; tab names are the VGD scan names) | VERIFIED | `scripts/noise_real_fits.py` reads them; maxima 7 000–117 000 CPS |
+| Thermo Avantage `.vgd` (all 230 committed raw files) | **counts per second** | VERIFIED | each file's chart sidecar `.xml` titles the intensity axis `Counts / s` (e.g. `docs/autofit/test_data/1 UCl4-graphite …DATA/C1s Scan.xml`); at least 99.8 % of every file's stored values are non-integer (`real_spectra.txt`). The instrument is a Nexsa G2, Avantage v6.7.0 (strings in the files' main property stream) |
+| the same — raw counts divided by a per-point counting time t? | **not for any t the acquisition allows** | VERIFIED (the arithmetic), HYPOTHESIS (the bound on t) | raw counts / t lie on the grid 1/t, so every gap between sorted values is an integer multiple of (smallest gap)/m for some integer m. Tested for every m ≤ 1000 (`noise_estimators.common_quantum`, which finds the quantum for counting times 0.005–50 s incl. 0.137 and 0.12345 s and none in continuous data — `tests/test_noise_estimators.py`): **0 of 230 files** and **0 of 166 project spectra** lie on such a grid (`real_spectra.txt`). A grid finer than that would mean a quantum below (smallest gap)/1000 — counting times of thousands of seconds per point; even m = 1 already requires t ≥ 20–1 700 s for these files (smallest gaps 0.0006–0.05 CPS). HYPOTHESIS: impossible, each whole spectrum taking about a minute (the files' start/end timestamps, in undocumented property ids). Round 1: the first version searched 4 000 chosen spacings and could miss counting times between them |
+| what Avantage did between counting and the stored CPS | unknown | HYPOTHESIS | a continuous correction (detector efficiency, dead time, transmission) would explain the absence of any grid; not established — the acquisition parameters (dwell, scans, corrections) sit in undocumented numeric property ids and are not decoded here |
+| the app's VGD reader | returns the stored values unchanged; a multi-scan ("overlay") file becomes the **per-point mean of its scans** | VERIFIED | `vgd_parser.py:94-97` (the mean at `:97`); the page always parses VGDs on the server (`templates/index.html:4032`, `:5404` → `app.py:1022`); its heuristic `parseVGD` (`templates/index.html:5322`) has no caller. All 230 committed VGDs hold one series, so the mean never applies to them |
+| committed projects (`*.proj.zip`, 166 spectra) | 70 are, value for value, a committed VGD's intensities; all 166 are non-integer and on no common grid | VERIFIED (the 70; non-integer; no grid) / HYPOTHESIS (that the other 96 are the same Avantage CPS — their tab names are VGD scan names) | `real_spectra.json` → `projects` (round 1: "all 166 are the same CPS" was not established) |
 | `.csv` / `.tsv` / `.txt` / `.xy` / `.xlsx` | **unknown to the app**: whatever the exporting program wrote (counts, CPS, normalised, smoothed) | VERIFIED (that it is not known) | `parser.py:47` ("intensity (counts or CPS)"); no unit is read or stored |
 | the page's smoothing | display only — it never reaches a fit | VERIFIED | `savitzkyGolay` has one caller, the "Smoothed" chart overlay (`templates/index.html:12958-12969`) |
 
-**Where Poisson σ = √N holds.** Only for RAW COUNTS: integers from one acquisition, not divided, averaged,
-corrected, interpolated or smoothed. For counts divided by a counting time t the variance is y/t (k = 1/t); for the
-mean of m sweeps it is y/m; after a smooth per-point correction factor T it is y/T (k varies across the window);
-after smoothing or interpolation neighbouring points are correlated and no per-point σ describes them fully.
-**None of the committed data are raw counts**, so σ = √y in their units has no derivation; whether it happens to be
-close is what §5 measures.
+**Where Poisson holds.** For RAW COUNTS — integers from counting, including sums of independent counting
+acquisitions (still Poisson) — the variance equals the EXPECTED count; σ = √y is its plug-in from the observed count,
+biased at low counts (round 1: "exact" was too strong). Counts divided by a counting time t have variance s/t
+(k = 1/t); the mean of m sweeps s/m; after a smooth per-point correction factor T, s/T (k varies across the
+window); after smoothing or interpolation neighbouring points are correlated and no per-point σ describes the
+noise fully (a χ² with the true marginal variances still has expectation n but is not χ²-distributed, and a fitted
+residual's calibration by n − p is not guaranteed). **None of the committed data are raw counts**, so σ = √y in
+their units has no derivation; how close it happens to be is what §5 measures.
 
 ## 3. Candidate estimators (part b) — `scripts/noise_estimators.py`
 
-All read only the intensities, in point order, and return a variance model var(y_i) = a + k·y_i. MAD → σ uses the
-Gaussian factor 1.4826 so that points on a peak's flanks (where the SIGNAL's difference is large) count as
-outliers.
+All read only the intensities, in point order, and return a variance model v(y) = a + k·y. Common to all: MAD → σ
+uses the Gaussian consistency factor 1.4826 (Gaussian-consistent, not variance-consistent for every distribution);
+the points on a peak's flanks (where the SIGNAL's difference is large) are meant to fall outside the MAD, which works
+only while signal-free differences are the majority; normalising by the OBSERVED y (a random quantity) makes
+numerator and denominator dependent at low counts; a short spectrum or discrete values can give a zero MAD — a zero
+variance, counted as a failure in §4.
 
-| estimator | model | assumes | fails when |
+| estimator | model | assumes | fails when (measured in §4) |
 |---|---|---|---|
-| `poisson_file_units` (today) | var = y (k = 1) | the file holds raw counts | any other unit: CPS (k = 1/t), averaged sweeps, any correction |
-| `scaled_d1`, `scaled_d2`, `scaled_d4` | var = k·y, k = (robust σ of the normalised 1st / 2nd / 4th binomial difference)² | scaled Poisson; neighbouring points independent; the signal's difference small at most points (a difference of order N annihilates polynomials below N) | **neighbours correlated** (smoothing, interpolation): differences cancel correlated noise, so k is underestimated — by 4–9× for 4th differences (§4); **high counts with sharp peaks**: the signal's difference is not small on enough points and inflates k (worst for low orders); **low counts** (≲ 20 counts per point): the normalisation by the observed y breaks |
+| `poisson_file_units` (today) | v = y (k = 1) | the file holds raw counts | any other unit, by exactly the unit's factor |
+| `scaled_d1`, `scaled_d2`, `scaled_d4` | v = k·y, k = (robust σ of the 1st / 2nd / 4th binomial difference normalised by √(Σ c_j² max(y_{i+j}, 1)))²; squared filter norms 2, 6, 70 | scaled Poisson; neighbouring points independent; the signal's difference small at most points (an order-N difference annihilates polynomials of degree below N) | **correlated neighbours** (smoothing, interpolation): differences cancel correlated noise — k underestimated, more for higher orders; **high counts with peaks**: the signal's difference inflates k, more for lower orders |
 | `scaled_d2_lag3` | the same with points 3 apart | correlation shorter than 3 points | the signal's curvature over 6 points inflates k strongly at high counts |
-| `constant_d2` (DER_SNR-type) | var = a (constant), from second differences | noise independent of intensity | shot noise (the variance follows the intensity); correlation |
-| `varmean` | var = a + k·y, weighted fit of binned second-difference variances against the local mean | a spread of intensities; independent points | high counts with peaks: the peak bins' variance is inflated by the signal, so k collapses (§4); a narrow intensity range confounds a and k |
-| `flat_ends` | var = k·y from the variance about a straight line on each end's 10 % | both ends flat (no peak, no curvature) | an end on a peak, a step or curvature — e.g. a survey window (k ≈ 31, §5) |
+| `constant_d2`, `constant_d4` | v = a (one constant), from 2nd / 4th differences | noise independent of intensity | shot noise: the level right somewhere, the SHAPE wrong across the window |
+| `der_snr` (Stoehr et al. 2008) | v = a from median\|2y_i − y_{i−2} − y_{i+2}\| (lag 2, the median of the absolute value, as published) | constant noise; points two apart independent | shot noise (shape); the signal's curvature at lag 2 at high counts |
+| `varmean` | v = a + k·y: binned robust variances of 2nd differences against a local mean, weighted LSQ with a, k ≥ 0 | independent points; a spread of intensities | high counts with peaks (the peak bins' variance is inflated by the signal); a narrow intensity range confounds a and k. **Round 1:** the first version binned by a mean made of the difference's own points, which selects on the noise (covariance −v with the difference: the variance falls from 6v towards 4v, i.e. to ~⅔); it now bins by the points just outside, y_{i−2} and y_{i+2} (`test_the_regression_does_not_select_on_the_noise`). Its weights are a heuristic |
+| `flat_ends` | v = k·y from the variance about a straight line on each end's 10 % | ends with no peak and no curvature; independent points | an end on a peak, step or curvature (a survey window: k ≈ 31, §5); **correlated noise** (round 1): removing a fitted line also removes part of it — for a 24-point end with 5-point moving-average noise the expected variance is ≈ 0.70 of the true |
 
-**Correlation diagnostics** (not estimators), `correlation_diagnostics`: the lag-1 correlation of the normalised
-1st and 4th differences (independent points: −0.5 and −0.8, `WHITE_RHO1`), and the lag profile k(lag L)/k(lag 1) of
-second differences (independent points: flat, until the signal's curvature lifts it). On the synthetic set the
-1st-difference reading is useless at ordinary counts (the signal moves it from −0.5 to +0.0…+0.5 even for pure
-Poisson data); the 4th-difference reading stays at −0.75…−0.79 for independent noise and moves to −0.46…−0.69 for
-5–7-point smoothing and interpolation, but NOT for a 3-point moving average (−0.83); the lag profile catches all of
-them (lag 2: 2.9–4.2 against 1.2–1.5 for independent noise). Evidence, not a test with a threshold.
+**Correlation diagnostics** (not estimators), `correlation_diagnostics`: the lag-1 correlation of the normalised 1st
+and 4th differences (for independent noise of constant variance −0.5 and −0.8, `WHITE_RHO1`; approximate after the
+normalisation and the outlier clipping), and the lag profile k(lag L)/k(lag 1) of 2nd differences (flat for
+independent noise until the signal's curvature lifts it). On the synthetic set (`synthetic.txt`): the 1st-difference
+reading is moved by the signal from −0.5 to −0.29…+0.51 even for independent noise; the 4th-difference reading stays
+at −0.76…−0.79 for every independent case, moves to −0.34…−0.69 for 5–7-point smoothing, the half-bin shift and
+upsampling, and does NOT move for a 3-point moving average (−0.82) — smoothing need not move it up (round 1). The
+lag profile at lag 2 is 1.09–1.51 for the independent cases and 2.87–4.20 for the smoothed and shifted ones (the
+upsampled case gives none: its second differences have a zero MAD). Evidence only, not a test with a threshold, and
+the synthetic correlation families are few.
 
-## 4. Ground truth: synthetic spectra with known noise (part c) — `synthetic.json`, `synthetic.txt`
+## 4. Ground truth: synthetic spectra with known noise (part c) — `synthetic.json`, `synthetic.txt`, `synthetic_tables.md`
 
 `scripts/noise_synthetic_benchmark.py --seeds 30`: a C 1s-like window of 241 points (three GL peaks; widths of 3,
-10 or 30 points; flat, sloped or Shirley-step background; tallest peak 300 to 3·10⁵ counts) under 12 noise models
+10 or 30 points; flat, sloped or Shirley-step background; tallest peak 300 to 3·10⁵ counts) under 13 noise models
 whose per-point variance is known exactly: Poisson counts; CPS at counting times 0.05, 1 and 20 s; the mean of 10
-sweeps; Gaussian constant; Poisson + constant; a ±30 % transmission factor; a 3- and 5-point moving average, a
-7-point Savitzky-Golay, and linear interpolation onto a half-step grid. 12 × 9 shapes × 4 levels × 30 seeds =
-12 960 spectra, each judged by every estimator. No fit and no expert reference is used.
+sweeps; Gaussian constant; Poisson + constant; a ±30 % transmission factor; 3- and 5-point moving averages and a
+7-point Savitzky-Golay (the filter applied to truth and to the variance as h∗s and h²∗v; the truncated edges
+dropped, so boundary handling is not benchmarked); a half-bin shift (adjacent means on the same grid — round 1: this
+was mislabelled "interpolation"); and linear upsampling ×2 (the measured points kept, midpoints added: variances
+alternate v_i and (v_i + v_{i+1})/4 — round 1). 13 × 9 shapes × 4 levels × 30 seeds = 14 040 spectra, each judged by
+every estimator. No fit and no expert reference is used.
 
-The figure of merit is **χ²ᵣ of the TRUE signal** under each estimator's variance, Σ(y − s)²/σ̂² / n: what a fit that
-explains the data exactly would show. 1 is right; above 1 the variance is underestimated, below 1 overestimated.
-Medians over shapes and seeds, by peak level (counts at the tallest peak):
+**Metrics (round 1).** The estimated model v̂ is evaluated at the TRUE signal, which isolates the estimation error:
+the **level** error median(v̂(s)/σ²) and the **shape** error, the 90th / 10th-percentile spread of v̂(s)/σ² across the
+window (1 is right for both). The χ²ᵣ of the true signal with the plug-in weights v̂(y) — what a fit weighted by the
+observed intensity, as today, would show — is reported separately. The first version used only that, which
+conflated the estimation error with the plug-in: at the lowest CPS level (15 counts at the peak) it read 7.5–8.8 for
+the scaled estimators, where their level error is 0.97–1.11 and their χ²ᵣ with v̂(s) 0.87–1.01 (`synthetic.json`).
 
-| noise (truth) | today: var = y | `scaled_d4` | `scaled_d2` | `flat_ends` | `varmean` |
-|---|---|---|---|---|---|
-| Poisson counts | 1.00–1.05 | 0.87–1.03 | 0.64–1.02 | 0.91–1.07 | 0.15–1.06 |
-| CPS, t = 0.05 s (k = 20) | 20–175 | 0.95–1.12 (7.8 at the lowest level) | 0.86–1.10 (7.5) | 0.99–1.15 (8.8) | 0.78–1.19 (9.2) |
-| CPS, t = 20 s (k = 0.05) | 0.05 | 0.84–0.95 | 0.48–0.89 | 0.87–1.02 | 0.01–0.84 |
-| mean of 10 sweeps | 0.10 | 0.87–0.99 | 0.51–0.93 | 0.88–1.02 | 0.02–0.89 |
-| transmission ±30 % | 1.03–1.09 | 0.93–1.10 | 0.66–1.08 | 0.86–1.02 | 0.16–1.13 |
-| Poisson + constant | 1.2–96 | 1.05–1.14 | 0.98–1.04 | 0.76–1.04 | 0.86–1.09 |
-| Gaussian constant | 0.02–15 | 1.09–1.10 | 0.78–0.81 | 0.75–0.77 | 0.66–0.68 |
-| smoothed MA3 | 0.33 | **4.2–4.8** | 2.1–4.1 | 1.02–1.26 | 0.06–3.9 |
-| smoothed SG7 | 0.33–0.35 | **7.7–9.5** | 3.3–6.4 | 1.11–1.29 | 0.05–5.9 |
-| interpolated (half step) | 0.50 | **4.2–4.9** | 1.6–2.9 | 0.95–1.12 | 0.09–2.8 |
+The level error by peak level (300 / 3·10³ / 3·10⁴ / 3·10⁵ counts), medians over 9 shapes × 30 seeds, from
+`synthetic_tables.md` (all 8 estimators, and the shape spreads and plug-in χ²ᵣ, are there; 5–95 % ranges per
+spectrum in `synthetic.json`):
 
-What the measurement shows:
-- **Today's σ = √y is exact for raw counts and wrong by exactly k otherwise** (×20 too low a variance for CPS at
-  50 ms, ×20 too high at 20 s, ×10 for 10 averaged sweeps).
-- **Independent noise of any scale** (counts, CPS, sweeps, a transmission factor): `scaled_d4` recovers it to within
-  about −16 % … +12 % in χ²ᵣ at every level above the low-count regime, best of the difference estimators; lower
-  orders and `varmean` are pulled down at high counts by the signal (peaks' differences).
-- **Correlated noise**: every difference estimator underestimates the variance, the higher the order the worse
-  (`scaled_d4` 4–9.5×). `flat_ends` holds (0.95–1.29) because it measures the variance itself, not differences —
-  when its ends really are flat.
-- **Below ~20 counts per point** (CPS at 50 ms with a 300-count peak) every normalised estimator breaks (7–9).
-- No estimator is right everywhere: the data's correlation decides between the difference family and `flat_ends`,
-  and the correlation diagnostics of §3 are the only model-free evidence of it.
+| noise (truth) | today, v = y | `scaled_d4` | `scaled_d2` | `flat_ends` | `scaled_d2_lag3` | `der_snr` |
+|---|---|---|---|---|---|---|
+| Poisson counts | 1 / 1 / 1 / 1 | 1 / 1 / 1.1 / 1.1 | 1 / 1.1 / 1.3 / 1.5 | 0.97 / 1 / 1 / 1.1 | 1.2 / 1.5 / 1.9 / 3.1 | 1.2 / 1.3 / 1.5 / 2 |
+| CPS, t = 0.05 s | 0.05 (all) | 1.1 / 1 / 1 / 1.1 | 1.1 / 1 / 1.1 / 1.2 | 0.97 / 1 / 0.98 / 1 | 1.1 / 1.1 / 1.4 / 1.7 | 1.1 / 1.1 / 1.2 / 1.5 |
+| CPS, t = 20 s | 20 (all) | 1.1 / 1 / 1.1 / 1.2 | 1.1 / 1.3 / 1.6 / 2.1 | 0.98 / 1 / 1.1 / 1.2 | 1.6 / 2.1 / 4.2 / 17 | 1.4 / 1.7 / 2.3 / 5.6 |
+| mean of 10 sweeps | 10 (all) | 1 / 1.1 / 1.1 / 1.1 | 1.1 / 1.2 / 1.5 / 1.9 | 0.99 / 0.99 / 1.1 / 1.1 | 1.5 / 1.9 / 3.1 / 11 | 1.3 / 1.5 / 2 / 4 |
+| transmission ±30 % | 1 (all) | 1 / 1 / 1.1 / 1.1 | 1 / 1.1 / 1.2 / 1.5 | 1.1 / 1.1 / 1.1 / 1.2 | 1.2 / 1.5 / 2 / 3.1 | 1.2 / 1.3 / 1.6 / 2.1 |
+| Poisson + constant | 0.92 / 0.52 / 0.098 / 0.011 | 1 / 0.97 / 0.87 / 0.89 | 1 / 1 / 0.99 / 0.98 | 1 / 1.2 / 1.3 / 1.3 | 1.3 / 1.5 / 1.7 / 1.7 | 1.2 / 1.3 / 1.3 / 1.4 |
+| Gaussian constant | 68 / 6.8 / 0.68 / 0.068 | 0.88–0.91 | 1.2 | 1.3 | 1.9–2 | 1.6 |
+| smoothed MA3 | 3 (all) | 0.21 / 0.22 / 0.23 / 0.23 | 0.24 / 0.28 / 0.35 / 0.46 | 0.81 / 0.79 / 0.87 / 1 | 1.4 / 1.7 / 2.3 / 5.2 | 0.72 / 0.82 / 1.1 / 1.7 |
+| smoothed MA5 | 5 (all) | 0.12 / 0.12 / 0.13 / 0.14 | 0.15 / 0.18 / 0.25 / 0.34 | 0.65 / 0.61 / 0.73 / 0.82 | 0.74 / 0.95 / 1.6 / 5.5 | 0.36 / 0.45 / 0.61 / 1.5 |
+| smoothed SG7 | 3 (all) | 0.11 / 0.11 / 0.12 / 0.13 | 0.16 / 0.19 / 0.23 / 0.3 | 0.78 / 0.82 / 0.85 / 0.96 | 1.3 / 1.6 / 2.2 / 5.5 | 0.61 / 0.7 / 0.92 / 1.6 |
+| half-bin shift | 2 (all) | 0.21 / 0.21 / 0.22 / 0.23 | 0.36 / 0.39 / 0.49 / 0.6 | 0.91 / 0.88 / 0.95 / 1.1 | 1.3 / 1.6 / 2.1 / 4.3 | 1.2 / 1.3 / 1.7 / 2.3 |
+| upsampled ×2 | 1 (all) | 0.033 / 0.036 / 0.045 / 0.054 | 0 (zero MAD) | 0.7 / 0.7 / 0.7 / 0.76 | 0.81 / 0.89 / 1.1 / 1.4 | 0.55 / 0.61 / 0.69 / 0.86 |
+
+(For "today" under Gaussian noise the level error is the ratio of the counts to the constant variance, so it moves
+with the level.)
+
+What the measurement shows (per-level medians; individual spectra scatter around them):
+- **Today's v = y** has a level error of exactly the unit's factor whenever the noise is scaled Poisson (×0.05 for
+  CPS at 50 ms, ×20 at 20 s, ×10 for 10 averaged sweeps), and the wrong shape for constant noise.
+- **Independent noise of any scale** (counts, CPS, sweeps, transmission): `scaled_d4` 1.0–1.2 and `flat_ends`
+  0.97–1.2 at every level. `scaled_d2`, `scaled_d2_lag3`, `der_snr` and `varmean` overestimate as the counts rise
+  (the signal's differences; at the highest level 1.2–2.1, 1.7–17, 1.5–5.6 and 1.3–130).
+- **Constant noise:** the constant estimators get its level (`constant_d4` 1.1) and shape (spread 1); every scaled
+  estimator gets the wrong shape (spread 3.9). Under shot noise the reverse (the constant estimators' spread 3.5–3.9).
+- **Correlated noise** (smoothing, the half-bin shift, upsampling): every lag-1 difference estimator underestimates
+  the variance — `scaled_d4` by 4–30×, `scaled_d2` by 1.7× to failure (zero MAD on the upsampled grid); `flat_ends`
+  is biased low too (0.61–1.1, MA5 the worst) — less affected, not immune (round 1); `scaled_d2_lag3` and `der_snr`
+  (lag > 1) range over 0.36–5.5, rising with the counts — near 1 only at some levels of some cases.
+- **Low counts:** the plug-in χ²ᵣ (weights from the observed y) departs from the estimation error at 15 counts per
+  point (above) — a property of plug-in weighting, not of the estimators.
+- No estimator is right in every regime; the data's correlation decides between the difference family and
+  `flat_ends`, and the diagnostics of §3 are the only model-free evidence of it — incomplete (they miss a 3-point
+  moving average).
 
 ## 5. The committed real data (part d) — report only
 
 ### Whole spectra — `real_spectra.json`, `real_spectra.txt` (`scripts/noise_real_spectra.py`, all 230 VGDs)
 
-Median k (var = k·y in CPS units) over each region's files, with 10–90 %:
+Estimator outputs per region, median over the region's files [10–90 %]. k is the estimated factor in v = k·y (CPS
+units); for the constant estimators a / median(y) is shown, to read on the same scale; `varmean`'s intercept
+a / median(y) has median 0.000 in every region (90th percentile 0.04–0.40):
 
-| region | files | step | rho1 d4 (white −0.80) | lag profile | `scaled_d4` | `scaled_d2` | `flat_ends` | `varmean` |
-|---|---|---|---|---|---|---|---|---|
-| B 1s | 50 | 0.1 eV | −0.78 | 1.00 1.38 1.71 2.22 | 0.73 [0.55, 0.88] | 0.85 [0.69, 1.14] | 1.12 [0.77, 4.61] | 0.89 [0.58, 1.39] |
-| C 1s | 60 | 0.1 eV | −0.75 | 1.00 1.51 1.76 2.16 | 0.71 [0.54, 0.96] | 0.89 [0.67, 1.22] | 0.99 [0.65, 19.3] | 1.30 [0.61, 2.74] |
-| N 1s | 40 | 0.1 eV | −0.78 | 1.00 1.46 1.72 2.30 | 0.62 [0.48, 0.82] | 0.88 [0.69, 1.13] | 0.94 [0.63, 1.45] | 1.25 [0.40, 3.33] |
-| U 4f | 20 | 0.1 eV | −0.78 | 1.00 1.55 2.21 2.97 | 0.66 [0.54, 0.81] | 0.82 [0.63, 0.88] | 2.47 [0.95, 4.45] | 1.06 [0.52, 1.49] |
-| Survey | 60 | 1.0 eV | −0.75 | 1.00 1.19 1.32 1.50 | 1.01 [0.91, 1.12] | 1.07 [0.96, 1.16] | 31.6 (ends not flat) | 1.07 [0.98, 1.16] |
+| region | files | step | rho1 d4 | lag profile | `scaled_d4` k | `scaled_d2` k | `flat_ends` k | `varmean` k | `der_snr` a/ỹ | `constant_d4` a/ỹ |
+|---|---|---|---|---|---|---|---|---|---|---|
+| B 1s | 50 | 0.1 eV | −0.78 | 1.00 1.38 1.71 2.22 | 0.73 [0.55, 0.88] | 0.85 [0.69, 1.14] | 1.12 [0.77, 4.61] | 0.96 [0.65, 1.40] | 0.98 | 0.71 |
+| C 1s | 60 | 0.1 eV | −0.75 | 1.00 1.51 1.76 2.16 | 0.71 [0.54, 0.96] | 0.89 [0.67, 1.22] | 0.99 [0.65, 19.3] | 1.30 [0.54, 2.67] | 1.15 | 0.75 |
+| N 1s | 40 | 0.1 eV | −0.78 | 1.00 1.46 1.72 2.30 | 0.62 [0.48, 0.82] | 0.88 [0.69, 1.13] | 0.94 [0.63, 1.45] | 1.33 [0.31, 3.14] | 1.19 | 0.71 |
+| U 4f | 20 | 0.1 eV | −0.78 | 1.00 1.55 2.21 2.97 | 0.66 [0.54, 0.81] | 0.82 [0.63, 0.88] | 2.47 [0.95, 4.45] | 1.00 [0.46, 1.27] | 1.09 | 0.64 |
+| Survey | 60 | 1.0 eV | −0.75 | 1.00 1.19 1.32 1.50 | 1.01 [0.91, 1.12] | 1.07 [0.96, 1.16] | 31.6 [21.0, 73.4] | 1.08 [0.97, 1.22] | 0.86 | 0.67 |
 
-Read against §4, not concluded from. The core levels' 4th-difference correlation is at the independent value
-(−0.75…−0.78 against −0.75…−0.79 synthetic independent, −0.46…−0.69 smoothed). Their lag profiles (1.4–1.6 at lag 2)
-sit just above the synthetic independent cases (1.2–1.5) and well below the smoothed ones (2.9–4.2). And on the core
-levels `flat_ends` reads 1.4–1.5× `scaled_d4` where the ends are flat (B 1s 1.53, C 1s 1.39, N 1s 1.52), against
-≈ 0.94–1.0 for synthetic independent noise and 3.8–7.2 for synthetic smoothed or interpolated noise. Each reading is consistent with nearly
-independent noise; the intermediate ones admit a mild correlation or ends that are not quite flat, and this
-measurement does not separate the two. On these data k is **of order 1** in CPS units (`scaled_d4` 0.62–1.01 by
-region; `flat_ends` 0.94–1.12 where the ends are flat) — near the value today's weighting assumes, which in CPS
-units is a coincidence of the acquisition, not a derivation (§2). The earlier flat-end measurement on the C 1s scans
-(dispersion 0.4–1.2 × the mean; `docs/findings/find-peaks-scale/README.md` §2, on branch `fix-occupancy-f-test`) is
-consistent with this.
+Set beside §4 — comparisons, with interpretations labelled (round 1: the first version stated them as facts):
+- The core levels' 4th-difference correlation (−0.75…−0.78) equals the synthetic independent cases' (−0.76…−0.79);
+  their lag profiles at lag 2 (1.38–1.55) are at or just above the top of the synthetic independent range
+  (1.09–1.51) and below the smoothed and shifted ones (2.87–4.20). Neither rules out a 3-point moving average (§3).
+- On B 1s, C 1s and N 1s (whose `flat_ends` medians are stable; their 90th percentiles reach 1.4–19) `flat_ends`
+  reads 1.4–1.5× `scaled_d4`; on the synthetic set that ratio is ≈ 0.9–1.1 for independent noise, 3.8–7.4 for the
+  smoothed and shifted cases and 14–21 upsampled.
+- HYPOTHESIS: the noise of these files is nearly independent between neighbouring points, with an estimated k of
+  0.6–1.0 by `scaled_d4` (the estimator §4 found best for independent noise) and 0.9–1.1 by `flat_ends` where its ends
+  behave; a mild correlation or imperfectly flat ends would explain the gap between them, and these measurements do
+  not separate the two.
+- HYPOTHESIS: an estimated k of order 1 in CPS units means today's weighting happens to be near this data's noise —
+  an accident of the acquisition (§2: none of it is counts), not a derivation.
+- The earlier flat-end measurement on the C 1s scans (dispersion 0.4–1.2 × the mean;
+  `docs/findings/find-peaks-scale/README.md` §2, on branch `fix-occupancy-f-test`) is of the same order.
 
 ### Existing fits — `real_fits.json`, `real_fits.txt` (`scripts/noise_real_fits.py`)
 
-Each committed tab's own saved model refitted by the current server through the page (Run Fit; 121 of 121
-converged), and the χ²ᵣ of the SAME residuals under each estimate (estimated once from the fit window, once from the
-whole spectrum — they agree):
+Each committed tab's own saved model refitted by the current server through the page (Run Fit: 121 of 121
+converged), and the χ²ᵣ of the SAME residuals under each estimate (a diagnostic, use 1 of §1), estimated from the
+fit window and from the whole spectrum:
 
-| variance used | χ²ᵣ median | 10–90 % |
+| variance used | window: median [10–90 %] | whole spectrum: median [10–90 %] |
 |---|---|---|
-| today, var = y (displayed) | 2.44 | [1.74, 17.5] |
-| `scaled_d4` | 3.75 | [2.40, 22.1] |
-| `scaled_d2` | 3.18 | [1.71, 15.9] |
-| `flat_ends` | 2.81 | [1.58, 8.43] |
-| `varmean` | 2.58 | [0.74, 12.4] |
-| `scaled_d2_lag3` | 1.65 | [0.84, 7.36] |
-| `constant_d2` | 4.26 | [2.54, 33.1] |
+| today, v = y (displayed) | 2.44 [1.74, 17.5] | — |
+| `scaled_d4` | 3.75 [2.40, 22.1] | 3.75 [2.41, 23.9] |
+| `scaled_d2` | 3.18 [1.71, 15.9] | 3.19 [1.74, 18.8] |
+| `flat_ends` | 2.81 [1.58, 8.43] | 2.74 [1.56, 6.20] |
+| `varmean` | 2.60 [0.76, 11.3] | 2.60 [0.81, 13.4] |
+| `scaled_d2_lag3` | 1.65 [0.84, 7.36] | 1.64 [0.95, 8.60] |
+| `der_snr` | 2.79 [1.70, 23.6] | 2.72 [1.80, 25.0] |
+| `constant_d2` | 4.26 [2.54, 33.1] | 4.25 [2.59, 37.7] |
+| `constant_d4` | 4.56 [2.88, 43.3] | 4.55 [2.92, 46.0] |
 
-By region (median; displayed | `scaled_d4` | `flat_ends`): B 1s (20) 9.95 | 9.83 | 9.61; C 1s (44) 2.34 | 3.88 | 3.16;
+Window and whole spectrum, PER FIT (round 1: the first version said they "agree"): the ratio of the two χ²ᵣ has a
+median of 0.99–1.00 for every estimator, but 10–90 % ranges up to 0.72–1.06 (`varmean`), 0.74–1.01
+(`scaled_d2_lag3`) and 0.90–1.63 (`flat_ends`), and extremes of 2–10× (e.g. `flat_ends` 46.5 against 4.4 on 4-GTA
+UCl4-BN / B1s Scan_6).
+
+By region (window; displayed | `scaled_d4` | `flat_ends`): B 1s (20) 9.95 | 9.83 | 9.61; C 1s (44) 2.34 | 3.88 | 3.16;
 Cl 2p (3) 3.28 | 5.25 | 2.93; U 4f (54) 2.38 | 3.64 | 2.43. Under every estimate most committed fits sit above 1.
 **Reported, not concluded:** above 1 can mean the model leaves structure in the residuals, or that the estimate is
-low; this measurement does not separate the two, and the expert fits are not a reference for either.
+low; this measurement does not separate the two, and the expert fits are a reference for neither.
 
 ## 6. What a design could be (for the owner's decision — not decided here)
 
-1. **Only a constant scale keeps every fitted number.** A per-spectrum k̂ (var = k̂·y) changes the displayed χ²ᵣ to
-   χ²ᵣ/k̂ and nothing else (§1). Anything with another shape (a + k·y, per-point factors, correlation) changes the
-   weights and so the fits — that would be a fitting change, its own unit.
-2. **Which k̂.** On the synthetic set `scaled_d4` is the best estimator when neighbouring points are independent and
-   `flat_ends` the one that survives correlation; neither is right in both regimes. A design would need a rule for
-   the regime — the correlation diagnostics are the evidence, and turning them into a rule means a threshold on a
-   scale-free quantity (CLAUDE.md, "Thresholds on data-scaled quantities fail": these are scale-free, but the
-   rule is still a choice that needs its own measurement).
-3. **Where to estimate it.** The fit window or the whole spectrum agree on the committed data (§5); the whole
-   spectrum has more points but may include regions with other corrections.
-4. **What to say.** A calibrated χ²ᵣ is only as good as the noise model; showing k̂ and its basis (e.g. "noise
-   estimated from the data: 0.7 × the counts-per-second value") is part of the decision, as is what to show when
-   the data are too few counts, smoothed, or the estimate is unstable.
-5. **The best evidence would be the instrument's own.** If Avantage's acquisition parameters (dwell time, scans,
-   detector correction) could be decoded from the VGD properties, k would follow from the acquisition, not the
-   data. Not attempted here (undocumented ids, §2).
+1. **The diagnostic needs no fit change.** χ²ᵣ under any variance model can be computed on the fit's own residuals
+   (§1, use 1); showing a "noise-calibrated χ²ᵣ" this way changes no fitted number. Adopting new weights is a fitting
+   change (§1, use 2) and its own unit.
+2. **Which estimate.** On the synthetic set `scaled_d4` is the best for independent noise and badly wrong for
+   correlated noise; `flat_ends` is less affected by correlation but needs flat ends and is itself biased by
+   correlation; the lag > 1 estimators trade one bias for another. A design needs a rule for the regime, and the only
+   model-free evidence of the regime (the diagnostics) is incomplete. Any rule on them is a threshold on a scale-free
+   quantity (CLAUDE.md, "Thresholds on data-scaled quantities fail": scale-free, but still a choice that needs its
+   own measurement).
+3. **Where to estimate it.** The fit window and the whole spectrum agree in the median, not per fit (§5); the choice
+   is part of the design.
+4. **What to say.** A calibrated χ²ᵣ is only as good as its noise model: whether to show the estimate and its basis
+   ("noise estimated from the data: 0.7 × the CPS value"), and what to show when the data are few counts, smoothed,
+   or give an unstable estimate.
+5. **The instrument's own evidence.** If Avantage's acquisition parameters (dwell, scans, detector corrections) could
+   be decoded from the VGD properties, k would follow from the acquisition rather than the data (§2). Not attempted.
 
 ## 7. Limits of this measurement
 
-- The synthetic spectra are one family (C 1s-like, 241 points, three GL peaks); surveys with 1-point-wide peaks and
-  very large windows are represented only by the real data.
-- The real-data readings rest on assumptions §4 tests only synthetically; there is no independent truth for them:
-  no repeated sweeps are stored separately in these files, and "Scan_0 … Scan_9" are HYPOTHESIS different
-  analysis spots (the folders are named "…10spot"), not repeats, so they cannot serve as replicates.
+- The synthetic spectra are one family (C 1s-like, 241 points, three GL peaks) and a few correlation families; the
+  real surveys (1-point-wide peaks, 1361 points) and other correlation structures are not represented synthetically;
+  boundary handling is not benchmarked.
+- The real-data readings have no independent truth: no repeated sweeps are stored separately in these files, and
+  "Scan_0 … Scan_9" are (HYPOTHESIS) different analysis spots — the folders are named "…10spot" — not repeats, so
+  they cannot serve as replicates.
 - The fits are the CURRENT server's refits of the saved models, not the saved fits (those load as "saved before
   sealed records").
 
@@ -189,8 +242,8 @@ low; this measurement does not separate the two, and the expert fits are not a r
 
 | file | command |
 |---|---|
-| `synthetic.json`, `synthetic.txt` | `venv/bin/python scripts/noise_synthetic_benchmark.py --seeds 30 --json docs/findings/noise-estimator/synthetic.json > …/synthetic.txt` |
+| `synthetic.json`, `synthetic.txt`, `synthetic_tables.md` | `venv/bin/python scripts/noise_synthetic_benchmark.py --seeds 30 --json docs/findings/noise-estimator/synthetic.json --markdown docs/findings/noise-estimator/synthetic_tables.md > …/synthetic.txt` |
 | `real_spectra.json`, `real_spectra.txt` | `venv/bin/python scripts/noise_real_spectra.py --json docs/findings/noise-estimator/real_spectra.json > …/real_spectra.txt` |
 | `real_fits_collected.json` | `venv/bin/python scripts/noise_real_fits.py collect --url http://127.0.0.1:PORT --out …` against a 4-worker gunicorn of this branch (a192f78 + these scripts) |
 | `real_fits.json`, `real_fits.txt` | `venv/bin/python scripts/noise_real_fits.py analyse docs/findings/noise-estimator/real_fits_collected.json --json …/real_fits.json` |
-| the estimators | `scripts/noise_estimators.py`; their arithmetic pinned by `tests/test_noise_estimators.py` |
+| the estimators | `scripts/noise_estimators.py`; their arithmetic pinned by `tests/test_noise_estimators.py` (24 tests) |

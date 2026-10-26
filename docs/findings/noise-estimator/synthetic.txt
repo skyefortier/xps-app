@@ -1,120 +1,156 @@
 
 cps t=0.05 s   (rho1 d1 -0.29 [white -0.50], d4 -0.79 [white -0.80]; lag profile 1.00 1.09 1.20 1.33)
-  constant_d2          chi2r_true   1.299  [  0.824,   1.943]  shape-spread   3.93   by width: sharp   1.07 typic   1.34 wide   1.51
-  flat_ends            chi2r_true   1.154  [  0.785,  11.026]  shape-spread   1.38   by width: sharp   1.19 typic   1.14 wide   1.13
-  poisson_file_units   chi2r_true  21.821  [ 17.697, 208.771]  shape-spread   1.38   by width: sharp  22.11 typic  21.80 wide  21.40
-  scaled_d1            chi2r_true   0.877  [  0.400,   9.441]  shape-spread   1.38   by width: sharp   0.89 typic   0.83 wide   0.91
-  scaled_d2            chi2r_true   1.059  [  0.712,   9.201]  shape-spread   1.38   by width: sharp   0.96 typic   1.06 wide   1.10
-  scaled_d2_lag3       chi2r_true   0.884  [  0.408,   8.710]  shape-spread   1.38   by width: sharp   0.77 typic   0.78 wide   0.99
-  scaled_d4            chi2r_true   1.105  [  0.747,   9.581]  shape-spread   1.38   by width: sharp   1.06 typic   1.14 wide   1.12
-  varmean              chi2r_true   1.070  [  0.179,  23.271]  shape-spread   1.56   by width: sharp   0.95 typic   1.10 wide   1.06
+  constant_d2          scale   1.10 [ 0.78,   1.71] by level  1.06  1.09  1.15  1.20 | spread  3.93 | chi2r est  1.30 plug-in   1.30
+  constant_d4          scale   1.11 [ 0.78,   1.58] by level  1.07  1.09  1.14  1.14 | spread  3.93 | chi2r est  1.29 plug-in   1.29
+  der_snr              scale   1.21 [ 0.79,   1.91] by level  1.06  1.10  1.24  1.47 | spread  3.93 | chi2r est  1.21 plug-in   1.21
+  flat_ends            scale   0.99 [ 0.69,   1.37] by level  0.97  1.00  0.98  1.00 | spread  1.00 | chi2r est  1.00 plug-in   1.15
+  poisson_file_units   scale   0.05 [ 0.05,   0.05] by level  0.05  0.05  0.05  0.05 | spread  1.00 | chi2r est 20.05 plug-in  21.82
+  scaled_d1            scale   1.36 [ 0.79,   2.53] by level  1.32  1.10  1.37  2.17 | spread  1.00 | chi2r est  0.75 plug-in   0.88
+  scaled_d2            scale   1.10 [ 0.81,   1.54] by level  1.10  1.03  1.09  1.16 | spread  1.00 | chi2r est  0.90 plug-in   1.06
+  scaled_d2_lag3       scale   1.32 [ 0.88,   2.44] by level  1.10  1.15  1.38  1.72 | spread  1.00 | chi2r est  0.77 plug-in   0.88
+  scaled_d4            scale   1.05 [ 0.74,   1.49] by level  1.11  1.00  1.05  1.07 | spread  1.00 | chi2r est  0.95 plug-in   1.11
+  varmean              scale   1.11 [ 0.78,   4.76] by level  1.00  1.02  1.16  1.34 | spread  1.00 | chi2r est  0.93 plug-in   0.98
 
 cps t=1 s   (rho1 d1 +0.03 [white -0.50], d4 -0.78 [white -0.80]; lag profile 1.00 1.25 1.49 1.77)
-  constant_d2          chi2r_true   1.163  [  0.698,   1.871]  shape-spread   3.93   by width: sharp   0.93 typic   1.13 wide   1.48
-  flat_ends            chi2r_true   1.002  [  0.664,   1.398]  shape-spread   1.08   by width: sharp   1.03 typic   1.03 wide   0.94
-  poisson_file_units   chi2r_true   1.007  [  0.871,   1.189]  shape-spread   1.08   by width: sharp   1.02 typic   1.00 wide   1.01
-  scaled_d1            chi2r_true   0.610  [  0.074,   1.056]  shape-spread   1.08   by width: sharp   0.71 typic   0.46 wide   0.48
-  scaled_d2            chi2r_true   0.880  [  0.532,   1.232]  shape-spread   1.08   by width: sharp   0.79 typic   0.85 wide   0.98
-  scaled_d2_lag3       chi2r_true   0.589  [  0.171,   1.046]  shape-spread   1.08   by width: sharp   0.59 typic   0.41 wide   0.75
-  scaled_d4            chi2r_true   0.958  [  0.673,   1.354]  shape-spread   1.08   by width: sharp   0.88 typic   1.01 wide   0.99
-  varmean              chi2r_true   0.836  [  0.012,   1.321]  shape-spread   1.12   by width: sharp   0.24 typic   0.80 wide   0.94
+  constant_d2          scale   1.22 [ 0.84,   1.90] by level  1.11  1.19  1.22  1.44 | spread  3.93 | chi2r est  1.16 plug-in   1.16
+  constant_d4          scale   1.13 [ 0.79,   1.61] by level  1.09  1.14  1.11  1.17 | spread  3.93 | chi2r est  1.26 plug-in   1.26
+  der_snr              scale   1.43 [ 0.89,   3.15] by level  1.15  1.25  1.52  2.00 | spread  3.93 | chi2r est  0.97 plug-in   0.97
+  flat_ends            scale   1.01 [ 0.70,   1.54] by level  0.99  0.99  0.98  1.10 | spread  1.00 | chi2r est  0.99 plug-in   1.00
+  poisson_file_units   scale   1.00 [ 1.00,   1.00] by level  1.00  1.00  1.00  1.00 | spread  1.00 | chi2r est  0.99 plug-in   1.01
+  scaled_d1            scale   1.65 [ 0.97,  13.60] by level  1.13  1.53  2.68  4.89 | spread  1.00 | chi2r est  0.61 plug-in   0.61
+  scaled_d2            scale   1.15 [ 0.80,   1.90] by level  1.02  1.07  1.22  1.49 | spread  1.00 | chi2r est  0.87 plug-in   0.88
+  scaled_d2_lag3       scale   1.70 [ 0.96,   5.76] by level  1.24  1.51  1.97  3.09 | spread  1.00 | chi2r est  0.58 plug-in   0.59
+  scaled_d4            scale   1.05 [ 0.74,   1.53] by level  1.00  1.05  1.05  1.12 | spread  1.00 | chi2r est  0.95 plug-in   0.96
+  varmean              scale   1.25 [ 0.84,  64.70] by level  1.04  1.21  1.61  7.35 | spread  1.00 | chi2r est  0.81 plug-in   0.82
 
 cps t=20 s   (rho1 d1 +0.51 [white -0.50], d4 -0.76 [white -0.80]; lag profile 1.00 1.51 2.08 2.79)
-  constant_d2          chi2r_true   0.934  [  0.464,   1.729]  shape-spread   3.93   by width: sharp   0.81 typic   0.84 wide   1.31
-  flat_ends            chi2r_true   0.947  [  0.097,   1.391]  shape-spread   1.02   by width: sharp   1.02 typic   1.01 wide   0.70
-  poisson_file_units   chi2r_true   0.050  [  0.043,   0.058]  shape-spread   1.02   by width: sharp   0.05 typic   0.05 wide   0.05
-  scaled_d1            chi2r_true   0.312  [  0.004,   0.727]  shape-spread   1.02   by width: sharp   0.54 typic   0.23 wide   0.11
-  scaled_d2            chi2r_true   0.682  [  0.278,   1.112]  shape-spread   1.02   by width: sharp   0.64 typic   0.55 wide   0.84
-  scaled_d2_lag3       chi2r_true   0.330  [  0.049,   0.814]  shape-spread   1.02   by width: sharp   0.44 typic   0.20 wide   0.37
-  scaled_d4            chi2r_true   0.905  [  0.601,   1.300]  shape-spread   1.02   by width: sharp   0.74 typic   0.95 wide   1.01
-  varmean              chi2r_true   0.395  [  0.001,   1.090]  shape-spread   1.02   by width: sharp   0.02 typic   0.21 wide   0.82
+  constant_d2          scale   1.45 [ 0.93,   3.51] by level  1.17  1.31  1.56  2.05 | spread  3.93 | chi2r est  0.93 plug-in   0.93
+  constant_d4          scale   1.19 [ 0.82,   1.73] by level  1.15  1.17  1.21  1.23 | spread  3.93 | chi2r est  1.24 plug-in   1.24
+  der_snr              scale   1.97 [ 1.07,   7.52] by level  1.36  1.67  2.28  5.57 | spread  3.93 | chi2r est  0.68 plug-in   0.68
+  flat_ends            scale   1.05 [ 0.70,  10.01] by level  0.98  1.01  1.15  1.15 | spread  1.00 | chi2r est  0.95 plug-in   0.95
+  poisson_file_units   scale  20.00 [20.00,  20.00] by level 20.00 20.00 20.00 20.00 | spread  1.00 | chi2r est  0.05 plug-in   0.05
+  scaled_d1            scale   3.16 [ 1.36, 217.06] by level  1.70  3.35  6.23 19.73 | spread  1.00 | chi2r est  0.31 plug-in   0.31
+  scaled_d2            scale   1.45 [ 0.88,   3.69] by level  1.13  1.30  1.63  2.09 | spread  1.00 | chi2r est  0.68 plug-in   0.68
+  scaled_d2_lag3       scale   3.00 [ 1.19,  20.11] by level  1.64  2.10  4.19 17.03 | spread  1.00 | chi2r est  0.33 plug-in   0.33
+  scaled_d4            scale   1.11 [ 0.73,   1.69] by level  1.06  1.04  1.14  1.20 | spread  1.00 | chi2r est  0.90 plug-in   0.90
+  varmean              scale   2.37 [ 0.92, 1235.85] by level  1.23  2.23 13.31 125.38 | spread  1.00 | chi2r est  0.42 plug-in   0.42
 
 gaussian constant   (rho1 d1 +0.49 [white -0.50], d4 -0.77 [white -0.80]; lag profile 1.00 1.38 1.79 2.32)
-  constant_d2          chi2r_true   0.780  [  0.578,   1.167]  shape-spread   1.00   by width: sharp   0.74 typic   0.71 wide   0.99
-  flat_ends            chi2r_true   0.759  [  0.484,   1.164]  shape-spread   3.97   by width: sharp   0.96 typic   0.77 wide   0.58
-  poisson_file_units   chi2r_true   0.505  [  0.010,  25.449]  shape-spread   3.97   by width: sharp   0.45 typic   0.43 wide   1.14
-  scaled_d1            chi2r_true   0.403  [  0.268,   0.751]  shape-spread   3.97   by width: sharp   0.62 typic   0.31 wide   0.40
-  scaled_d2            chi2r_true   0.794  [  0.575,   1.658]  shape-spread   3.97   by width: sharp   0.70 typic   0.72 wide   1.36
-  scaled_d2_lag3       chi2r_true   0.523  [  0.247,   0.906]  shape-spread   3.97   by width: sharp   0.52 typic   0.30 wide   0.79
-  scaled_d4            chi2r_true   1.098  [  0.671,   1.793]  shape-spread   3.97   by width: sharp   0.81 typic   1.12 wide   1.41
-  varmean              chi2r_true   0.677  [  0.077,   1.110]  shape-spread   1.67   by width: sharp   0.12 typic   0.68 wide   0.94
+  constant_d2          scale   1.26 [ 0.84,   1.79] by level  1.28  1.25  1.26  1.27 | spread  1.00 | chi2r est  0.78 plug-in   0.78
+  constant_d4          scale   1.06 [ 0.75,   1.53] by level  1.07  1.05  1.05  1.07 | spread  1.00 | chi2r est  0.94 plug-in   0.94
+  der_snr              scale   1.61 [ 1.05,   2.65] by level  1.60  1.60  1.61  1.63 | spread  1.00 | chi2r est  0.62 plug-in   0.62
+  flat_ends            scale   1.31 [ 0.79,   2.32] by level  1.31  1.32  1.31  1.29 | spread  3.93 | chi2r est  0.76 plug-in   0.76
+  poisson_file_units   scale   2.52 [ 0.04,  93.47] by level 67.79  6.78  0.68  0.07 | spread  3.93 | chi2r est  0.50 plug-in   0.50
+  scaled_d1            scale   2.57 [ 1.35,   3.51] by level  2.54  2.60  2.66  2.49 | spread  3.93 | chi2r est  0.40 plug-in   0.40
+  scaled_d2            scale   1.20 [ 0.66,   1.81] by level  1.22  1.20  1.19  1.18 | spread  3.93 | chi2r est  0.79 plug-in   0.79
+  scaled_d2_lag3       scale   1.99 [ 1.17,   3.64] by level  1.98  1.93  2.00  2.01 | spread  3.93 | chi2r est  0.52 plug-in   0.52
+  scaled_d4            scale   0.89 [ 0.58,   1.56] by level  0.88  0.88  0.91  0.88 | spread  3.93 | chi2r est  1.10 plug-in   1.10
+  varmean              scale   1.42 [ 0.83,   8.67] by level  1.45  1.42  1.41  1.39 | spread  1.69 | chi2r est  0.65 plug-in   0.65
 
-interpolated (half step)   (rho1 d1 +0.57 [white -0.50], d4 -0.46 [white -0.80]; lag profile 1.00 3.58 4.59 5.74)
-  constant_d2          chi2r_true   3.095  [  1.690,   5.467]  shape-spread   3.98   by width: sharp   2.53 typic   2.96 wide   4.09
-  flat_ends            chi2r_true   1.063  [  0.450,   1.708]  shape-spread   1.05   by width: sharp   1.10 typic   1.10 wide   0.96
-  poisson_file_units   chi2r_true   0.501  [  0.409,   0.597]  shape-spread   1.05   by width: sharp   0.50 typic   0.50 wide   0.50
-  scaled_d1            chi2r_true   0.928  [  0.043,   1.833]  shape-spread   1.05   by width: sharp   1.25 typic   0.64 wide   0.51
-  scaled_d2            chi2r_true   2.268  [  1.136,   3.618]  shape-spread   1.05   by width: sharp   2.11 typic   2.04 wide   2.69
-  scaled_d2_lag3       chi2r_true   0.515  [  0.132,   1.024]  shape-spread   1.05   by width: sharp   0.52 typic   0.37 wide   0.69
-  scaled_d4            chi2r_true   4.649  [  3.074,   6.713]  shape-spread   1.05   by width: sharp   3.98 typic   4.92 wide   4.96
-  varmean              chi2r_true   1.887  [  0.006,   3.631]  shape-spread   1.08   by width: sharp   0.15 typic   1.49 wide   2.74
+half-bin shift (adjacent means)   (rho1 d1 +0.57 [white -0.50], d4 -0.46 [white -0.80]; lag profile 1.00 3.58 4.59 5.74)
+  constant_d2          scale   0.44 [ 0.29,   0.85] by level  0.37  0.41  0.47  0.58 | spread  3.98 | chi2r est  3.09 plug-in   3.09
+  constant_d4          scale   0.23 [ 0.16,   0.33] by level  0.22  0.23  0.23  0.25 | spread  3.98 | chi2r est  6.16 plug-in   6.16
+  der_snr              scale   1.53 [ 0.93,   3.81] by level  1.19  1.33  1.65  2.31 | spread  3.98 | chi2r est  0.87 plug-in   0.87
+  flat_ends            scale   0.94 [ 0.57,   2.19] by level  0.91  0.88  0.95  1.06 | spread  1.00 | chi2r est  1.05 plug-in   1.06
+  poisson_file_units   scale   2.00 [ 2.00,   2.00] by level  2.00  2.00  2.00  2.00 | spread  1.00 | chi2r est  0.50 plug-in   0.50
+  scaled_d1            scale   1.08 [ 0.54,  23.55] by level  0.65  1.02  2.09  4.36 | spread  1.00 | chi2r est  0.93 plug-in   0.93
+  scaled_d2            scale   0.44 [ 0.28,   0.85] by level  0.36  0.39  0.49  0.60 | spread  1.00 | chi2r est  2.26 plug-in   2.27
+  scaled_d2_lag3       scale   1.92 [ 0.94,   7.32] by level  1.26  1.63  2.10  4.26 | spread  1.00 | chi2r est  0.51 plug-in   0.51
+  scaled_d4            scale   0.22 [ 0.15,   0.32] by level  0.21  0.21  0.22  0.23 | spread  1.00 | chi2r est  4.62 plug-in   4.65
+  varmean              scale   0.51 [ 0.28, 302.60] by level  0.35  0.44  1.84 18.39 | spread  1.00 | chi2r est  1.95 plug-in   1.96
 
 mean of 10 sweeps   (rho1 d1 +0.43 [white -0.50], d4 -0.76 [white -0.80]; lag profile 1.00 1.43 1.93 2.56)
-  constant_d2          chi2r_true   0.997  [  0.535,   1.759]  shape-spread   3.93   by width: sharp   0.83 typic   0.91 wide   1.35
-  flat_ends            chi2r_true   0.962  [  0.200,   1.433]  shape-spread   1.02   by width: sharp   1.02 typic   1.00 wide   0.80
-  poisson_file_units   chi2r_true   0.100  [  0.086,   0.115]  shape-spread   1.02   by width: sharp   0.10 typic   0.10 wide   0.10
-  scaled_d1            chi2r_true   0.371  [  0.009,   0.800]  shape-spread   1.02   by width: sharp   0.59 typic   0.27 wide   0.15
-  scaled_d2            chi2r_true   0.741  [  0.341,   1.139]  shape-spread   1.02   by width: sharp   0.69 typic   0.64 wide   0.88
-  scaled_d2_lag3       chi2r_true   0.385  [  0.070,   0.875]  shape-spread   1.02   by width: sharp   0.48 typic   0.23 wide   0.47
-  scaled_d4            chi2r_true   0.930  [  0.618,   1.314]  shape-spread   1.02   by width: sharp   0.79 typic   0.99 wide   0.99
-  varmean              chi2r_true   0.552  [  0.001,   1.095]  shape-spread   1.03   by width: sharp   0.03 typic   0.37 wide   0.86
+  constant_d2          scale   1.39 [ 0.89,   2.76] by level  1.15  1.28  1.44  1.87 | spread  3.93 | chi2r est  1.00 plug-in   1.00
+  constant_d4          scale   1.16 [ 0.80,   1.68] by level  1.09  1.15  1.20  1.20 | spread  3.93 | chi2r est  1.25 plug-in   1.25
+  der_snr              scale   1.80 [ 0.99,   5.69] by level  1.27  1.54  2.01  4.01 | spread  3.93 | chi2r est  0.75 plug-in   0.75
+  flat_ends            scale   1.04 [ 0.68,   5.06] by level  0.99  0.99  1.11  1.14 | spread  1.00 | chi2r est  0.96 plug-in   0.96
+  poisson_file_units   scale  10.00 [10.00,  10.00] by level 10.00 10.00 10.00 10.00 | spread  1.00 | chi2r est  0.10 plug-in   0.10
+  scaled_d1            scale   2.71 [ 1.21, 108.93] by level  1.46  2.73  5.00 12.51 | spread  1.00 | chi2r est  0.37 plug-in   0.37
+  scaled_d2            scale   1.35 [ 0.84,   2.87] by level  1.07  1.21  1.50  1.93 | spread  1.00 | chi2r est  0.74 plug-in   0.74
+  scaled_d2_lag3       scale   2.63 [ 1.11,  13.99] by level  1.55  1.88  3.11 10.63 | spread  1.00 | chi2r est  0.38 plug-in   0.39
+  scaled_d4            scale   1.08 [ 0.75,   1.64] by level  1.02  1.08  1.12  1.15 | spread  1.00 | chi2r est  0.93 plug-in   0.93
+  varmean              scale   1.81 [ 0.88, 622.13] by level  1.15  1.61  7.08 61.12 | spread  1.00 | chi2r est  0.56 plug-in   0.56
 
 poisson + constant   (rho1 d1 -0.16 [white -0.50], d4 -0.78 [white -0.80]; lag profile 1.00 1.17 1.36 1.54)
-  constant_d2          chi2r_true   0.999  [  0.709,   1.567]  shape-spread   1.28   by width: sharp   0.91 typic   1.00 wide   1.11
-  flat_ends            chi2r_true   0.862  [  0.551,   1.309]  shape-spread   1.76   by width: sharp   0.98 typic   0.87 wide   0.69
-  poisson_file_units   chi2r_true   4.074  [  1.074, 162.101]  shape-spread   1.76   by width: sharp   3.97 typic   3.44 wide   8.78
-  scaled_d1            chi2r_true   0.755  [  0.458,   1.101]  shape-spread   1.76   by width: sharp   0.77 typic   0.59 wide   0.83
-  scaled_d2            chi2r_true   1.009  [  0.708,   1.549]  shape-spread   1.76   by width: sharp   0.87 typic   0.99 wide   1.21
-  scaled_d2_lag3       chi2r_true   0.721  [  0.412,   1.312]  shape-spread   1.76   by width: sharp   0.64 typic   0.54 wide   1.09
-  scaled_d4            chi2r_true   1.090  [  0.761,   1.678]  shape-spread   1.76   by width: sharp   0.96 typic   1.12 wide   1.23
-  varmean              chi2r_true   0.957  [  0.414,   1.374]  shape-spread   1.54   by width: sharp   0.62 typic   1.03 wide   0.99
+  constant_d2          scale   1.14 [ 0.80,   1.54] by level  1.11  1.15  1.14  1.15 | spread  1.28 | chi2r est  1.00 plug-in   1.00
+  constant_d4          scale   1.07 [ 0.74,   1.52] by level  1.11  1.09  1.03  1.04 | spread  1.28 | chi2r est  1.06 plug-in   1.06
+  der_snr              scale   1.29 [ 0.88,   1.83] by level  1.19  1.31  1.33  1.42 | spread  1.28 | chi2r est  0.88 plug-in   0.88
+  flat_ends            scale   1.18 [ 0.76,   2.09] by level  1.04  1.17  1.27  1.30 | spread  1.64 | chi2r est  0.84 plug-in   0.86
+  poisson_file_units   scale   0.27 [ 0.01,   0.94] by level  0.92  0.52  0.10  0.01 | spread  1.64 | chi2r est  3.92 plug-in   4.07
+  scaled_d1            scale   1.39 [ 0.95,   2.04] by level  1.12  1.38  1.52  1.59 | spread  1.64 | chi2r est  0.73 plug-in   0.76
+  scaled_d2            scale   1.00 [ 0.69,   1.47] by level  1.01  1.03  0.99  0.98 | spread  1.64 | chi2r est  0.97 plug-in   1.01
+  scaled_d2_lag3       scale   1.43 [ 0.84,   2.32] by level  1.26  1.48  1.68  1.68 | spread  1.64 | chi2r est  0.69 plug-in   0.72
+  scaled_d4            scale   0.95 [ 0.63,   1.39] by level  1.00  0.97  0.87  0.89 | spread  1.64 | chi2r est  1.06 plug-in   1.09
+  varmean              scale   1.11 [ 0.77,   2.17] by level  1.04  1.14  1.16  1.17 | spread  1.31 | chi2r est  0.89 plug-in   0.91
 
 poisson counts   (rho1 d1 +0.03 [white -0.50], d4 -0.78 [white -0.80]; lag profile 1.00 1.24 1.48 1.76)
-  constant_d2          chi2r_true   1.169  [  0.699,   1.856]  shape-spread   3.93   by width: sharp   0.93 typic   1.12 wide   1.50
-  flat_ends            chi2r_true   1.004  [  0.683,   1.390]  shape-spread   1.07   by width: sharp   1.03 typic   1.02 wide   0.94
-  poisson_file_units   chi2r_true   1.016  [  0.864,   1.186]  shape-spread   1.07   by width: sharp   1.02 typic   1.02 wide   1.00
-  scaled_d1            chi2r_true   0.619  [  0.074,   1.047]  shape-spread   1.07   by width: sharp   0.68 typic   0.47 wide   0.50
-  scaled_d2            chi2r_true   0.874  [  0.528,   1.243]  shape-spread   1.07   by width: sharp   0.78 typic   0.84 wide   0.99
-  scaled_d2_lag3       chi2r_true   0.587  [  0.165,   1.084]  shape-spread   1.07   by width: sharp   0.58 typic   0.43 wide   0.77
-  scaled_d4            chi2r_true   0.956  [  0.669,   1.331]  shape-spread   1.07   by width: sharp   0.86 typic   0.99 wide   1.00
-  varmean              chi2r_true   0.818  [  0.012,   1.272]  shape-spread   1.13   by width: sharp   0.23 typic   0.78 wide   0.95
+  constant_d2          scale   1.22 [ 0.84,   1.96] by level  1.15  1.13  1.25  1.48 | spread  3.93 | chi2r est  1.17 plug-in   1.17
+  constant_d4          scale   1.14 [ 0.79,   1.64] by level  1.11  1.11  1.15  1.21 | spread  3.93 | chi2r est  1.26 plug-in   1.26
+  der_snr              scale   1.42 [ 0.92,   3.28] by level  1.18  1.33  1.53  1.97 | spread  3.93 | chi2r est  0.95 plug-in   0.95
+  flat_ends            scale   1.01 [ 0.71,   1.50] by level  0.97  1.00  1.01  1.11 | spread  1.00 | chi2r est  0.99 plug-in   1.00
+  poisson_file_units   scale   1.00 [ 1.00,   1.00] by level  1.00  1.00  1.00  1.00 | spread  1.00 | chi2r est  1.00 plug-in   1.02
+  scaled_d1            scale   1.64 [ 1.00,  13.76] by level  1.14  1.45  2.67  5.04 | spread  1.00 | chi2r est  0.62 plug-in   0.62
+  scaled_d2            scale   1.16 [ 0.81,   1.95] by level  1.03  1.08  1.26  1.54 | spread  1.00 | chi2r est  0.86 plug-in   0.87
+  scaled_d2_lag3       scale   1.74 [ 0.92,   5.89] by level  1.24  1.54  1.91  3.09 | spread  1.00 | chi2r est  0.58 plug-in   0.59
+  scaled_d4            scale   1.06 [ 0.73,   1.56] by level  1.02  1.03  1.08  1.14 | spread  1.00 | chi2r est  0.94 plug-in   0.96
+  varmean              scale   1.28 [ 0.82,  65.58] by level  1.04  1.19  1.64  7.49 | spread  1.00 | chi2r est  0.79 plug-in   0.80
 
 smoothed MA3   (rho1 d1 +0.60 [white -0.50], d4 -0.82 [white -0.80]; lag profile 1.00 3.20 6.84 8.67)
-  constant_d2          chi2r_true   4.348  [  2.030,   8.241]  shape-spread   4.04   by width: sharp   3.66 typic   3.96 wide   5.89
-  flat_ends            chi2r_true   1.166  [  0.379,   2.014]  shape-spread   1.04   by width: sharp   1.24 typic   1.25 wide   0.97
-  poisson_file_units   chi2r_true   0.331  [  0.263,   0.413]  shape-spread   1.04   by width: sharp   0.33 typic   0.34 wide   0.33
-  scaled_d1            chi2r_true   1.116  [  0.029,   2.486]  shape-spread   1.04   by width: sharp   1.68 typic   0.78 wide   0.48
-  scaled_d2            chi2r_true   3.210  [  1.347,   5.328]  shape-spread   1.04   by width: sharp   2.96 typic   2.69 wide   3.80
-  scaled_d2_lag3       chi2r_true   0.487  [  0.108,   0.981]  shape-spread   1.04   by width: sharp   0.52 typic   0.31 wide   0.63
-  scaled_d4            chi2r_true   4.546  [  2.719,   7.280]  shape-spread   1.04   by width: sharp   3.93 typic   4.81 wide   4.81
-  varmean              chi2r_true   2.275  [  0.005,   5.118]  shape-spread   1.06   by width: sharp   0.15 typic   1.22 wide   3.77
+  constant_d2          scale   0.31 [ 0.21,   0.72] by level  0.27  0.28  0.33  0.43 | spread  4.04 | chi2r est  4.35 plug-in   4.35
+  constant_d4          scale   0.23 [ 0.15,   0.36] by level  0.22  0.23  0.23  0.25 | spread  4.04 | chi2r est  6.02 plug-in   6.02
+  der_snr              scale   0.94 [ 0.55,   2.91] by level  0.72  0.82  1.05  1.72 | spread  4.04 | chi2r est  1.40 plug-in   1.40
+  flat_ends            scale   0.86 [ 0.47,   2.52] by level  0.81  0.79  0.87  1.01 | spread  1.00 | chi2r est  1.16 plug-in   1.17
+  poisson_file_units   scale   3.00 [ 3.00,   3.00] by level  3.00  3.00  3.00  3.00 | spread  1.00 | chi2r est  0.33 plug-in   0.33
+  scaled_d1            scale   0.89 [ 0.40,  33.28] by level  0.49  0.89  1.67  4.53 | spread  1.00 | chi2r est  1.12 plug-in   1.12
+  scaled_d2            scale   0.31 [ 0.19,   0.74] by level  0.24  0.28  0.35  0.46 | spread  1.00 | chi2r est  3.21 plug-in   3.21
+  scaled_d2_lag3       scale   2.04 [ 0.99,   9.43] by level  1.35  1.67  2.35  5.23 | spread  1.00 | chi2r est  0.49 plug-in   0.49
+  scaled_d4            scale   0.22 [ 0.14,   0.34] by level  0.21  0.22  0.23  0.23 | spread  1.00 | chi2r est  4.52 plug-in   4.55
+  varmean              scale   0.47 [ 0.20, 330.33] by level  0.27  0.38  1.95 17.10 | spread  1.00 | chi2r est  2.12 plug-in   2.15
 
 smoothed MA5   (rho1 d1 +0.68 [white -0.50], d4 -0.69 [white -0.80]; lag profile 1.00 2.87 6.28 11.94)
-  constant_d2          chi2r_true   6.439  [  2.582,  13.698]  shape-spread   4.14   by width: sharp   5.44 typic   5.69 wide   9.11
-  flat_ends            chi2r_true   1.433  [  0.235,   2.872]  shape-spread   1.03   by width: sharp   1.53 typic   1.59 wide   1.03
-  poisson_file_units   chi2r_true   0.198  [  0.150,   0.258]  shape-spread   1.03   by width: sharp   0.20 typic   0.20 wide   0.20
-  scaled_d1            chi2r_true   1.385  [  0.018,   3.697]  shape-spread   1.03   by width: sharp   2.47 typic   0.96 wide   0.41
-  scaled_d2            chi2r_true   4.720  [  1.667,   8.778]  shape-spread   1.03   by width: sharp   4.52 typic   3.83 wide   5.97
-  scaled_d2_lag3       chi2r_true   0.776  [  0.116,   1.917]  shape-spread   1.03   by width: sharp   0.93 typic   0.47 wide   0.94
-  scaled_d4            chi2r_true   7.816  [  4.607,  12.803]  shape-spread   1.03   by width: sharp   6.75 typic   8.07 wide   8.75
-  varmean              chi2r_true   2.603  [  0.012,   8.411]  shape-spread   1.04   by width: sharp   0.39 typic   1.03 wide   5.98
+  constant_d2          scale   0.21 [ 0.13,   0.59] by level  0.16  0.18  0.23  0.32 | spread  4.14 | chi2r est  6.44 plug-in   6.44
+  constant_d4          scale   0.13 [ 0.09,   0.20] by level  0.13  0.13  0.14  0.15 | spread  4.14 | chi2r est 10.58 plug-in  10.58
+  der_snr              scale   0.55 [ 0.29,   2.47] by level  0.36  0.45  0.61  1.53 | spread  4.14 | chi2r est  2.42 plug-in   2.42
+  flat_ends            scale   0.69 [ 0.34,   4.13] by level  0.65  0.61  0.73  0.82 | spread  1.00 | chi2r est  1.43 plug-in   1.43
+  poisson_file_units   scale   5.00 [ 5.00,   5.00] by level  5.00  5.00  5.00  5.00 | spread  1.00 | chi2r est  0.20 plug-in   0.20
+  scaled_d1            scale   0.71 [ 0.28,  55.73] by level  0.36  0.73  1.48  6.61 | spread  1.00 | chi2r est  1.39 plug-in   1.38
+  scaled_d2            scale   0.21 [ 0.12,   0.62] by level  0.15  0.18  0.25  0.34 | spread  1.00 | chi2r est  4.71 plug-in   4.72
+  scaled_d2_lag3       scale   1.28 [ 0.52,   8.67] by level  0.74  0.95  1.60  5.52 | spread  1.00 | chi2r est  0.78 plug-in   0.78
+  scaled_d4            scale   0.13 [ 0.08,   0.20] by level  0.12  0.12  0.13  0.14 | spread  1.00 | chi2r est  7.80 plug-in   7.82
+  varmean              scale   0.40 [ 0.13, 165.29] by level  0.17  0.40  2.62 26.02 | spread  1.00 | chi2r est  2.32 plug-in   2.32
 
 smoothed SG7   (rho1 d1 +0.67 [white -0.50], d4 -0.66 [white -0.80]; lag profile 1.00 4.20 9.92 14.19)
-  constant_d2          chi2r_true   6.488  [  2.983,  13.001]  shape-spread   4.10   by width: sharp   5.77 typic   5.64 wide   8.82
-  flat_ends            chi2r_true   1.194  [  0.361,   2.246]  shape-spread   1.05   by width: sharp   1.29 typic   1.28 wide   0.99
-  poisson_file_units   chi2r_true   0.335  [  0.264,   0.418]  shape-spread   1.05   by width: sharp   0.33 typic   0.33 wide   0.34
-  scaled_d1            chi2r_true   1.314  [  0.030,   3.118]  shape-spread   1.05   by width: sharp   2.18 typic   0.94 wide   0.54
-  scaled_d2            chi2r_true   4.792  [  1.849,   8.170]  shape-spread   1.05   by width: sharp   4.72 typic   3.73 wide   5.95
-  scaled_d2_lag3       chi2r_true   0.529  [  0.105,   1.061]  shape-spread   1.05   by width: sharp   0.59 typic   0.33 wide   0.64
-  scaled_d4            chi2r_true   8.764  [  5.095,  13.719]  shape-spread   1.05   by width: sharp   7.16 typic   9.14 wide   9.65
-  varmean              chi2r_true   2.826  [  0.005,   8.240]  shape-spread   1.06   by width: sharp   0.14 typic   1.50 wide   6.02
+  constant_d2          scale   0.20 [ 0.13,   0.52] by level  0.17  0.19  0.21  0.29 | spread  4.10 | chi2r est  6.49 plug-in   6.49
+  constant_d4          scale   0.12 [ 0.08,   0.19] by level  0.12  0.12  0.12  0.13 | spread  4.10 | chi2r est 11.89 plug-in  11.89
+  der_snr              scale   0.81 [ 0.46,   2.65] by level  0.61  0.70  0.92  1.63 | spread  4.10 | chi2r est  1.60 plug-in   1.60
+  flat_ends            scale   0.84 [ 0.44,   2.81] by level  0.78  0.82  0.85  0.96 | spread  1.02 | chi2r est  1.19 plug-in   1.19
+  poisson_file_units   scale   3.00 [ 3.00,   3.00] by level  3.00  3.00  3.00  3.00 | spread  1.02 | chi2r est  0.33 plug-in   0.34
+  scaled_d1            scale   0.77 [ 0.33,  34.43] by level  0.41  0.79  1.53  4.46 | spread  1.02 | chi2r est  1.31 plug-in   1.31
+  scaled_d2            scale   0.20 [ 0.13,   0.55] by level  0.16  0.19  0.23  0.30 | spread  1.02 | chi2r est  4.78 plug-in   4.79
+  scaled_d2_lag3       scale   1.90 [ 0.95,   9.33] by level  1.28  1.59  2.23  5.54 | spread  1.02 | chi2r est  0.53 plug-in   0.53
+  scaled_d4            scale   0.11 [ 0.08,   0.19] by level  0.11  0.11  0.12  0.13 | spread  1.02 | chi2r est  8.74 plug-in   8.76
+  varmean              scale   0.43 [ 0.12, 470.39] by level  0.17  0.34  2.04 19.32 | spread  1.02 | chi2r est  2.25 plug-in   2.27
 
 transmission ±30 %   (rho1 d1 +0.02 [white -0.50], d4 -0.78 [white -0.80]; lag profile 1.00 1.24 1.50 1.78)
-  constant_d2          chi2r_true   1.178  [  0.707,   1.841]  shape-spread   3.54   by width: sharp   0.96 typic   1.15 wide   1.51
-  flat_ends            chi2r_true   0.950  [  0.638,   1.381]  shape-spread   1.64   by width: sharp   0.97 typic   0.98 wide   0.88
-  poisson_file_units   chi2r_true   1.048  [  0.887,   1.247]  shape-spread   1.64   by width: sharp   1.05 typic   1.05 wide   1.05
-  scaled_d1            chi2r_true   0.633  [  0.073,   1.118]  shape-spread   1.64   by width: sharp   0.73 typic   0.47 wide   0.46
-  scaled_d2            chi2r_true   0.902  [  0.532,   1.304]  shape-spread   1.64   by width: sharp   0.82 typic   0.87 wide   1.01
-  scaled_d2_lag3       chi2r_true   0.591  [  0.165,   1.117]  shape-spread   1.64   by width: sharp   0.58 typic   0.42 wide   0.79
-  scaled_d4            chi2r_true   0.994  [  0.694,   1.406]  shape-spread   1.64   by width: sharp   0.90 typic   1.01 wide   1.04
-  varmean              chi2r_true   0.840  [  0.012,   1.328]  shape-spread   1.64   by width: sharp   0.25 typic   0.81 wide   0.96
+  constant_d2          scale   1.27 [ 0.89,   1.98] by level  1.13  1.18  1.34  1.54 | spread  3.54 | chi2r est  1.18 plug-in   1.18
+  constant_d4          scale   1.18 [ 0.80,   1.66] by level  1.14  1.15  1.22  1.24 | spread  3.54 | chi2r est  1.28 plug-in   1.28
+  der_snr              scale   1.48 [ 0.99,   3.36] by level  1.20  1.34  1.57  2.06 | spread  3.54 | chi2r est  0.96 plug-in   0.96
+  flat_ends            scale   1.10 [ 0.74,   1.67] by level  1.07  1.08  1.09  1.18 | spread  1.63 | chi2r est  0.93 plug-in   0.95
+  poisson_file_units   scale   1.00 [ 1.00,   1.00] by level  1.00  1.00  1.00  1.00 | spread  1.63 | chi2r est  1.03 plug-in   1.05
+  scaled_d1            scale   1.64 [ 0.96,  14.17] by level  1.12  1.46  2.88  5.34 | spread  1.63 | chi2r est  0.63 plug-in   0.63
+  scaled_d2            scale   1.17 [ 0.79,   1.95] by level  1.02  1.09  1.25  1.55 | spread  1.63 | chi2r est  0.89 plug-in   0.90
+  scaled_d2_lag3       scale   1.79 [ 0.94,   6.31] by level  1.23  1.55  2.00  3.13 | spread  1.63 | chi2r est  0.58 plug-in   0.59
+  scaled_d4            scale   1.05 [ 0.73,   1.52] by level  1.01  1.05  1.09  1.11 | spread  1.63 | chi2r est  0.98 plug-in   0.99
+  varmean              scale   1.29 [ 0.82,  66.71] by level  1.03  1.19  1.68  7.25 | spread  1.63 | chi2r est  0.81 plug-in   0.82
+
+upsampled x2 (linear)   (rho1 d1 +0.53 [white -0.50], d4 -0.34 [white -0.80]; lag profile nan nan nan nan)
+  constant_d2          scale   0.00 [ 0.00,   0.00] by level  0.00  0.00  0.00  0.00 | spread   nan | chi2r est   inf plug-in    inf
+  constant_d4          scale   0.06 [ 0.04,   0.10] by level  0.05  0.05  0.06  0.07 | spread  5.22 | chi2r est 25.13 plug-in  25.13
+  der_snr              scale   0.66 [ 0.46,   1.16] by level  0.55  0.61  0.69  0.86 | spread  5.22 | chi2r est  2.15 plug-in   2.15
+  flat_ends            scale   0.71 [ 0.49,   1.17] by level  0.70  0.70  0.70  0.76 | spread  2.00 | chi2r est  1.05 plug-in   1.07
+  poisson_file_units   scale   1.00 [ 1.00,   1.00] by level  1.00  1.00  1.00  1.00 | spread  2.00 | chi2r est  0.75 plug-in   0.76
+  scaled_d1            scale   0.41 [ 0.25,   3.41] by level  0.29  0.37  0.68  1.22 | spread  2.00 | chi2r est  1.82 plug-in   1.82
+  scaled_d2            scale   0.00 [ 0.00,   0.00] by level  0.00  0.00  0.00  0.00 | spread   nan | chi2r est   inf plug-in    inf
+  scaled_d2_lag3       scale   0.98 [ 0.66,   1.99] by level  0.81  0.89  1.10  1.36 | spread  2.00 | chi2r est  0.77 plug-in   0.77
+  scaled_d4            scale   0.04 [ 0.03,   0.08] by level  0.03  0.04  0.04  0.05 | spread  2.00 | chi2r est 18.77 plug-in  19.01
+  varmean              scale   0.01 [ 0.00,   0.04] by level  0.01  0.01  0.00  0.01 | spread  2.30 | chi2r est 153.54 plug-in 153.83

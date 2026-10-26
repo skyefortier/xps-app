@@ -64,7 +64,7 @@ def collect(url, out):
     json.dump(rows, open(out, "w"))
 
 
-EST = ("scaled_d2", "scaled_d4", "scaled_d2_lag3", "flat_ends", "varmean", "constant_d2")
+EST = ("scaled_d2", "scaled_d4", "scaled_d2_lag3", "flat_ends", "varmean", "constant_d2", "constant_d4", "der_snr")
 
 
 def analyse(path, out):
@@ -97,6 +97,12 @@ def analyse(path, out):
     for est in EST:
         for where in ("window", "spectrum"):
             print(f"{est + ' @ ' + where:34s} {q([r[f'{est}@{where}'] for r in res])}")
+    print("\nthe same estimator from the fit window and from the whole spectrum, PER FIT (ratio of the two χ²ᵣ):")
+    for est in EST:
+        rat = np.array([r[f"{est}@window"] / r[f"{est}@spectrum"] for r in res])
+        worst = max(res, key=lambda r: abs(np.log(r[f"{est}@window"] / r[f"{est}@spectrum"])))
+        print(f"  {est:16s} window/spectrum median {np.median(rat):5.2f}  10-90 % [{np.percentile(rat, 10):5.2f}, {np.percentile(rat, 90):5.2f}]"
+              f"  extreme {worst[f'{est}@window']:.2f} vs {worst[f'{est}@spectrum']:.2f} ({worst['project'][:20]} / {worst['tab']})")
     by = {}
     for r in res:
         by.setdefault(r["region"], []).append(r)

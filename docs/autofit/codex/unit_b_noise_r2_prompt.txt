@@ -1,0 +1,24 @@
+DESIGN REVIEW, ROUND 2, of Unit B (estimating each spectrum's noise from the data) in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software. DESIGN + MEASUREMENT ONLY: nothing a user sees and no fitted number changes; nothing is deployed.
+
+REPO: this checkout, branch unit-b-noise-estimator, on main. The unit is `git diff main..HEAD`; read docs/findings/noise-estimator/README.md first, then docs/autofit/codex/unit_b_noise_r1_prompt.txt (the owner's brief and round-1 questions) and the round-1 verdicts docs/autofit/codex/unit_b_noise_r1_verdict_run{A,B}.md (both NO-GO).
+
+WHAT ROUND 2 CHANGES (each round-1 finding):
+- Quantisation: `common_quantum` tests every divisor m ≤ 1000 of the smallest gap (an exact criterion for counts / t at any t; a running float gcd was tried and rejected — its remainders amplify ulp errors by the quotient); tests with t = 0.005, 0.12345, 0.137, 2, 50 s and continuous data; 0 of 230 files and 0 of 166 project spectra on a grid; the bound on t is labelled HYPOTHESIS.
+- σ scaled by √χ²ᵣ (covariance by χ²ᵣ), cited at lmfit/minimizer.py:812-813.
+- Project provenance: 70 of 166 identical to a committed VGD; the rest HYPOTHESIS. vgd_parser cite :94-97.
+- varmean bins by the points outside each difference (y_{i−2}, y_{i+2}); a large-n test pins the recovered variance; its intercept reported on real data.
+- flat_ends' correlation bias stated (0.70 for MA5 on 24 points) and measured; no longer said to "survive" correlation.
+- New estimators: constant_d4 and the published DER_SNR (lag 2).
+- Benchmark: metrics now the level error and shape spread of v̂ evaluated at the TRUE signal, plus the plug-in χ²ᵣ separately; the half-bin shift renamed; linear ×2 upsampling added; tables generated (`--markdown`, synthetic_tables.md); MA5 and every case in the summary; claims corrected (lag > 1 estimators, per-level medians vs per-spectrum spread).
+- Part (d): per-fit window-vs-spectrum ratios and extremes; interpretations labelled HYPOTHESIS; estimated k, not k.
+- §1: diagnostic on frozen residuals vs new fitting weights distinguished; raw χ², Δχ², AIC/BIC and numerical-path qualifications; correlation needs a covariance matrix.
+
+ANSWER EACH (cite file:line):
+1. Is every round-1 finding resolved?
+2. Is every VERIFIED claim true at the cited lines / outputs, and every unestablished claim labelled HYPOTHESIS?
+3. Are the estimators' mathematics, the new quantum test, and the benchmark's true variances right; do the README tables and sentences match the generated outputs?
+4. Does any sentence conclude more than the measurement supports?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

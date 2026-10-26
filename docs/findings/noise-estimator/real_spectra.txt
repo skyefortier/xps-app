@@ -1,50 +1,67 @@
 
 B1s: 50 files, 251 points, step 0.10 eV
   rho1 d1 +0.29 [-0.25, +0.61] (white -0.50); d4 -0.78 [-0.81, -0.74] (white -0.80); lag profile 1.00 1.38 1.71 2.22
-  non-integer values: at least 100.0% of every file's points; the most points on any 1/t grid (t 5 ms-2 s): 0.40%
+  non-integer values: at least 100.0% of every file's points; files on a common grid (u = smallest gap / j, j ≤ 1000): 0 (median smallest gap 0.0056 CPS)
   scaled_d1        k median    1.614   10-90 % [   0.904,    2.010]
   scaled_d2        k median    0.845   10-90 % [   0.690,    1.136]
   scaled_d4        k median    0.727   10-90 % [   0.547,    0.884]
   scaled_d2_lag3   k median    1.469   10-90 % [   1.126,    1.972]
   flat_ends        k median    1.118   10-90 % [   0.774,    4.610]
-  varmean          k median    0.885   10-90 % [   0.582,    1.386]
+  varmean          k median    0.961   10-90 % [   0.647,    1.397]
+  der_snr          a/median(y) median    0.979   10-90 % [   0.781,    1.353]
+  constant_d4      a/median(y) median    0.710   10-90 % [   0.529,    0.923]
+  varmean intercept a / median(y): median    0.000   10-90 % [   0.000,    0.105]
 
 C1s: 60 files, 191 points, step 0.10 eV
   rho1 d1 +0.35 [+0.05, +0.58] (white -0.50); d4 -0.75 [-0.81, -0.66] (white -0.80); lag profile 1.00 1.51 1.76 2.16
-  non-integer values: at least 100.0% of every file's points; the most points on any 1/t grid (t 5 ms-2 s): 0.52%
+  non-integer values: at least 100.0% of every file's points; files on a common grid (u = smallest gap / j, j ≤ 1000): 0 (median smallest gap 0.0305 CPS)
   scaled_d1        k median    1.720   10-90 % [   1.050,    2.426]
   scaled_d2        k median    0.890   10-90 % [   0.671,    1.223]
   scaled_d4        k median    0.709   10-90 % [   0.542,    0.964]
   scaled_d2_lag3   k median    1.690   10-90 % [   1.056,    2.225]
   flat_ends        k median    0.993   10-90 % [   0.652,   19.287]
-  varmean          k median    1.302   10-90 % [   0.607,    2.739]
+  varmean          k median    1.297   10-90 % [   0.542,    2.668]
+  der_snr          a/median(y) median    1.152   10-90 % [   0.912,    1.609]
+  constant_d4      a/median(y) median    0.746   10-90 % [   0.534,    1.014]
+  varmean intercept a / median(y): median    0.000   10-90 % [   0.000,    0.051]
 
 N1s: 40 files, 181 points, step 0.10 eV
   rho1 d1 +0.33 [-0.34, +0.56] (white -0.50); d4 -0.78 [-0.81, -0.75] (white -0.80); lag profile 1.00 1.46 1.72 2.30
-  non-integer values: at least 100.0% of every file's points; the most points on any 1/t grid (t 5 ms-2 s): 0.55%
+  non-integer values: at least 100.0% of every file's points; files on a common grid (u = smallest gap / j, j ≤ 1000): 0 (median smallest gap 0.0492 CPS)
   scaled_d1        k median    1.690   10-90 % [   0.715,    2.436]
   scaled_d2        k median    0.882   10-90 % [   0.691,    1.130]
   scaled_d4        k median    0.617   10-90 % [   0.479,    0.821]
   scaled_d2_lag3   k median    1.697   10-90 % [   0.985,    2.232]
   flat_ends        k median    0.944   10-90 % [   0.626,    1.445]
-  varmean          k median    1.246   10-90 % [   0.402,    3.333]
+  varmean          k median    1.332   10-90 % [   0.308,    3.140]
+  der_snr          a/median(y) median    1.194   10-90 % [   0.897,    1.563]
+  constant_d4      a/median(y) median    0.712   10-90 % [   0.563,    0.950]
+  varmean intercept a / median(y): median    0.000   10-90 % [   0.000,    0.404]
 
 Survey: 60 files, 1361 points, step 1.00 eV
   rho1 d1 -0.20 [-0.25, -0.13] (white -0.50); d4 -0.75 [-0.78, -0.72] (white -0.80); lag profile 1.00 1.19 1.32 1.50
-  non-integer values: at least 99.8% of every file's points; the most points on any 1/t grid (t 5 ms-2 s): 0.29%
+  non-integer values: at least 99.8% of every file's points; files on a common grid (u = smallest gap / j, j ≤ 1000): 0 (median smallest gap 0.00067 CPS)
   scaled_d1        k median    1.240   10-90 % [   1.134,    1.332]
   scaled_d2        k median    1.071   10-90 % [   0.956,    1.160]
   scaled_d4        k median    1.008   10-90 % [   0.906,    1.124]
   scaled_d2_lag3   k median    1.387   10-90 % [   1.266,    1.550]
   flat_ends        k median   31.624   10-90 % [  20.955,   73.417]
-  varmean          k median    1.066   10-90 % [   0.983,    1.164]
+  varmean          k median    1.080   10-90 % [   0.972,    1.215]
+  der_snr          a/median(y) median    0.862   10-90 % [   0.757,    0.967]
+  constant_d4      a/median(y) median    0.673   10-90 % [   0.590,    0.759]
+  varmean intercept a / median(y): median    0.000   10-90 % [   0.000,    0.036]
 
 U4f: 20 files, 351 points, step 0.10 eV
   rho1 d1 +0.57 [+0.49, +0.64] (white -0.50); d4 -0.78 [-0.80, -0.76] (white -0.80); lag profile 1.00 1.55 2.21 2.97
-  non-integer values: at least 100.0% of every file's points; the most points on any 1/t grid (t 5 ms-2 s): 0.28%
+  non-integer values: at least 100.0% of every file's points; files on a common grid (u = smallest gap / j, j ≤ 1000): 0 (median smallest gap 0.034 CPS)
   scaled_d1        k median    1.843   10-90 % [   1.461,    2.354]
   scaled_d2        k median    0.818   10-90 % [   0.626,    0.880]
   scaled_d4        k median    0.661   10-90 % [   0.537,    0.806]
   scaled_d2_lag3   k median    1.635   10-90 % [   1.252,    2.107]
   flat_ends        k median    2.469   10-90 % [   0.951,    4.446]
-  varmean          k median    1.058   10-90 % [   0.521,    1.494]
+  varmean          k median    1.000   10-90 % [   0.464,    1.274]
+  der_snr          a/median(y) median    1.089   10-90 % [   0.921,    1.267]
+  constant_d4      a/median(y) median    0.640   10-90 % [   0.509,    0.749]
+  varmean intercept a / median(y): median    0.000   10-90 % [   0.000,    0.293]
+
+committed project spectra: 166; identical to a committed VGD's values: 70; non-integer in every spectrum: True; on a common grid: 0
