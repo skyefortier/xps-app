@@ -1,0 +1,20 @@
+DESIGN REVIEW, ROUND 4, of Unit B (estimating each spectrum's noise from the data) in a scientific peak-fitting web application (X-ray photoelectron spectroscopy). Not security software. DESIGN + MEASUREMENT ONLY: nothing a user sees and no fitted number changes; nothing is deployed.
+
+REPO: this checkout, branch unit-b-noise-estimator, on main. The unit is `git diff main..HEAD`; read docs/findings/noise-estimator/README.md first, then docs/autofit/codex/unit_b_noise_r1_prompt.txt (the owner's brief) and the round-3 verdicts docs/autofit/codex/unit_b_noise_r3_verdict_run{A,B}.md (both NO-GO).
+
+WHAT ROUND 4 CHANGES (each round-3 finding):
+- The exclusion of "raw counts / t" no longer rests on the search. It rests on a bound that holds for any t with no search or tolerance: all values multiples of u = 1/t ⇒ every gap ≥ u ⇒ t ≥ 1/(smallest gap) (2.3–60 000 s per point; ≥ 435 s per whole spectrum in every file); that this excludes counts / t stays HYPOTHESIS (the acquisition time). `common_quantum` is described as a heuristic search (not complete; its actual tolerance stated; a None is "no candidate accepted") and is supporting evidence only; README rows for the VGDs and the projects narrowed accordingly.
+- Transmission (a per-point factor) separated from one-scale noise: no single-k estimator removes its shape error (spread 1.63).
+- No unstated ranking: for one-scale independent noise flat_ends (0.97–1.15; closer to 1 in 16 of 20 case-levels) and scaled_d4 (1.0–1.2; needs no flat ends) both stated; §6 item 2 rewritten.
+- "The data's correlation decides …" replaced: the variance law, the correlation and the signal's structure all decide; the diagnostics bear only on the correlation, incompletely.
+- Test count 27.
+
+ANSWER EACH (cite file:line):
+1. Is every round-3 finding resolved?
+2. Is the gap bound argument correct, and are the VGD/project rows now labelled correctly (VERIFIED only for what is established)?
+3. Do the README's tables and sentences match the generated outputs?
+4. Does any sentence conclude more than the measurement supports?
+
+Rank findings BLOCKER / MAJOR / MINOR. Read-only. A verdict is required within the run.
+
+Finish with VERDICT: GO or VERDICT: NO-GO.

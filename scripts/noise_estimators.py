@@ -190,16 +190,14 @@ def correlation_diagnostics(y):
 
 
 def common_quantum(y, max_divisor=1000):
-    """Is y on a grid u·ℤ for some u? Raw counts divided by a counting time t lie on u = 1/t (origin 0), and then the
-    smallest gap g between sorted distinct values is m·u for the smallest count difference m among them, so every
-    gap is an integer multiple of g / m. For each m = 1 … max_divisor: assign every gap and every value its nearest
-    integer multiple of g / m, REFINE u by least squares from those assignments (the rounded g itself is not exact:
-    its error, amplified by a gap's quotient, defeated a fixed candidate — Codex Unit B round 2), reassign, and accept
-    u when every value lies within the arithmetic's own error of an integer multiple of it: the values' rounding
-    (each within half an ulp of its largest magnitude) plus u's own uncertainty times the multiple. Checking the
-    VALUES, not only the gaps, also refuses an offset lattice (0.2, 1.2, 2.2 has gaps of 1 but is not on 1·ℤ).
-    Returns u, or None — "no quantum u ≥ g / max_divisor"; a finer quantum (a smallest count difference above
-    max_divisor) cannot be told from none."""
+    """A HEURISTIC SEARCH for a grid u·ℤ under y (raw counts divided by a counting time t lie on u = 1/t, origin 0):
+    for each divisor m = 1 … max_divisor of the smallest gap g, assign every value its nearest multiple of g / m,
+    refine u by least squares from those assignments, and accept u when every value is within 2 ulps of the largest
+    magnitude plus 4 ulps of u per multiple of a multiple of u (values, not only gaps, so a lattice off the origin is
+    refused). It finds the quantum in the cases tested (counting times 0.005–50 s; tests), but it is NOT complete — a
+    wrong initial assignment that the refinement keeps is missed (Codex Unit B round 3: 10⁸ counts / 10³–10⁴ s) —
+    and its tolerance accepts values that are only near a grid. A None is "no candidate accepted", not a proof.
+    The sound statement needs no search: any grid's u is at most g (the findings use that bound)."""
     v = np.unique(np.asarray(y, float))
     if v.size < 3:
         return None
