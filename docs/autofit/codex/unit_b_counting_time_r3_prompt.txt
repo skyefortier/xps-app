@@ -1,0 +1,21 @@
+You are re-reviewing a READ-ONLY measurement unit (branch unit-b-noise-estimator, now at commit c8cfabf; round 2 reviewed ce16e21). Nothing a user sees changes, no app code changes, nothing is deployed. The finding: whether the committed Thermo Avantage .VGD files record a counting time that turns their stored intensities into whole counts — docs/findings/noise-estimator/counting-time.md, generator scripts/noise_counting_time.py and its outputs counting_time.txt / .json, reader scripts/vgd_properties.py, tests tests/test_noise_counting_time.py, and the README lines that summarise it (the "Owner decisions" and "Correction" notes at the top, the §2 table row "what Avantage did between counting and the stored CPS", §6 item 5, §7). README §1a and §8 are out of scope.
+
+Round 2 (both runs NO-GO, no BLOCKER; the solver and numbers held) raised these; dispositions:
+
+MAJOR — the README headline stated an unrestricted "no common counting time" (every float is dyadic: T = 2^41 s makes the first C1s scan's values whole). FIXED: README top note and counting-time.md §2 state the result within the tested ranges and error model, and say why the bounds are essential (the 2^41 example, verified).
+
+MAJOR — k·d·s = a/f constrains a/f, not a; "only if the corrections differ" and "equal corrections predict 10" were wrong. FIXED: counting-time.md §3 "What it is consistent with" and README §6 item 5 now say a/f (correction a, detector factor f, or both, or estimator bias), with equal-a/unequal-f as one reading, and that 10 and 25 follow only under equal a/f (or f ∝ pass energy/step with equal a).
+
+MAJOR — "expected by chance 2.75" unsupported. FIXED: removed. counting-time.md and the generator now report: no candidate survives the global Bonferroni correction (smallest adjusted p 1); the union bound on the expected number of per-file flags over the 156 024 evaluated candidates under the stated, uncalibrated null is ≤ 1.52; the 2 flags are "neither explained by chance nor evidence of a lattice". The headline says no candidate survives a correction across all files and candidates.
+
+MAJOR (run B) / MINOR (run A) — correction metadata promoted into a demonstrated cause. FIXED: counting-time.md headline ("set", not "applied"; "Is this a surprise? Not necessarily" — a constant correction keeps a lattice at T/a), §2's "Why, as far as the files say" paragraph (flags are observations; coefficient blocks HYPOTHESIS; mechanism HYPOTHESIS), README §2 row.
+
+MINOR — generator introduction retained superseded guarantees. FIXED: its docstring states the three statuses and the conditional exposure model.
+
+MINOR — channel-count VERIFIED wording. FIXED: "No property is identified as a channel count (VERIFIED: no dictionary name says so, and no numeric property equals 128 …; that check cannot exclude a count encoded some other way)".
+
+Please verify each disposition against the committed text and code (git show c8cfabf, and the files at HEAD), reproduce the outputs (the generator runs in ~20 s with /Users/skyefortier/xps-app/venv/bin/python; tests in < 1 s), and check that the edits introduced no new overstatement, no number that disagrees with counting_time.txt / .json, and no VERIFIED label without its evidence. Read the round-2 verdicts (docs/autofit/codex/unit_b_counting_time_r2_verdict_run{A,B}.md) only if you need their wording.
+
+Report findings as BLOCKER / MAJOR / MINOR with file:line and a reproduction where possible. End with exactly one line:
+VERDICT: GO   or   VERDICT: NO-GO
+(GO = no BLOCKER or MAJOR finding.)
