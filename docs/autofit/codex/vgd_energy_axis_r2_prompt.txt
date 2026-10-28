@@ -1,0 +1,14 @@
+You are re-reviewing a READ-ONLY finding (branch investigate-vgd-energy-axis; round 1 reviewed 4f08103; now HEAD). Nothing in the app changed. The finding: the app's VGD reader puts every committed VGD 4.58 eV below Avantage's binding-energy axis, and Avantage's axis is the physical one. Read docs/findings/vgd-energy-axis/README.md, scripts/vgd_energy_axis_check.py and its outputs check.txt / check.json; `git diff 4f08103 HEAD` shows the changes.
+
+Round 1 (both runs NO-GO; the offset itself reproduced) and what was done:
+- MAJOR survey maxima presented as identified lines: FIXED — the generator now reports survey WINDOW MAXIMA only for elements in the sample's designation (C and O everywhere; U and Cl for UCl4, N for BN, B for B4C/BN), counts maxima within 1 eV of a window edge, and the README calls them window maxima, "consistent with, not independent proof"; the conclusion rests on the calibration record and the graphite C 1s apex.
+- MAJOR charge-reference settings presented as charging: FIXED — called settings the user entered; residuals reported; charging a HYPOTHESIS with chemical shift, reference choice and entry error not excluded; the generator flags an observed position outside the tab's own energy range as a carried-over setting (36 of 72 graphitic, 11 of 40 others; the U4f tab with 280.67 included).
+- MINOR "exactly" / sidecars: FIXED — "within floating point (at most 1.6e-13 eV from −4.58)", printed unrounded by the generator; the generator itself now checks the sidecar endpoints (275/275) and the property names of 105/406/981; "the sidecars hold the axis range only".
+- MINOR ISO attributions: FIXED — ISO 15472:2010 Table 2 values as the reviews read them (Au 83.96, Ag 368.21, Cu 932.62 monochromated; Cu L3VV apparent BE 567.93 unmonochromated) and ISO 17974:2002 Table 2 Cu L3VV 918.69 eV KE, Fermi-referenced — all HYPOTHESIS (read by the reviews, not checked by me); "not an independent measurement of the stored KE".
+- MINOR carbon wording: FIXED — "a median of 284.40 in each of the four samples, individual apexes 284.30–284.40"; carbides noted lower; no universal claim.
+- MINOR inventory and cites: FIXED — /api/upload (app.py:934, :956 → parser.py:60-67), frontend Auger conversion :16385, legacy conversion :16342-16344 (cancels), excitation filtering :17149, :17439; upload cites :4077-4079, :5451-5454.
+- MINOR displayed shift sign: FIXED — stored −4.74, shown +4.74 (templates/index.html:5617-5618), about +0.16 on Avantage's axis.
+
+Please verify each disposition, check that check.txt reproduces and every number in the README matches it, and that no sentence concludes more than its evidence. Report BLOCKER / MAJOR / MINOR with file:line and a reproduction where possible. End with exactly one line:
+VERDICT: GO   or   VERDICT: NO-GO
+(GO = no BLOCKER or MAJOR finding.)
