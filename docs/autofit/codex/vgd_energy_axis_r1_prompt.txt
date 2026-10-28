@@ -1,0 +1,15 @@
+You are reviewing a READ-ONLY finding in this repository (branch investigate-vgd-energy-axis, commit 4f08103, based on main a887f02). Nothing in the app changed; nothing is deployed. The finding: the app's VGD reader puts every committed Thermo Avantage VGD 4.58 eV below the binding-energy axis Avantage draws, and Avantage's axis is the physically right one.
+
+Read docs/findings/vgd-energy-axis/README.md (every claim labelled VERIFIED — file:line or a committed output — or HYPOTHESIS), the generator scripts/vgd_energy_axis_check.py and its outputs docs/findings/vgd-energy-axis/check.txt / check.json, scripts/vgd_properties.py (an MS-OLEPS property reader; decodes each file's property-name dictionary), and the cited code: vgd_parser.py (defaults, KE→BE), app.py around 990-1035 (/api/parse-vgd), templates/index.html around 4025-4035 and 5395-5410 (the page sends only the file), xps_reference.py lines 1-60 and 230-260 (the Auger KE→BE convention "aligned with vgd_parser"), tests/test_xps_reference.py:137 and :313. The data: docs/autofit/test_data/**.VGD (275 files) with their .xml chart sidecars, and docs/autofit/test_data/*.proj.zip.
+
+Please test, adversarially:
+1. The offset: is app BE − Avantage BE = −4.58 eV exactly at every point, with Avantage's axis computed independently from each file's start KE and step (not derived from the app's)? Does the reader's point ordering match?
+2. The calibration argument: is property 981 decoded correctly and identical in every file? Is the Cu L3VV step (BE 567.997 ⇒ KE 918.683 under BE = hν − KE with hν = 1486.68) correct, and is it a genuinely independent check (an Auger KE does not depend on hν)? Are the ISO 15472 reference values stated accurately (labelled HYPOTHESIS, quoted from memory — if you know them, say whether they are right)? Is "the stored KE is already Fermi-referenced, so subtracting a work function counts it twice" supported as far as the doc says, and no further?
+3. The line positions: are the apex measurements sound (windows that hold the line on both axes; apexes at a window edge refused)? Do the per-sample C 1s apexes and survey medians match check.txt? Is any sample mislabelled (the sample is parsed from the folder name)? Are the literature ranges labelled HYPOTHESIS and fair?
+4. The lab's charge references: is the reading of ui.ccObs / ui.ccLit and the sign (shift = observed − reference; corrected BE = raw − shift, templates/index.html getCorrectedBE) correct? Do the numbers match?
+5. §3 and §4 (what the offset reaches, what a fix would involve): anything wrong, missing (another place that reads VGD energies or assumes the work function), or overclaimed? Is the Auger-reference consequence correctly left a HYPOTHESIS?
+6. Does any sentence conclude more than the evidence supports, or any VERIFIED label lack its evidence?
+
+Report findings as BLOCKER / MAJOR / MINOR with file:line and a reproduction where possible (the generator runs in ~20 s with /Users/skyefortier/xps-app/venv/bin/python). End with exactly one line:
+VERDICT: GO   or   VERDICT: NO-GO
+(GO = no BLOCKER or MAJOR finding.)
