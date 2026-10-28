@@ -1,0 +1,61 @@
+275 committed VGD files
+calibration record (property 981) in 275 files: '12:43:52 March 11, 2026, Ag3d = 368.209eV, Cu2p = 932.587eV, Au4f = 83.9537eV , CuLVV = 567.997eV'
+    Ag3d   BE  368.2090 eV  ->  KE under BE = hν − KE (hν 1486.68): 1118.4710 eV
+    Cu2p   BE  932.5870 eV  ->  KE under BE = hν − KE (hν 1486.68):  554.0930 eV
+    Au4f   BE   83.9537 eV  ->  KE under BE = hν − KE (hν 1486.68): 1402.7263 eV
+    CuLVV  BE  567.9970 eV  ->  KE under BE = hν − KE (hν 1486.68):  918.6830 eV
+app axis − Avantage axis, every point of every file: -4.580000 eV (largest deviation 0 eV)
+apex of each high-resolution region (its highest point), min / median / max, on each axis:
+  B1s     50 files   Avantage  186.00  189.30  189.80   app  181.42  184.72  185.22
+  C1s     73 files   Avantage  283.00  284.40  284.40   app  278.42  279.82  279.82
+  Cl2p     6 files   Avantage  197.60  197.90  197.90   app  193.02  193.32  193.32
+  N1s     40 files   Avantage  396.70  396.95  397.40   app  392.12  392.37  392.82
+  U4f     33 files   Avantage  379.40  379.90  396.90   app  374.82  375.32  392.32
+by sample (high-resolution C1s apex, Avantage axis): median [min, max]
+  1 UCl4-graphite 4%                        10   284.40 [284.30, 284.40]
+  2 B4C-graphite 50%                        10   283.10 [283.00, 283.20]
+  3 BN-graphite 50%                         10   283.10 [283.10, 283.40]
+  4 UCl4-BN 4%                              10   283.70 [283.50, 283.80]
+  5 B4C-BN-graphite 33%                     10   284.40 [284.40, 284.40]
+  9 B4C-graphite 4%                         10   284.40 [284.40, 284.40]
+  9 UCl4-graphite 4%                        13   284.40 [284.40, 284.40]
+survey lines (apex in a window holding the line on both axes), min / median / max:
+  C 1s      73 surveys   Avantage   283.0   284.0   285.0   app   278.4   279.4   280.4
+  O 1s      73 surveys   Avantage   530.0   532.0   533.0   app   525.4   527.4   528.4
+  Cl 2p     66 surveys   Avantage   197.0   198.0   203.0   app   192.4   193.4   198.4
+  U 4f7/2   72 surveys   Avantage   377.0   380.0   383.0   app   372.4   375.4   378.4
+  N 1s      71 surveys   Avantage   396.0   397.0   400.0   app   391.4   392.4   395.4
+  B 1s      50 surveys   Avantage   186.0   189.5   190.0   app   181.4   184.9   185.4
+committed projects' charge corrections: reference line (method, literature eV), its observed raw position on the app's axis and the same point on Avantage's axis: tabs
+  c1s         284.50   observed app  279.67   Avantage  284.25   (-0.25 from the reference): 1
+  c1s         284.50   observed app  279.70   Avantage  284.28   (-0.22 from the reference): 3
+  c1s         284.50   observed app  279.71   Avantage  284.29   (-0.21 from the reference): 4
+  c1s         284.50   observed app  279.72   Avantage  284.30   (-0.20 from the reference): 2
+  c1s         284.50   observed app  279.76   Avantage  284.34   (-0.16 from the reference): 20
+  c1s         284.50   observed app  279.77   Avantage  284.35   (-0.15 from the reference): 10
+  c1s         284.50   observed app  279.78   Avantage  284.36   (-0.14 from the reference): 2
+  c1s         284.50   observed app  279.79   Avantage  284.37   (-0.13 from the reference): 4
+  c1s         284.50   observed app  279.80   Avantage  284.38   (-0.12 from the reference): 14
+  c1s         284.50   observed app  279.81   Avantage  284.39   (-0.11 from the reference): 8
+  c1s         284.50   observed app  279.85   Avantage  284.43   (-0.07 from the reference): 4
+  custom      190.70   observed app  184.70   Avantage  189.28   (-1.42 from the reference): 1
+  custom      190.70   observed app  184.73   Avantage  189.31   (-1.39 from the reference): 1
+  custom      190.70   observed app  184.75   Avantage  189.33   (-1.37 from the reference): 2
+  custom      190.70   observed app  184.76   Avantage  189.34   (-1.36 from the reference): 6
+  custom      193.00   observed app  187.04   Avantage  191.62   (-1.38 from the reference): 2
+  custom      193.00   observed app  187.09   Avantage  191.67   (-1.33 from the reference): 2
+  custom      193.00   observed app  187.10   Avantage  191.68   (-1.32 from the reference): 4
+  custom      193.00   observed app  187.11   Avantage  191.69   (-1.31 from the reference): 4
+  custom      193.00   observed app  187.12   Avantage  191.70   (-1.30 from the reference): 2
+  custom      193.00   observed app  187.13   Avantage  191.71   (-1.29 from the reference): 2
+  custom      193.00   observed app  187.16   Avantage  191.74   (-1.26 from the reference): 2
+  custom      193.00   observed app  187.22   Avantage  191.80   (-1.20 from the reference): 2
+  custom      280.67   observed app  274.67   Avantage  279.25   (-1.42 from the reference): 1
+  custom      380.60   observed app  374.66   Avantage  379.24   (-1.36 from the reference): 2
+  custom      380.61   observed app  374.67   Avantage  379.25   (-1.36 from the reference): 1
+  custom      380.61   observed app  374.66   Avantage  379.24   (-1.37 from the reference): 1
+  custom      380.62   observed app  374.68   Avantage  379.26   (-1.36 from the reference): 1
+  custom      380.64   observed app  374.69   Avantage  379.27   (-1.37 from the reference): 1
+  custom      380.65   observed app  374.71   Avantage  379.29   (-1.36 from the reference): 1
+  custom      380.73   observed app  374.76   Avantage  379.34   (-1.39 from the reference): 1
+  custom      380.73   observed app  374.79   Avantage  379.37   (-1.36 from the reference): 1
