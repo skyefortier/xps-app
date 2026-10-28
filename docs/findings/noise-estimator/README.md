@@ -377,7 +377,8 @@ low; this measurement does not separate the two, and the expert fits are a refer
 
 **Why change the words.** The page's χ²ᵣ divides by σ = √intensity. For these files that is not the noise (§2), the
 real noise scale is not recorded, and it cannot be recovered from the counting time
-([counting-time.md](counting-time.md)). §1a shows this scale changes nothing fitted: the uncertainties, support and
+([counting-time.md](counting-time.md)). §1a shows this scale changes nothing fitted (mathematically; numerically only a fit on a basin boundary can land
+elsewhere): the uncertainties, support and
 required verdicts, and every comparison of fits of the same spectrum stay as they are. It changes only what the
 absolute value means.
 
