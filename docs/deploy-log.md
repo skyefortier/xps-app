@@ -6,6 +6,32 @@ own bullet even when it shipped inside a larger unit, so it can be found
 later. Procedure: [DEPLOY.md](../DEPLOY.md). The xps2 droplet is deployed by
 scripts/deploy_xps2.sh with every deploy since 2026-10-16 (DEPLOY.md, step 5).
 
+## 2026-10-27 — Security: cloudflared 2026.3.0 → 2026.10.4 on both machines (no app change)
+
+- **Why:** Cloudflare advisory (eMudhra certificate compromise, 2026-10-19): cloudflared ≥ 2026.10.2 (≥ 2026.10.3
+  on macOS outside Homebrew). Installed 2026.10.4, the newest release (it also carries VULN-176088, metrics-server
+  debug endpoints). Downloaded from github.com/cloudflare/cloudflared releases, never from the email.
+- **Before:** both origins plain HTTP on localhost (xps2 `http://localhost:5000`, i9 `http://127.0.0.1:5050`), no
+  `noTLSVerify` in either config.
+- **xps2 (first):** was 2026.3.0 from a hand-installed .deb (dpkg, no apt repository). `dpkg -i` of the release's
+  `cloudflared-linux-amd64.deb` (SHA-256 3d73cd9f… = release notes = GitHub digest), `systemctl restart cloudflared`
+  only. Four connections registered (quic, unchanged), public health / page / API 200. The new process warns "ICMP
+  proxy disabled" (root's GID outside `ping_group_range`): affects only ICMP through the tunnel, which this site does
+  not use; left as is. Package kept at `/root/cloudflared-upgrade-2026-10-26/`.
+- **i9:** was 2026.3.0 from a Homebrew bottle. Homebrew no longer has a bottle for cloudflared or Go on Intel macOS
+  26 (Tier 3); a source build stopped on the Command Line Tools being too old (nothing installed, tunnel untouched).
+  OWNER: use Cloudflare's own binary. `cloudflared-darwin-amd64.tgz` from the 2026.10.4 release (tgz = GitHub digest
+  f11fbef4…; the notes' "tgz" line, fdec0f9a…, is the binary inside — so for every 2026.10.x release; the binary is
+  Developer ID-signed by Cloudflare Inc. 68WVV388M8 and notarized). `brew unlink cloudflared` (the 2026.3.0 keg is
+  kept), the binary installed at the same `/usr/local/bin/cloudflared` the LaunchAgent runs, `launchctl kickstart -k
+  gui/$UID/com.hal238b.cloudflared-xps` only. OWNER: keep upgrades deliberate as under Homebrew — the release binary
+  updates itself every 24 h by default, so `~/.cloudflared/config.yml` gains one line, `no-autoupdate: true`
+  (backup `config.yml.bak-2026-10-27-cloudflared-upgrade`; `protocol: http2` kept). Four connections registered,
+  protocol http2; public health / page / API 200.
+- **From now on (i9):** upgrade by hand from the GitHub release (`brew upgrade` no longer applies to it).
+  Rollback: `rm /usr/local/bin/cloudflared && brew link cloudflared`, then kickstart. No reboot, no other change on
+  either machine; the app was not restarted.
+
 ## 2026-10-26 — An old fit's label points to Run Fit (c25c400) — both machines
 
 - **Release note:** a fit saved before sealed records now reads "saved before sealed records — press Run Fit to
