@@ -197,8 +197,8 @@ correlate neighbouring points.
 
 **The model.** Poisson counts N over T_eff = f × dwell × scans, multiplied by a deterministic correction a:
 y = a·N / (f·d·s), so Var(y) = (a / (f·d·s))·E[y] and k·d·s = a/f. The same value in every region would follow only if
-a/f were the same in every region. The files record corrections whose coefficients differ between the two settings
-(§1), so a need not be. Round 1: the first version wrote 1/f, "with any smooth correction", which a constant
+a/f were the same in every region. The files record that corrections were set, and an unnamed coefficient block
+(HYPOTHESIS: the PSF coefficients) differs between the two settings (§1), so a need not be the same. Round 1: the first version wrote 1/f, "with any smooth correction", which a constant
 correction already contradicts.
 
 Measured with the two estimators of [README.md](README.md) §3 that do well on independent noise (VERIFIED,
@@ -226,8 +226,8 @@ Measured with the two estimators of [README.md](README.md) §3 that do well on i
   - lag-1 difference estimators underestimated correlated noise 4–30× on the synthetic set (README §4);
   - rho1_d4 sits slightly short of the independent −0.80 in every region, and that diagnostic misses a 3-point moving
     average (README §4);
-  - a noise floor would add a constant term (README §5 measured varmean's intercept: median 0, 90th percentile 0.105
-    of the median intensity).
+  - a noise floor would add a constant term (README §5 measured varmean's intercept: median 0 in every region, 90th
+    percentile 0.04–0.40 of the median intensity by region).
 
 ## 4. A by-product, not a noise question: the app's VGD energy axis is 4.58 eV below Avantage's
 

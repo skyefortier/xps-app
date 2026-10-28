@@ -329,7 +329,8 @@ low; this measurement does not separate the two, and the expert fits are a refer
 - The real-data readings have no independent truth: no repeated sweeps are stored separately in these files, and
   "Scan_0 … Scan_9" are (HYPOTHESIS) different analysis spots — the folders are named "…10spot" — not repeats, so
   they cannot serve as replicates. 2026-10-27: each file records a point name ("1-1", "1-2", …, property 232) and
-  stage coordinates (properties 203–205: 66 distinct positions over 275 files), which supports this.
+  stage coordinates (properties 203–205: 67 distinct X, Y, Z positions over 275 files, 66 in X, Y), which supports
+  this.
 - The fits are the CURRENT server's refits of the saved models, not the saved fits (those load as "saved before
   sealed records").
 
