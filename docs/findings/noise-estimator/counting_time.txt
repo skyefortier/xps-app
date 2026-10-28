@@ -1,0 +1,19 @@
+275 committed VGD files
+  dwell 0.01 s, scans 2 (328: 2), pass energy 200 eV, step 1 eV: 73 files (Survey)
+  dwell 0.05 s, scans 4 (328: 4), pass energy 50 eV, step 0.1 eV: 202 files (B1s, C1s, Cl2p, N1s, U4f)
+elapsed (303→304) vs points × dwell × scans: slope 1.0050, intercept 20.95 s, residual -3.34 … +2.69 s; elapsed − points×dwell×scans 17.8 … 23.8 s
+photon energy (105): [1486.680054]; property 406: [4.2]
+gap bound T ≥ 1/(gap + δ): 2.278 … 6.027e+04 s (median 96.67); above the file's own elapsed + 1 s in 158 of 275 files
+EXACT, any common T ≤ elapsed + 1 s: admissible T in 0 of 275 files; files left with deferred constraints: 0
+EXACT, T = c × scans × dwell, c = 1…1024: admissible in 0 of 275 files; deferred: 0
+integer-like (Rayleigh, points with y·T ≤ 100000, Bonferroni over 1024 candidates): tested in 275 files; integer-like at 1 % in 0; smallest family p 0.0144, median 1; R at c = 1: max 0.142; c = 128: max 0.313
+main property set: [(72, 21), (73, 254)] (properties: files); files with any numeric property equal to 128: 0
+by-product — the chart sidecar's Binding Energy axis: in 275 of 275 files; equals 1486.68 − KE over the data to 0 eV; the app's VGD reader (hv 1486.6, work function 4.5) is lower by [4.58] eV
+noise scale vs counting time (counting noise over T_eff = f × dwell × scans predicts k × dwell × scans = 1/f, the same in every region):
+  B1s      50 files  dwell×scans 0.2 s  PE 50  step 0.1  k scaled_d4 0.727 [0.547, 0.884]  k×dwell×scans 0.1455  (varmean 0.961, ×dwell×scans 0.1922)  rho1_d4 -0.784 (white −0.80)
+  C1s      73 files  dwell×scans 0.2 s  PE 50  step 0.1  k scaled_d4 0.691 [0.491, 0.960]  k×dwell×scans 0.1381  (varmean 1.408, ×dwell×scans 0.2815)  rho1_d4 -0.735 (white −0.80)
+  Cl2p      6 files  dwell×scans 0.2 s  PE 50  step 0.1  k scaled_d4 0.637 [0.619, 0.671]  k×dwell×scans 0.1274  (varmean 0.702, ×dwell×scans 0.1404)  rho1_d4 -0.725 (white −0.80)
+  N1s      40 files  dwell×scans 0.2 s  PE 50  step 0.1  k scaled_d4 0.617 [0.479, 0.821]  k×dwell×scans 0.1234  (varmean 1.332, ×dwell×scans 0.2664)  rho1_d4 -0.778 (white −0.80)
+  Survey   73 files  dwell×scans 0.02 s  PE 200  step 1  k scaled_d4 1.008 [0.908, 1.114]  k×dwell×scans 0.0202  (varmean 1.100, ×dwell×scans 0.0220)  rho1_d4 -0.748 (white −0.80)
+  U4f      33 files  dwell×scans 0.2 s  PE 50  step 0.1  k scaled_d4 0.644 [0.532, 0.800]  k×dwell×scans 0.1288  (varmean 0.730, ×dwell×scans 0.1461)  rho1_d4 -0.784 (white −0.80)
+committed projects' charge shifts (eV: tabs): {-6.0: 2, -5.97: 2, -5.96: 2, -5.95: 4, -5.94: 12, -5.91: 2, -5.9: 4, -5.89: 4, -5.88: 2, -5.87: 2, -5.84: 2, -5.78: 2, -4.83: 1, -4.8: 11, -4.79: 4, -4.78: 2, -4.74: 20, -4.73: 10, -4.72: 2, -4.71: 4, -4.7: 14, -4.69: 8, -4.65: 4, 0.0: 46}

@@ -1,7 +1,17 @@
-# Unit B — estimating a spectrum's noise from the data (design + measurement, 2026-10-26; revised after the round-1 design review)
+# Unit B — estimating a spectrum's noise from the data (design + measurement, 2026-10-26; revised after the round-1 design review; owner decisions and the counting-time step added 2026-10-27)
 
 **Scope (owner, 2026-10-26):** design and measurement only. Nothing a user sees changes, no fitted number changes,
 nothing is deployed. Whether and how the displayed χ²ᵣ changes is a separate decision after this review.
+
+**Owner decisions, 2026-10-27:**
+- **No change to the fitting weights.** §1a derives what a constant noise scale does and does not change, and measures it.
+- **Next step, read-only:** decode the counting time from the files. That is [counting-time.md](counting-time.md): no
+  common counting time makes the stored values whole counts, so σ = √N is not recoverable from these files.
+- **Proposed wording for the displayed χ²ᵣ** is in §8, for approval. It is not implemented.
+
+**Correction, 2026-10-27:** §2 and §5 read 230 of the 275 committed VGDs. The other 45, in
+`9 UCl4-graphite 4%, no kapton …/`, were outside the glob `test_data/*.DATA/*.VGD`. The counting-time step reads all
+275; its per-region k agree with §5's medians ([counting-time.md](counting-time.md) §5).
 
 **The question:** the displayed χ²ᵣ should be about 1 for a fit that explains the data down to the noise. It can be
 only if the variance it divides by is the data's real noise. Can that variance be estimated from each spectrum
@@ -38,13 +48,74 @@ Two uses of a noise estimate must be kept apart (round 1):
    relative shape (a constant term, per-point factors) changes the objective and can change fitted parameters;
    correlated noise needs a covariance matrix, not different diagonal weights.
 
+### 1a. One constant on every σ — derivation and measurement (owner 2026-10-27: no change to the fitting weights)
+
+Write the fit's objective as χ²(θ) = Σᵢ rᵢ(θ)² / σᵢ², where rᵢ = y_sub,i − fᵢ(θ) and σᵢ = √max(yᵢ, 1)
+(`fitting.py:3006-3007`). Replace every σᵢ by s·σᵢ, i.e. multiply every variance by k = s². Then:
+
+1. **The objective.** χ²_s(θ) = χ²(θ) / k for every θ. This is an identity, not an approximation.
+2. **The fitted parameters.** Dividing by a positive constant preserves order. So the minimiser, every local minimum
+   and its basin, and every comparison of χ² values on the same data are unchanged. The comparisons in `run_fit` are
+   all of this kind:
+   - the perturbed restarts' ranking (`fitting.py:3157-3167`);
+   - the "lower χ² wins" competitions for differential evolution and basinhopping (`fitting.py:2254`, `:2304`);
+   - the scattered starts' "lower by more than 0.1 %" (`fitting.py:2545`, `:2658`, relative);
+   - the certificate's relative improvement against ftol (`fitting.py:2370-2371`).
+3. **χ² and χ²ᵣ.** Both are divided by k. The displayed χ²ᵣ is the only number a student sees change.
+4. **Parameter uncertainties.**
+   - The Gauss–Newton covariance at the minimum is C = (Jᵀ W J)⁻¹ with W = diag(1/σᵢ²). With W_s = W/k,
+     C_s = k·C. lmfit then multiplies by χ²ᵣ (`scale_covar=True`, its default; `fitting.py` never sets it —
+     `lmfit/model.py:1034`, `lmfit/minimizer.py:812-813`). So C_s · χ²ᵣ,s = k·C · χ²ᵣ / k = C · χ²ᵣ. **The reported
+     σ are independent of the noise scale**, because they are scaled to the fit's own residual scatter.
+   - What they mean: with variance k·σᵢ² as the true noise, the uncertainty from the noise alone is
+     σ_reported / √(χ²ᵣ / k). Where the fit leaves more than the noise (χ²ᵣ / k > 1), the reported σ are larger than
+     noise-only σ: misfit is counted as if it were noise. Where it leaves less, they are smaller. Without
+     `scale_covar` they would scale with s.
+   - The page's uncertainty rules read these σ, so they are unchanged too.
+5. **The support and required-component F tests.** F = (Δχ²/p) / (χ²/dof) divides two χ² quantities, so it is
+   invariant (`fitting.py:2697-2712`, `:2760-2777`). So is the page's twin, the Auto-Fit anchor check. This is why
+   the design rule prefers it: it estimates the common scale from the residuals rather than assuming it.
+6. **AIC / BIC as reported.**
+   - The response's `aic` / `bic` use lmfit's form, n·ln(χ²/n) + 2p (or p·ln n) (`fitting.py:3389-3398`). The page
+     does not display them (VERIFIED: no "aic" / "bic" in `templates/index.html`).
+   - Under σ → s·σ every model fitted to the same n points shifts by the same −n·ln k. So **ΔAIC and ΔBIC between
+     models are invariant**: this form profiles out an unknown common scale, as the F test does.
+   - Find Peaks' (archived) BIC* uses the same form (`autofit/engine.py:1579-1584`, `autofit/criteria.py:50-57`), so
+     its ranking is invariant.
+   - The known-noise forms, AIC = χ² + 2p and BIC = χ² + p·ln n, are NOT invariant: Δχ² scales by 1/k while the
+     penalty does not. So the preferred model would depend on the assumed noise scale. The same holds for a χ²
+     difference judged against a χ²_p distribution. Neither form is used by the app.
+7. **The numerical path.** The identity holds in exact arithmetic. An optimiser's stopping rules are another matter:
+   a rule stated in χ² units does not scale.
+   - **Scale-free:** Levenberg–Marquardt (MINPACK: relative ftol and xtol; gtol a cosine), Trust-Region's ftol and
+     xtol (`scipy/optimize/_lsq/common.py:705-707`), and differential evolution's convergence test (relative,
+     atol = 0: `scipy/optimize/_differentialevolution.py:1181-1183`).
+   - **Absolute in χ² units:**
+     - Trust-Region's gtol, on the scaled gradient (`_lsq/trf.py:265-266`).
+     - Nelder–Mead's fatol = 1e-4 (`scipy/optimize/_optimize.py:868-869`).
+     - basinhopping's Metropolis temperature T = 1.0 (`lmfit/minimizer.py:1758`).
+   - `fitting.py` passes none of these (VERIFIED: no `gtol` / `fatol` / `T=` in it), so the defaults apply. A
+     power-of-two s makes every scaled operation exact, so only an absolute rule can make the path differ. Any other
+     s also rounds differently.
+
+**Measured** (`scripts/noise_sigma_scale_check.py`, `sigma_scale.txt`). `run_fit` is run unchanged except for its one
+σ line, multiplied by s, on the 202 committed fit targets, with the page's 3 perturbed restarts. Each fit at s is
+compared with the fit at s = 1 by the app's own same-fit rule (`same_fit.fit_differences`), after its χ²-valued
+fields are put back on the s = 1 scale. A second s = 1 run measures each method's run-to-run floor.
+
+SIGMA_SCALE_TABLE
+
+**So:** a constant noise scale is a statement about the displayed χ²ᵣ alone. Dividing the displayed χ²ᵣ by an
+estimated k is the same number a refit with σ × √k would report, and no fitted parameter, uncertainty, support or
+required verdict would move beyond the measured run-to-run floor.
+
 ## 2. What the data are (part a)
 
 | source | what the intensities are | label | evidence |
 |---|---|---|---|
 | Thermo Avantage `.vgd` (all 230 committed raw files) | **counts per second** | VERIFIED | each file's chart sidecar `.xml` titles the intensity axis `Counts / s` (e.g. `docs/autofit/test_data/1 UCl4-graphite …DATA/C1s Scan.xml`); at least 99.8 % of every file's stored values are non-integer (`real_spectra.txt`). The instrument is a Nexsa G2, Avantage v6.7.0 (strings in the files' main property stream) |
 | the same — raw counts divided by a per-point counting time t? | **not established either way** (round 4) | VERIFIED (the bound), HYPOTHESIS (whether the acquisition allows it) | were the values counts / t, all would be multiples of 1/t, so every gap would be at least 1/t: **t ≥ 1/(smallest gap)**, no search needed; for stored (rounded) values the gap is taken plus its endpoints' rounding (round 4). That gives t ≥ 2.3–60 000 s per point (median 99 s; smallest gaps 1.7e-5–0.44 CPS; `real_spectra.txt`). Whether such counting times are possible depends on the acquisition model, which is not established here: counted point by point, every whole spectrum would need at least 435 s, against about a minute (the files' start/end timestamps, in undocumented property ids); but the Nexsa G2's detector is multichannel (HYPOTHESIS: 128 channels collecting several energies at once, per Thermo's Nexsa G2 datasheet and application note 31009 as cited by the round-4 review; not checked here), and under assumed full 128-fold parallelism the calculated LOWER BOUNDS fall below 120 s for 99 of the 230 files (below 60 s for 68) — for those the bound does not exclude counts / t, and whether their actual acquisitions are compatible is not established (round 5). Supporting only: the heuristic search `noise_estimators.common_quantum` (divisors m ≤ 1000 of the smallest gap, least-squares refinement, values checked against 2 ulps + 4 ulps of u per multiple) finds the quantum in every tested counts / t case and refuses an incommensurate offset lattice, and accepts no candidate in any of the 230 files or 166 project spectra; it is not complete (round 3 found grids it misses) and its tolerance admits near-grids |
-| what Avantage did between counting and the stored CPS | unknown | HYPOTHESIS | a continuous correction (detector efficiency, dead time, transmission) would explain the absence of any grid; not established — the acquisition parameters (dwell, scans, corrections) sit in undocumented numeric property ids and are not decoded here |
+| what Avantage did between counting and the stored CPS | unknown | HYPOTHESIS | a continuous correction (detector efficiency, dead time, transmission) would explain the absence of any grid; not established. 2026-10-27: the dwell, scans, pass energy and start / end are now decoded ([counting-time.md](counting-time.md) §1). An EXACT test excludes every common counting time up to each acquisition's own length, and every c × scans × dwell with c ≤ 1024, in all 275 files (§2 there). The corrections themselves are not in the files |
 | the app's VGD reader | returns the stored values unchanged; a multi-scan ("overlay") file becomes the **per-point mean of its scans** | VERIFIED | `vgd_parser.py:95-98` (the mean at `:98`; round 2: the line was off by one); the page always parses VGDs on the server (`templates/index.html:4032`, `:5404` → `app.py:1022`); its heuristic `parseVGD` (`templates/index.html:5322`) has no caller. All 230 committed VGDs hold one series, so the mean never applies to them |
 | committed projects (`*.proj.zip`, 166 spectra) | 70 are, value for value, a committed VGD's intensities; all 166 are non-integer, and the search above accepts no grid in any | VERIFIED (the 70; non-integer; the search's outcome) / HYPOTHESIS (that the other 96 are the same Avantage CPS — their tab names are VGD scan names) | `real_spectra.json` → `projects` (round 1: "all 166 are the same CPS" was not established) |
 | `.csv` / `.tsv` / `.txt` / `.xy` / `.xlsx` | **unknown to the app**: whatever the exporting program wrote (counts, CPS, normalised, smoothed) | VERIFIED (that it is not known) | `parser.py:47` ("intensity (counts or CPS)"); no unit is read or stored |
@@ -237,8 +308,10 @@ low; this measurement does not separate the two, and the expert fits are a refer
 4. **What to say.** A calibrated χ²ᵣ is only as good as its noise model: whether to show the estimate and its basis
    ("noise estimated from the data: 0.7 × the CPS value"), and what to show when the data are few counts, smoothed,
    or give an unstable estimate.
-5. **The instrument's own evidence.** If Avantage's acquisition parameters (dwell, scans, detector corrections) could
-   be decoded from the VGD properties, k would follow from the acquisition rather than the data (§2). Not attempted.
+5. **The instrument's own evidence.** Attempted 2026-10-27 ([counting-time.md](counting-time.md)). Dwell and scans
+   are decoded, but the stored values are not whole counts over any common time. The estimated k does not follow
+   1/(dwell × scans) across the two acquisition settings either: surveys have a tenth of the counting time and about
+   1.5 times the k. So k cannot be taken from the acquisition with what the files hold.
 
 ## 7. Limits of this measurement
 
@@ -247,9 +320,59 @@ low; this measurement does not separate the two, and the expert fits are a refer
   boundary handling is not benchmarked.
 - The real-data readings have no independent truth: no repeated sweeps are stored separately in these files, and
   "Scan_0 … Scan_9" are (HYPOTHESIS) different analysis spots — the folders are named "…10spot" — not repeats, so
-  they cannot serve as replicates.
+  they cannot serve as replicates. 2026-10-27: each file records a point name ("1-1", "1-2", …, property 232) and
+  stage coordinates (properties 203–205: 66 distinct positions over 275 files), which supports this.
 - The fits are the CURRENT server's refits of the saved models, not the saved fits (those load as "saved before
   sealed records").
+
+## 8. Proposed wording for the displayed χ²ᵣ (2026-10-27, for the owner's approval — not implemented)
+
+**Why change the words.** The page's χ²ᵣ divides by σ = √intensity. For these files that is not the noise (§2), the
+real noise scale is not recorded, and it cannot be recovered from the counting time
+([counting-time.md](counting-time.md)). §1a shows this scale changes nothing fitted: the uncertainties, support and
+required verdicts, and every comparison of fits of the same spectrum stay as they are. It changes only what the
+absolute value means.
+
+Today's tooltip says the opposite: "χ² ≈ 1.0 = ideal fit (residuals match expected noise)"
+(`templates/index.html:15210`). The Results tile also colours the value green below 2, amber below 5 and red above
+(`:11277`). Both read the absolute value as if the noise were known.
+
+**Proposed (site, today → proposed):**
+
+| site | today | proposed |
+|---|---|---|
+| label: Results tile, header, status bar (`_fitStatLabel` `:10492-10494`, `_applyStatCaption` `:10589`) | `χ²ᵣ` | `χ²ᵣ (relative)` |
+| Results tile colour (`:11277`) | green < 2, amber < 5, red ≥ 5 | the ordinary text colour (no verdict from the size) |
+| tooltip (`_CHISQ_TOOLTIP`, `:15210`) | "…χ² ≈ 1.0 = ideal fit (residuals match expected noise); χ² >> 1 = poor fit or underestimated uncertainties; χ² << 1 = possible overfitting…" | the text below |
+| local-fit tooltip (`_LOCALFIT_TOOLTIP`, `:15209`) | — | append: "Like the server's, it is relative: the noise scale of the data is unknown." |
+| notices (`:10414`, `:8953`, `:11083`) | "Fit complete. χ²ᵣ = 2.441 (confirming…)" | "Fit complete. χ²ᵣ (relative) = 2.441 (confirming…)" |
+| figure label (`:14772`) | `χ²_r = 2.441` | `χ²_r (relative) = 2.441` |
+| CSV / XLSX statistic name (`:14991-14992`) | `Chi-squared reduced` | `Chi-squared reduced (relative; noise scale unknown)` |
+| scattered starts, "Other solutions found" (`:9943-9945`, `:10159`, `:10188-10191`) | "…a lower χ²ᵣ…" | unchanged: they compare fits of the same spectrum, which a constant scale leaves intact (§1a) |
+| Find Peaks (archived) table, "fit quality (χ²ᵣ)" (`:19700`) | — | unchanged while archived; on revival, the same label |
+
+**Proposed tooltip text:**
+
+> **Reduced chi-squared (χ²ᵣ), relative: the noise scale is unknown.** This is the fit's squared residual per degree
+> of freedom, each point weighted by 1/√intensity. That weight is the counting noise only for raw counts. Avantage
+> files store counts per second, and their real noise level is not recorded.
+>
+> - Compare χ²ᵣ between fits of the **same spectrum**: lower means the model leaves less unexplained.
+> - Its size does not tell you whether the fit reaches the noise. χ²ᵣ ≈ 1 is not "ideal" here, and values from
+>   different spectra, regions or instruments cannot be compared.
+> - The ± uncertainties are scaled to the fit's own residuals, so they do not depend on this.
+>
+> A lower χ²ᵣ is not a better chemical model: check the residuals and the R-factor.
+
+**Open choices:**
+
+- **Label length.** `χ²ᵣ (rel.)` is a shorter label if the tile is tight.
+- **CSV / XLSX imports.** The tooltip could say "files" instead of "Avantage files", or name the case where
+  intensities are raw counts, where √N is the right noise. The app cannot tell which case a CSV is: `parser.py:47`
+  records no unit.
+- **The held student note** (`docs/comms/2026-10-16-sealed-fit-record-note.md`) would need one sentence if this
+  ships.
+- **A calibrated χ²ᵣ** (§6.1) would change these words again. It is a separate decision.
 
 ## Generators and files
 
@@ -260,3 +383,5 @@ low; this measurement does not separate the two, and the expert fits are a refer
 | `real_fits_collected.json` | `venv/bin/python scripts/noise_real_fits.py collect --url http://127.0.0.1:PORT --out …` against a 4-worker gunicorn of this branch (a192f78 + these scripts) |
 | `real_fits.json`, `real_fits.txt` | `venv/bin/python scripts/noise_real_fits.py analyse docs/findings/noise-estimator/real_fits_collected.json --json …/real_fits.json` |
 | the estimators | `scripts/noise_estimators.py`; their arithmetic pinned by `tests/test_noise_estimators.py` (27 tests) |
+| `sigma_scale.txt`, `sigma_scale.json` (§1a) | `venv/bin/python scripts/noise_sigma_scale_check.py run OUT.jsonl --procs 4` (the 202 targets of `scripts/optimizer_disagreement_targets.js`; the JSONL holds every response and is not committed), then `… analyse OUT.jsonl --json docs/findings/noise-estimator/sigma_scale.json > …/sigma_scale.txt` |
+| `counting_time.txt`, `counting_time.json` ([counting-time.md](counting-time.md)) | `venv/bin/python scripts/noise_counting_time.py --json docs/findings/noise-estimator/counting_time.json > …/counting_time.txt`; the property reader `scripts/vgd_properties.py`; the exact test pinned by `tests/test_noise_counting_time.py` (8 tests) |
