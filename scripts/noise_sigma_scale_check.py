@@ -115,6 +115,8 @@ def _rescaled(r, s):
             for k, v in o.items():
                 if k in ("chi2r", "not_better_chi2r") and isinstance(v, (int, float)):
                     o[k] = v * s2
+                elif k in ("chi2r", "not_better_chi2r") and isinstance(v, list):
+                    o[k] = [x * s2 if isinstance(x, (int, float)) else x for x in v]
                 else:
                     walk(v)
         elif isinstance(o, list):
@@ -138,6 +140,14 @@ def _compare(base, other, s):
         return out
     out["success"] = (a.get("success"), b.get("success"))
     out["differences"] = fit_differences(a, _rescaled(b, s))
+    out["chi2r"] = (a["statistics"]["reduced_chi_square"], b["statistics"]["reduced_chi_square"] * s * s)
+
+    def area_pct(r):
+        ar = [abs(pk["params"]["area"]["value"]) for pk in r["individual_peaks"]]
+        tot = sum(ar)
+        return [100 * x / tot if tot > 0 else 0.0 for x in ar]
+    out["max_area_pp"] = max((abs(x - y) for x, y in zip(area_pct(a), area_pct(b))), default=0.0)
+    out["shapes"] = sorted({pk.get("shape") for pk in a["individual_peaks"]})
     pa, pb = _params(a), _params(b)
     out["values_bit_identical"] = all(pa[k].get("value") == pb[k].get("value") for k in pa)
     out["chi2_ratio_rel_err"] = abs(b["statistics"]["chi_square"] * s * s / a["statistics"]["chi_square"] - 1)
@@ -145,6 +155,11 @@ def _compare(base, other, s):
               if isinstance(pa[k].get("stderr"), (int, float)) and isinstance(pb[k].get("stderr"), (int, float))
               and pa[k]["stderr"] > 0]
     out["stderr_max_rel_change"] = max(ratios) if ratios else None
+    big = sorted(((abs(pb[k]["stderr"] / pa[k]["stderr"] - 1), k, pa[k].get("value"), pa[k].get("min"), pa[k].get("max"),
+                   pa[k]["stderr"], pb[k]["stderr"]) for k in pa
+                  if isinstance(pa[k].get("stderr"), (int, float)) and isinstance(pb[k].get("stderr"), (int, float))
+                  and pa[k]["stderr"] > 0), reverse=True)
+    out["stderr_largest"] = big[0] if big else None
     fs = [(x.get("support") or {}).get("f") for x in a["individual_peaks"]]
     gs = [(x.get("support") or {}).get("f") for x in b["individual_peaks"]]
     fr = [abs(g / f - 1) for f, g in zip(fs, gs) if f and g]
@@ -196,16 +211,36 @@ def analyse(path, json_out):
                    "max_support_f_rel_change_same_fit": max((c["support_f_max_rel_change"] for c in same
                                                              if c["support_f_max_rel_change"] is not None),
                                                             default=None),
-                   "different": [{"id": c["id"], "differences": c["differences"][:3]}
+                   "different": [{"id": c["id"], "differences": c["differences"][:3], "chi2r": c["chi2r"],
+                                  "max_area_pp": c["max_area_pp"], "shapes": c["shapes"]}
                                  for c in ok if c["differences"]]}
             report[grp][label] = rec
             lines.append(f"{grp:28s} s={label:9s} targets {rec['targets']:3d}  same fit {rec['same_fit']:3d}  "
                          f"different {rec['different_fit']:3d}  bit-identical values {rec['values_bit_identical']:3d}  "
                          f"errors {rec['errors']}  success changed {rec['success_flag_changed']}  "
                          f"support changed {rec['support_verdict_changed']}  starts changed {rec['starts_counts_changed']}")
-            lines.append(f"{'':28s}   same fits: χ²·s²/χ² − 1 ≤ {rec['max_chi2_ratio_rel_err_same_fit']!s:.9}  "
-                         f"σ change ≤ {rec['max_stderr_rel_change_same_fit']!s:.9}  "
-                         f"support F change ≤ {rec['max_support_f_rel_change_same_fit']!s:.9}")
+            g = lambda v: "—" if v is None else f"{v:.3g}"
+            lines.append(f"{'':28s}   same fits: |χ²·s²/χ² − 1| ≤ {g(rec['max_chi2_ratio_rel_err_same_fit'])}  "
+                         f"σ relative change ≤ {g(rec['max_stderr_rel_change_same_fit'])}  "
+                         f"support F relative change ≤ {g(rec['max_support_f_rel_change_same_fit'])}")
+    lines.append("")
+    lines.append("same fits whose largest σ change exceeds 1 % (parameter, value, bounds, σ at s = 1 | at s):")
+    for grp, by_label in summary.items():
+        for label, cs in by_label.items():
+            for c in cs:
+                if c.get("differences") == [] and c.get("stderr_largest") and c["stderr_largest"][0] > 0.01:
+                    ch, k, v, lo, hi, s1, s2 = c["stderr_largest"]
+                    lines.append(f"  {grp:26s} s={label:9s} {c['id']}  {k}: {ch:.3g} (value {v:.6g}, bounds {lo}…{hi}, "
+                                 f"σ {s1:.3g} | {s2:.3g})")
+    lines.append("")
+    lines.append("every fit that is not the same fit (χ²ᵣ of the s = 1 fit | the scaled fit, put back on the s = 1 scale; "
+                 "largest change in any component's area %; first difference the same-fit rule names):")
+    for grp, by_label in report.items():
+        for label, rec in by_label.items():
+            for d in rec["different"]:
+                lines.append(f"  {grp:26s} s={label:9s} {d['id']}  χ²ᵣ {d['chi2r'][0]:.6g} | {d['chi2r'][1]:.6g}  "
+                             f"Δarea {d['max_area_pp']:.3g} pp  {','.join(x for x in d['shapes'] if x)}  "
+                             f"{d['differences'][0][:110]}")
     print("\n".join(lines))
     if json_out:
         json.dump(report, open(json_out, "w"), indent=1)

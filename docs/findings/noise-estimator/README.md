@@ -108,11 +108,50 @@ Write the fit's objective as χ²(θ) = Σᵢ rᵢ(θ)² / σᵢ², where rᵢ =
 compared with the fit at s = 1 by the app's own same-fit rule (`same_fit.fit_differences`), after its χ²-valued
 fields are put back on the s = 1 scale. A second s = 1 run measures each method's run-to-run floor.
 
-SIGMA_SCALE_TABLE
+Methods: Levenberg–Marquardt and Trust-Region on all 202 targets; Trust-Region with the page's 3 scattered starts,
+and Nelder–Mead, on the first 30; basinhopping on the first 8. Scales: s = 2 (k = 4, an exact power of two) and
+s = √0.7 (k = 0.7, inside the range the estimators gave in §5). "Different" = not the same fit by the app's rule.
+Uncertainties are compared separately, since the rule does not compare them (VERIFIED, `sigma_scale.txt`):
 
-**So:** a constant noise scale is a statement about the displayed χ²ᵣ alone. Dividing the displayed χ²ᵣ by an
-estimated k is the same number a refit with σ × √k would report, and no fitted parameter, uncertainty, support or
-required verdict would move beyond the measured run-to-run floor.
+| method | targets | different, s = 1 run twice (the floor) | different, s = 2 | different, s = √0.7 | support verdicts, success flags, scattered-starts counts changed |
+|---|---|---|---|---|---|
+| Levenberg–Marquardt | 202 | 0 | 0 | 5 | none |
+| Trust-Region | 202 | 1 | 1 (the same target) | 4 | none |
+| Trust-Region + 3 scattered starts | 30 | 1 | 1 (the same) | 4 | none |
+| Nelder–Mead | 30 | 0 | 0 | 2 | none |
+| basinhopping | 8 | 0 | 0 | 0 | none |
+
+**What the differences are** (all listed in `sigma_scale.txt`):
+
+- **Two fits move to a different minimum, both at s = √0.7.**
+  - Levenberg–Marquardt on 8-JT Graphite / C1s Scan_5: χ²ᵣ 33.90 → 51.91, the largest component area change
+    21.9 pp. This is the target whose basin CLAUDE.md records as decided by rounding (33.9 or 51.9).
+  - Trust-Region on Cl2p_projfit_test / C1s Scan_4: χ²ᵣ 5.29 → 4.28, a lower minimum, 11.1 pp.
+- **Small moves:**
+  - B4C-UCl4 / U4f Scan_7, Levenberg–Marquardt: 2.784 → 2.773, 0.12 pp.
+  - Trust-Region's run-to-run target, Cl2p_projfit_test / U4f Scan_4: 0.30–0.33 pp at s = 1 twice, and at s = 2 too.
+  - The other fits the rule calls different change no component's area by more than 0.035 pp.
+- **Not a difference in any physical sense** (the rest):
+  - components fitted to numerical residue (amplitudes of 1e-9 against 1e-11) compared against their own near-zero
+    heights;
+  - a zero component's Δχ² of −2e-13 against 0;
+  - the χ²ᵣ of a scattered start that was not better (2.95 → 3.05; the starts' counts are unchanged).
+- **On the same fits:**
+  - χ² · s² equals the s = 1 χ² to ≤ 7e-8 relative, against up to 3e-8 between two s = 1 runs.
+  - Support F changes by ≤ 1e-3 relative.
+  - σ change by ≤ 0.21 %, except four Levenberg–Marquardt mixing parameters at s = √0.7 sitting on a bound
+    (`gl_ratio` = 1 or ≈ 0, where σ is not defined: 3–60 %).
+
+**So:**
+
+- **What changes.** A constant noise scale changes only the displayed χ²ᵣ, exactly, in the mathematics; and in
+  practice everywhere a fit is not on a basin boundary.
+- **What can still move.** At a non-power-of-two scale the optimiser's arithmetic changes. On 2 of the 202 targets
+  that moved a fit into another minimum, like the run-to-run jitter that already decides such fits (CLAUDE.md,
+  "Reproducibility"). Its fitted numbers were not "unchanged".
+- **What a calibrated display would do.** It would divide the displayed χ²ᵣ of the fit as made by k. That is what a
+  refit at σ × √k would display, apart from those boundary cases, and it moves no fitted number at all, because it
+  refits nothing.
 
 ## 2. What the data are (part a)
 

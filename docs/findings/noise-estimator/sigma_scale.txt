@@ -1,0 +1,57 @@
+least_squares n_starts=0     s=1-repeat  targets 202  same fit 201  different   1  bit-identical values 155  errors 0  success changed 0  support changed 0  starts changed 0
+                               same fits: |χ²·s²/χ² − 1| ≤ 2.71e-08  σ relative change ≤ 0.00107  support F relative change ≤ 0.000442
+least_squares n_starts=0     s=2         targets 202  same fit 201  different   1  bit-identical values 148  errors 0  success changed 0  support changed 0  starts changed 0
+                               same fits: |χ²·s²/χ² − 1| ≤ 5.08e-08  σ relative change ≤ 0.00188  support F relative change ≤ 0.000765
+least_squares n_starts=0     s=sqrt0.7   targets 202  same fit 198  different   4  bit-identical values   0  errors 0  success changed 0  support changed 0  starts changed 0
+                               same fits: |χ²·s²/χ² − 1| ≤ 7.25e-08  σ relative change ≤ 0.00149  support F relative change ≤ 0.000738
+leastsq n_starts=0           s=1-repeat  targets 202  same fit 202  different   0  bit-identical values 190  errors 0  success changed 0  support changed 0  starts changed 0
+                               same fits: |χ²·s²/χ² − 1| ≤ 1.46e-09  σ relative change ≤ 0.000324  support F relative change ≤ 0.000166
+leastsq n_starts=0           s=2         targets 202  same fit 202  different   0  bit-identical values 181  errors 0  success changed 0  support changed 0  starts changed 0
+                               same fits: |χ²·s²/χ² − 1| ≤ 5.11e-10  σ relative change ≤ 0.000324  support F relative change ≤ 0.000166
+leastsq n_starts=0           s=sqrt0.7   targets 202  same fit 197  different   5  bit-identical values   8  errors 0  success changed 0  support changed 0  starts changed 0
+                               same fits: |χ²·s²/χ² − 1| ≤ 2.16e-08  σ relative change ≤ 0.602  support F relative change ≤ 0.000991
+least_squares n_starts=3     s=1-repeat  targets  30  same fit  29  different   1  bit-identical values  26  errors 0  success changed 0  support changed 0  starts changed 0
+                               same fits: |χ²·s²/χ² − 1| ≤ 3.7e-13  σ relative change ≤ 1.88e-07  support F relative change ≤ 6.04e-08
+least_squares n_starts=3     s=2         targets  30  same fit  29  different   1  bit-identical values  27  errors 0  success changed 0  support changed 0  starts changed 0
+                               same fits: |χ²·s²/χ² − 1| ≤ 4.96e-10  σ relative change ≤ 0.000214  support F relative change ≤ 1.03e-05
+least_squares n_starts=3     s=sqrt0.7   targets  30  same fit  26  different   4  bit-identical values   0  errors 0  success changed 0  support changed 0  starts changed 0
+                               same fits: |χ²·s²/χ² − 1| ≤ 4.98e-09  σ relative change ≤ 0.000359  support F relative change ≤ 0.000134
+nelder n_starts=0            s=1-repeat  targets  30  same fit  30  different   0  bit-identical values  26  errors 0  success changed 0  support changed 0  starts changed 0
+                               same fits: |χ²·s²/χ² − 1| ≤ 4.5e-12  σ relative change ≤ 1.69e-07  support F relative change ≤ 4.33e-08
+nelder n_starts=0            s=2         targets  30  same fit  30  different   0  bit-identical values  26  errors 0  success changed 0  support changed 0  starts changed 0
+                               same fits: |χ²·s²/χ² − 1| ≤ 1.55e-11  σ relative change ≤ 4.63e-07  support F relative change ≤ 7.85e-08
+nelder n_starts=0            s=sqrt0.7   targets  30  same fit  28  different   2  bit-identical values   0  errors 0  success changed 0  support changed 0  starts changed 0
+                               same fits: |χ²·s²/χ² − 1| ≤ 3.4e-08  σ relative change ≤ 0.00108  support F relative change ≤ 0.00063
+basinhopping n_starts=0      s=1-repeat  targets   8  same fit   8  different   0  bit-identical values   5  errors 0  success changed 0  support changed 0  starts changed 0
+                               same fits: |χ²·s²/χ² − 1| ≤ 1.15e-09  σ relative change ≤ 0.000138  support F relative change ≤ 8.09e-05
+basinhopping n_starts=0      s=2         targets   8  same fit   8  different   0  bit-identical values   1  errors 0  success changed 0  support changed 0  starts changed 0
+                               same fits: |χ²·s²/χ² − 1| ≤ 2.03e-08  σ relative change ≤ 0.00211  support F relative change ≤ 0.000962
+basinhopping n_starts=0      s=sqrt0.7   targets   8  same fit   8  different   0  bit-identical values   0  errors 0  success changed 0  support changed 0  starts changed 0
+                               same fits: |χ²·s²/χ² − 1| ≤ 1.38e-09  σ relative change ≤ 0.000396  support F relative change ≤ 0.000291
+
+same fits whose largest σ change exceeds 1 % (parameter, value, bounds, σ at s = 1 | at s):
+  leastsq n_starts=0         s=sqrt0.7   1f542d778b08  5.gl_ratio: 0.602 (value 1, bounds 0.0…1.0, σ 0.332 | 0.132)
+  leastsq n_starts=0         s=sqrt0.7   e1a437ac9c32  5.gl_ratio: 0.0592 (value 1, bounds 0.0…1.0, σ 0.00617 | 0.0058)
+  leastsq n_starts=0         s=sqrt0.7   f2c380f2e672  5.gl_ratio: 0.0326 (value 1, bounds 0.0…1.0, σ 0.67 | 0.692)
+  leastsq n_starts=0         s=sqrt0.7   ffce09b4eedf  1.gl_ratio: 0.155 (value 1.7167e-07, bounds 0.0…1.0, σ 0.0769 | 0.0888)
+
+every fit that is not the same fit (χ²ᵣ of the s = 1 fit | the scaled fit, put back on the s = 1 scale; largest change in any component's area %; first difference the same-fit rule names):
+  least_squares n_starts=0   s=1-repeat  58e6dcb51ccc  χ²ᵣ 1.53325 | 1.56721  Δarea 0.33 pp  la_casaxps,pseudo_voigt_gl  fitted_y: differ by 73.4 (> 0.001 x 2.01e+04)
+  least_squares n_starts=0   s=2         58e6dcb51ccc  χ²ᵣ 1.53325 | 1.57337  Δarea 0.298 pp  la_casaxps,pseudo_voigt_gl  fitted_y: differ by 81.8 (> 0.001 x 2.01e+04)
+  least_squares n_starts=0   s=sqrt0.7   119243a6dd9f  χ²ᵣ 13.066 | 13.066  Δarea 0.0351 pp  asymmetric_gl,pseudo_voigt_gl  individual_peaks.1.y: differ by 8.5 (> 0.001 x 5.98e+03)
+  least_squares n_starts=0   s=sqrt0.7   1f8ceab0cf5a  χ²ᵣ 18.2121 | 18.2121  Δarea 0.00367 pp  asymmetric_gl,pseudo_voigt_gl  individual_peaks.1.y: differ by 2.27e-09 (> 0.001 x 2.29e-09)
+  least_squares n_starts=0   s=sqrt0.7   3081b83af679  χ²ᵣ 5.29079 | 4.28432  Δarea 11.1 pp  asymmetric_gl,pseudo_voigt_gl  fitted_y: differ by 708 (> 0.001 x 9.48e+04)
+  least_squares n_starts=0   s=sqrt0.7   94c15777091f  χ²ᵣ 17.1649 | 17.165  Δarea 0.00316 pp  asymmetric_gl,la_casaxps,pseudo_voigt_gl  individual_peaks.0.params.amplitude.value: 7388.347010770877 vs 7414.897302970251
+  leastsq n_starts=0         s=sqrt0.7   1f8ceab0cf5a  χ²ᵣ 18.2121 | 18.2121  Δarea 0.000663 pp  asymmetric_gl,pseudo_voigt_gl  individual_peaks.1.y: differ by 9.74e-09 (> 0.001 x 1.36e-08)
+  leastsq n_starts=0         s=sqrt0.7   975e736e57d1  χ²ᵣ 8.62954 | 8.62954  Δarea 0.00064 pp  asymmetric_gl,pseudo_voigt_gl  individual_peaks.2.support.delta_chi2: -2.2737367544323206e-13 vs 0.0
+  leastsq n_starts=0         s=sqrt0.7   a8120c16ba36  χ²ᵣ 2.78359 | 2.77347  Δarea 0.122 pp  la_casaxps,pseudo_voigt_gl  fitted_y: differ by 49.5 (> 0.001 x 2.3e+04)
+  leastsq n_starts=0         s=sqrt0.7   d3f78df20301  χ²ᵣ 33.8976 | 51.9069  Δarea 21.9 pp  asymmetric_gl,pseudo_voigt_gl  fitted_y: differ by 1.1e+04 (> 0.001 x 1.13e+05)
+  leastsq n_starts=0         s=sqrt0.7   f562abf3e911  χ²ᵣ 1.83913 | 1.83913  Δarea 0.000468 pp  la_casaxps,pseudo_voigt_gl  statistics.chi_square: 617.9464483848458 vs 617.94894421902
+  least_squares n_starts=3   s=1-repeat  6798d9f6aaf8  χ²ᵣ 1.9317 | 1.9317  Δarea 2.17e-07 pp  la_casaxps,pseudo_voigt_gl  starts.not_better_chi2r.0: 2.2820409254789507 vs 2.2820381845167708
+  least_squares n_starts=3   s=2         6798d9f6aaf8  χ²ᵣ 1.9317 | 1.9317  Δarea 0 pp  la_casaxps,pseudo_voigt_gl  starts.not_better_chi2r.0: 2.2820409254789507 vs 2.282038183863716
+  least_squares n_starts=3   s=sqrt0.7   119243a6dd9f  χ²ᵣ 13.066 | 13.066  Δarea 0.0351 pp  asymmetric_gl,pseudo_voigt_gl  individual_peaks.1.y: differ by 8.5 (> 0.001 x 5.98e+03)
+  least_squares n_starts=3   s=sqrt0.7   1f8ceab0cf5a  χ²ᵣ 18.2121 | 18.2121  Δarea 0.00367 pp  asymmetric_gl,pseudo_voigt_gl  individual_peaks.1.y: differ by 2.27e-09 (> 0.001 x 2.29e-09)
+  least_squares n_starts=3   s=sqrt0.7   6798d9f6aaf8  χ²ᵣ 1.9317 | 1.9317  Δarea 2.96e-07 pp  la_casaxps,pseudo_voigt_gl  starts.not_better_chi2r.0: 2.2820409254789507 vs 2.2820402326472555
+  least_squares n_starts=3   s=sqrt0.7   bf7efe5e7e31  χ²ᵣ 2.65943 | 2.65943  Δarea 1.72e-06 pp  asymmetric_gl,gaussian,pseudo_voigt_gl  starts.not_better_chi2r.0: 2.9538367215152097 vs 3.0519676202018773
+  nelder n_starts=0          s=sqrt0.7   119243a6dd9f  χ²ᵣ 10.5058 | 10.5058  Δarea 0.0128 pp  asymmetric_gl,pseudo_voigt_gl  individual_peaks.1.y: differ by 4.37e-08 (> 0.001 x 4.43e-08)
+  nelder n_starts=0          s=sqrt0.7   1f8ceab0cf5a  χ²ᵣ 18.2121 | 18.2121  Δarea 0.00366 pp  asymmetric_gl,pseudo_voigt_gl  individual_peaks.1.y: differ by 1.39e-16 (> 0.001 x 1.39e-16)
