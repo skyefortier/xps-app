@@ -1,0 +1,12 @@
+You are re-reviewing a UX fix (branch fix-load-notices, now at commit 6fe1564; round 2 reviewed 390acab; base main 07ce2f2). It will be deployed after review. Focus on `git diff 390acab 6fe1564`; the whole change is `git diff 07ce2f2 6fe1564`; plan and audit in docs/superpowers/plans/2026-10-28-load-summary.md.
+
+Round 2 (both runs NO-GO; the earlier dispositions were confirmed) raised, and I did:
+- MAJOR: a refused fit file lost its error and "Fit applied" was announced. FIXED: TabManager.fromJSON's v1 path returns true once applied and false on each refusal (no spectrum, no active tab, a peak-validation error); _applyFitJSON returns before dismissing or announcing unless it returned true. Test test_a_refused_fit_file_keeps_its_error_and_never_says_applied (error box shown, title "Fit not loaded.", peaks unchanged, no "Fit applied"); mutation check: removing the gate makes the test fail.
+- MINOR: titles unbounded (a 1,400-character sample_name reached a green toast whole, and could squeeze the box's body to zero). FIXED: showLoadSummary and showLoadError bound the title to 120 characters (the green notice uses the same bounded title). Tests: the phone test asserts the body keeps > 100 px and the title ≤ 120 characters; test_a_long_sample_name_never_reaches_a_toast_whole.
+- MINOR: "its data less its background are not finite numbers in floating point …" fell to 'damaged'. FIXED: every reason that says "in floating point" is 'uncheckable' (with "it has more stored points"); the mapping test includes it.
+
+Evidence I ran on 6fe1564's code: tests/test_browser_load_summary.py 13 passed (earlier: tests/test_browser_background_not_converged.py 13 passed on 390acab, unchanged since); all 41 JS test files passed on 390acab (the JS-visible changes since are the classifier line and fromJSON's return values). The full pytest suite is running on 6fe1564 — do not assume it passed.
+
+Please verify the three dispositions, look for anything they broke (other callers of fromJSON? any v1 path that should still announce?), and recheck the whole change once more for: a remaining load/restore path with unbounded or concatenated text in a timed toast; a summary sentence not true for every reason in its group; restore decisions unchanged. Report BLOCKER / MAJOR / MINOR with file:line and a reproduction where possible. End with exactly one line:
+VERDICT: GO   or   VERDICT: NO-GO
+(GO = no BLOCKER or MAJOR finding.)
