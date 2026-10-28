@@ -291,7 +291,7 @@ def test_a_spectrum_file_fit_is_restored_and_a_stale_one_is_not(browser, server)
                 # the file's own order is kept (round 5): the grid and curve as saved, point for point
                 assert got["be"] == saves[name]["roiBE"] and got["fittedY"] == saves[name]["fittedY"], name
             else:
-                assert any(l.startswith("This spectrum was saved after its model was edited") for l in got["s"]), got["s"]
+                assert any(l.startswith("This spectrum was saved after its model or settings changed") for l in got["s"]), got["s"]
                 assert any(d and "saved after its model or settings changed" in d for d in got["d"]), got["d"]
         finally:
             pg.close()

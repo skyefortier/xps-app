@@ -821,6 +821,7 @@
   #load-summary {
     position: fixed; right: 16px; bottom: 24px;
     width: min(480px, calc(100vw - 32px));
+    max-height: calc(100vh - 48px); display: flex; flex-direction: column;
     background: var(--bg2); border: 1px solid var(--border2); border-left: 3px solid var(--amber);
     border-radius: var(--radius); padding: 10px 12px 12px;
     font-family: var(--sans); font-size: 12px; line-height: 1.5; color: var(--text);
@@ -828,8 +829,11 @@
     z-index: var(--z-toast, 2400);
   }
   #load-summary[hidden] { display: none; }
-  #load-summary .load-summary-head { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
-  #load-summary .load-summary-title { flex: 1; font-weight: 600; }
+  #load-summary.is-error { border-left-color: var(--red); }
+  /* the header (and its dismiss button) never scrolls away; a long body scrolls inside the box */
+  #load-summary .load-summary-head { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px; flex: none; }
+  #load-summary .load-summary-title { flex: 1; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+  #load-summary .load-summary-body { overflow-y: auto; min-height: 0; overflow-wrap: anywhere; }
   #load-summary .load-summary-close {
     background: none; border: none; color: var(--text2); cursor: pointer; font-size: 14px; line-height: 1;
     padding: 2px 4px; border-radius: 4px;
@@ -2336,8 +2340,8 @@
 <div id="notify"></div>
 <div id="load-summary" role="status" aria-live="polite" hidden>
   <div class="load-summary-head"><span class="load-summary-title" id="load-summary-title"></span><button type="button" class="load-summary-close" aria-label="Dismiss" onclick="dismissLoadSummary()">&#x2715;</button></div>
-  <ul id="load-summary-list"></ul>
-  <div class="load-summary-foot" id="load-summary-foot"></div>
+  <div class="load-summary-body"><ul id="load-summary-list"></ul>
+  <div class="load-summary-foot" id="load-summary-foot"></div></div>
 </div>
 
 <script>
@@ -2586,6 +2590,15 @@ function renderStackLegend(stackTab) {
   const entries = stackTab.entries || [];
   empty.style.display = entries.length ? 'none' : 'block';
   list.innerHTML = '';
+  const pruned = _prunedStackEntries.get(stackTab);
+  if (pruned) {
+    const note = document.createElement('div');
+    note.className = 'stack-pruned-note';
+    note.style.cssText = 'font-size:11px;line-height:1.5;color:var(--text2);margin-bottom:6px';
+    note.textContent = pruned + (pruned === 1 ? ' entry was' : ' entries were') + ' removed when this stack was loaded: '
+      + (pruned === 1 ? 'its spectrum is' : 'their spectra are') + ' not in the file.';
+    list.appendChild(note);
+  }
   for (const entry of entries) {
     const src = tabManager._getTab(entry.sourceTabId);
     const name = (src ? src.name : '(missing source)') +
@@ -3452,7 +3465,7 @@ class TabManager {
 
     const eligible = this._filterFiles(files);
     if (!eligible.length) {
-      notify('No XPS data files found in folder.', 'amber');
+      showLoadError('No XPS data files found in the folder.', '');
       return;
     }
 
@@ -3529,7 +3542,7 @@ class TabManager {
 
       // Audit F1/F4/F5: reject unsafe peak ids/links/colors before rendering.
       const pe = _peaksLoadError(data.peaks);
-      if (pe) { notify('Fit not loaded: ' + pe + '.', 'red', true); return; }
+      if (pe) { showLoadError('Fit not loaded.', 'In the file, ' + pe + '.'); return; }
 
       // Import is an undoable transaction on this record: the previous model
       // (and its averaging) is one Ctrl-Z away, redo is cleared, and a Find
@@ -3600,6 +3613,7 @@ class TabManager {
       renderPeakList();
       updatePlot();
       renderResults();   // installs the imported model's designation (or the plain placeholder) and clears stale widgets
+      dismissLoadSummary();   // another file loaded: an earlier load's summary no longer describes what is on screen
       return;
     }
 
@@ -5439,11 +5453,11 @@ function _loadSpectralFile(file) {
     fetch('/api/parse-vgd', { method: 'POST', body: form })
       .then(r => r.json())
       .then(json => {
-        if (json.error) { notify('VGD parse error: ' + json.error, 'red'); return; }
-        if (!json.be || json.be.length < 5) { notify('No spectral data found in VGD file.', 'red'); return; }
+        if (json.error) { showLoadError('VGD file not loaded.', 'The server could not read it: ' + json.error); return; }
+        if (!json.be || json.be.length < 5) { showLoadError('VGD file not loaded.', 'It holds no spectral data.'); return; }
         setSpectrum(json.be, json.inten, file.name, _fileSourcePath(file));
       })
-      .catch(err => notify('VGD upload failed: ' + err.message, 'red'));
+      .catch(err => showLoadError('VGD file not loaded.', 'The upload failed: ' + err.message));
     return;
   }
 
@@ -5456,8 +5470,8 @@ function _loadSpectralFile(file) {
       try {
         const result = parseXLSX(e.target.result);
         if (result.be.length > 0) setSpectrum(result.be, result.inten, file.name, sourcePath);
-        else notify('Could not extract data from file. Try CSV format.', 'red');
-      } catch(err) { notify('Parse error: ' + err.message, 'red'); }
+        else showLoadError('File not loaded.', 'No data could be extracted from it. Try CSV format.');
+      } catch(err) { showLoadError('File not loaded.', 'It could not be parsed: ' + err.message); }
     };
   } else {
     reader.readAsText(file);
@@ -5465,8 +5479,8 @@ function _loadSpectralFile(file) {
       try {
         const result = parseCSV(e.target.result);
         if (result.be.length > 0) setSpectrum(result.be, result.inten, file.name, sourcePath);
-        else notify('No numeric data found in file.', 'red');
-      } catch(err) { notify('Parse error: ' + err.message, 'red'); }
+        else showLoadError('File not loaded.', 'It holds no numeric data.');
+      } catch(err) { showLoadError('File not loaded.', 'It could not be parsed: ' + err.message); }
     };
   }
 }
@@ -5500,6 +5514,7 @@ function handleDrop(e) {
 function setSpectrum(be, inten, name, sourcePath = null) {
   // Delegate to TabManager — creates a new tab and activates it
   tabManager.createTab(name || 'Spectrum', be, inten, sourcePath);
+  dismissLoadSummary();   // another file loaded: an earlier load's summary no longer describes what is on screen
   notify('Loaded ' + be.length + ' points', 'green');
 }
 
@@ -13954,6 +13969,7 @@ function _applyFitJSON(data) {
   if (!state.rawBE.length) { notify('Load a spectrum first before loading a fit.', 'amber', true); return; }
   tabManager.fromJSON(data);
   const nPeaks = (data.peaks || []).length;
+  dismissLoadSummary();   // another file loaded
   notify('Fit applied to active tab: ' + nPeaks + ' peak' + (nPeaks !== 1 ? 's' : '') + '.', 'green');
 }
 
@@ -14010,7 +14026,7 @@ async function _loadSessionFile(file) {
     // No recognized structure — try as spectral data (CSV-like)
     _loadSpectralFile(file);
   } catch (err) {
-    notify('Failed to load file: ' + err.message, 'red');
+    showLoadError('File not loaded.', err.message);
   }
 }
 
@@ -14024,7 +14040,7 @@ async function handleSessionLoad(event) {
 function _loadSpectrumFile(data, sessionFile) {
   // Audit F1/F4/F5: reject unsafe peak ids/links/colors before rendering.
   const pe = _peaksLoadError(data && data.peaks);
-  if (pe) { notify('Spectrum not loaded: ' + pe + '.', 'red', true); return; }
+  if (pe) { showLoadError('Spectrum not loaded.', 'In the file, ' + pe + '.'); return; }
   // Create a new tab with the saved spectrum data
   const srcPath = data.sourcePath || (sessionFile ? sessionFile : '(restored)');
   const active = tabManager.createTab(
@@ -14170,28 +14186,25 @@ function _loadProjectJSON(data, sessionFile, opts) {
   for (const t of (data.tabs || [])) {
     if (!t || typeof t !== 'object') continue;
     if (t.id != null && !_SLUG_ID_RE.test(String(t.id))) {
-      notify('Project not loaded: tab id ' + JSON.stringify(t.id).slice(0, 60)
-             + ' is not a valid identifier.', 'red', true);
+      showLoadError('Project not loaded.', 'In the file, tab id ' + _quoted(t.id) + ' is not a valid identifier.');
       return;
     }
     if (Array.isArray(t.entries)) {
       for (const e of t.entries) {
         if (!e || typeof e !== 'object') continue;
         if (e.id != null && !_SLUG_ID_RE.test(String(e.id))) {
-          notify('Project not loaded: stack-entry id ' + JSON.stringify(e.id).slice(0, 60)
-                 + ' is not a valid identifier.', 'red', true);
+          showLoadError('Project not loaded.', 'In the file, stack-entry id ' + _quoted(e.id) + ' is not a valid identifier.');
           return;
         }
         if (e.color != null && e.color !== '' &&
             (typeof e.color !== 'string' || !_HEX_COLOR_RE.test(e.color))) {
-          notify('Project not loaded: stack-entry color ' + JSON.stringify(e.color).slice(0, 60)
-                 + ' is not a valid hex color.', 'red', true);
+          showLoadError('Project not loaded.', 'In the file, stack-entry color ' + _quoted(e.color) + ' is not a valid hex color.');
           return;
         }
       }
     }
     const pe = _peaksLoadError(t.peaks);
-    if (pe) { notify('Project not loaded: ' + pe + '.', 'red', true); return; }
+    if (pe) { showLoadError('Project not loaded.', 'In the file, ' + pe + '.'); return; }
   }
 
   // Audit F8: reject oversized projects before building tabs/charts, so a
@@ -14200,8 +14213,7 @@ function _loadProjectJSON(data, sessionFile, opts) {
   // assembled tabs through here).
   const _ftabs = data.tabs || [];
   if (_ftabs.length > MAX_PROJECT_TABS) {
-    notify('Project not loaded: too many tabs (' + _ftabs.length + ' > '
-           + MAX_PROJECT_TABS + ').', 'red', true);
+    showLoadError('Project not loaded.', 'It has too many tabs (' + _ftabs.length + ' > ' + MAX_PROJECT_TABS + ').');
     return;
   }
   for (const t of _ftabs) {
@@ -14209,8 +14221,7 @@ function _loadProjectJSON(data, sessionFile, opts) {
     const nBE = Array.isArray(t.rawBE) ? t.rawBE.length : 0;
     const nI  = Array.isArray(t.rawIntensity) ? t.rawIntensity.length : 0;
     if (nBE > MAX_SPECTRUM_POINTS || nI > MAX_SPECTRUM_POINTS) {
-      notify('Project not loaded: a spectrum exceeds '
-             + MAX_SPECTRUM_POINTS.toLocaleString() + ' points.', 'red', true);
+      showLoadError('Project not loaded.', 'A spectrum in it exceeds ' + MAX_SPECTRUM_POINTS.toLocaleString() + ' points.');
       return;
     }
   }
@@ -14351,7 +14362,7 @@ function _loadProjectJSON(data, sessionFile, opts) {
     const before = t.entries.length;
     t.entries = t.entries.filter(e => validSpectrumIds.has(e.sourceTabId));
     const removed = before - t.entries.length;
-    if (removed > 0) { report.stackEntries += removed; report.stacks++; }
+    if (removed > 0) { report.stackEntries += removed; report.stacks.push([t.name, removed]); _prunedStackEntries.set(t, removed); }
   }
 
   // Phase 5: advance _nextStackNum past the highest restored "▦ Stack N"
@@ -14416,16 +14427,15 @@ function _loadProjectJSON(data, sessionFile, opts) {
 async function _loadZipProject(file) {
   const zip = await JSZip.loadAsync(file);
   const manifestFile = zip.file('manifest.json');
-  if (!manifestFile) { notify('Invalid project ZIP: no manifest.json.', 'red'); return; }
+  if (!manifestFile) { showLoadError('Project ZIP not loaded.', 'It has no manifest.json.'); return; }
   const manifest = JSON.parse(await manifestFile.async('string'));
-  if (manifest.version !== 3) { notify('Unsupported project version: ' + manifest.version, 'red'); return; }
+  if (manifest.version !== 3) { showLoadError('Project ZIP not loaded.', 'Its project version ' + _quoted(manifest.version) + ' is not supported.'); return; }
 
   // Audit F8: bound the zip BEFORE inflating any spectrum stream, so a small
   // compressed file cannot expand to gigabytes in the heap (zip bomb).
   const specList = Array.isArray(manifest.spectra) ? manifest.spectra : [];
   if (specList.length > MAX_ZIP_SPECTRA) {
-    notify('Project ZIP not loaded: too many spectra (' + specList.length + ' > '
-           + MAX_ZIP_SPECTRA + ').', 'red', true);
+    showLoadError('Project ZIP not loaded.', 'It has too many spectra (' + specList.length + ' > ' + MAX_ZIP_SPECTRA + ').');
     return;
   }
   // Sum the declared uncompressed sizes. _data.uncompressedSize is a private
@@ -14439,14 +14449,12 @@ async function _loadZipProject(file) {
     else haveSizes = false;
   });
   if (haveSizes && totalUncompressed > MAX_ZIP_UNCOMPRESSED) {
-    notify('Project ZIP not loaded: uncompressed size '
-           + Math.round(totalUncompressed / 1048576) + ' MB exceeds '
-           + Math.round(MAX_ZIP_UNCOMPRESSED / 1048576) + ' MB.', 'red', true);
+    showLoadError('Project ZIP not loaded.', 'Its uncompressed size ' + Math.round(totalUncompressed / 1048576) + ' MB exceeds '
+                  + Math.round(MAX_ZIP_UNCOMPRESSED / 1048576) + ' MB.');
     return;
   }
   if (!haveSizes && file.size > MAX_ZIP_COMPRESSED_FALLBACK) {
-    notify('Project ZIP not loaded: file too large and its uncompressed size '
-           + 'could not be verified.', 'red', true);
+    showLoadError('Project ZIP not loaded.', 'The file is too large and its uncompressed size could not be verified.');
     return;
   }
 
@@ -15434,61 +15442,87 @@ function _restoreDropGroup(reason) {
   if (r.startsWith('its background settings give no converged background')) return 'background';
   if (r.startsWith('it was saved after its model or settings changed')) return 'editedsave';
   // the restore could not match the fit's stored points to the samples of its data (_restoredFitGrid)
-  if (r.startsWith('its stored points') || r.startsWith('it has more stored points') || r.startsWith('its stored statistics cannot be compared'))
-    return 'unmatched';
+  if (r.startsWith('its stored points')) return 'unmatched';
+  // the check was refused: the numbers exceed what its arithmetic can compare (round 1: not "inconsistent")
+  if (r.startsWith('it has more stored points') || r.includes('cannot be compared in floating point') ||
+      r.startsWith('its stored statistics cannot be compared'))
+    return 'uncheckable';
   return 'damaged';
 }
 // An empty report: tabs per group (names in load order), stack entries removed, spectrum files missing.
 function _newLoadReport() {
-  return { earlier: [], rawdata: [], background: [], editedsave: [], unmatched: [], damaged: [], unreadable: [], unconfirmed: [], bgchanged: [],
-           voigt: [], voigtAlso: [],
-           stackEntries: 0, stacks: 0, missingFiles: 0, skippedFiles: 0 };
+  return { earlier: [], rawdata: [], background: [], editedsave: [], unmatched: [], uncheckable: [], damaged: [], unreadable: [],
+           unconfirmed: [], bgchanged: [], voigt: [], voigtAlsoUnconfirmed: [], voigtAlsoBgchanged: [],
+           stackEntries: 0, stacks: [], missingFiles: 0, skippedFiles: 0 };
 }
 // Record one tab's restore outcome (by tab id: names can repeat): a peaks-only reason, an unreadable seal, or a
-// restored-stale fit by its flags — a Voigt mix on a fit already counted for its background is said as "also".
+// restored-stale fit by its flags — a Voigt mix on a fit already counted for its background is said on THAT line.
 function _reportDropped(report, tab, reason) { report[_restoreDropGroup(reason)].push(tab.id); }
 function _reportStale(report, tab) {
   const fr = tab.fitResult || {};
   if (fr.backgroundStale && fr.backgroundStale.unconfirmed) report.unconfirmed.push(tab.id);
   else if (fr.backgroundStale) report.bgchanged.push(tab.id);
-  if (fr.voigtStale) (fr.backgroundStale ? report.voigtAlso : report.voigt).push(tab.id);
+  if (fr.voigtStale)
+    (!fr.backgroundStale ? report.voigt : fr.backgroundStale.unconfirmed ? report.voigtAlsoUnconfirmed : report.voigtAlsoBgchanged).push(tab.id);
 }
 // The summary's lines. `subjectOf(n)` names n tabs ("3 of 21 tabs", or "This spectrum" for a one-spectrum load).
 function _loadSummaryLines(report, subjectOf) {
   const lines = [];
   const say = (names, f) => { const n = names.length; if (n) lines.push(f(subjectOf(n), n !== 1)); };
   const was = p => p ? 'were' : 'was', its = p => p ? 'their' : 'its', has = p => p ? 'have' : 'has', shows = p => p ? 'show' : 'shows';
-  say(report.earlier, (s, p) => `${s} ${was(p)} saved by an earlier version: ${its(p)} peaks are loaded, but the old fit can’t be redrawn.`);
+  const noStats = 'so no χ², R-factor or uncertainties are shown.';
+  // a Voigt mix on a fit already counted for its background is said on that line (round 1: "In N of those" after a
+  // later line pointed at the wrong group)
+  const also = n => n ? ` In ${n === 1 ? 'one of them' : n + ' of them'} the fit also used a Voigt mix the page no longer draws.` : '';
+  // each sentence states the evidence that is missing or the check that could not run — never an inferred cause
+  say(report.earlier, (s, p) => `${s} ${was(p)} saved without the fitted curve or the energies ${its(p)} fit needs (earlier versions saved fits this way): ${its(p)} peaks are loaded, but the old fit can’t be redrawn.`);
   say(report.rawdata, (s, p) => `${s} ${has(p)} incomplete spectrum data: ${its(p)} peaks are loaded, but the old fit can’t be checked, so it isn’t shown.`);
   say(report.background, (s, p) => `${s}: the background settings no longer give a converged background, so the old fit isn’t shown; ${its(p)} peaks are loaded.`);
-  say(report.editedsave, (s, p) => `${s} ${was(p)} saved after ${its(p)} model was edited, so the saved curves are not the fit\u2019s and the old fit isn\u2019t shown; ${its(p)} peaks are loaded.`);
-  say(report.unmatched, (s, p) => `${s}: the old fit\u2019s points can\u2019t be matched to the spectrum\u2019s data, so it isn\u2019t shown; ${its(p)} peaks are loaded.`);
+  say(report.editedsave, (s, p) => `${s} ${was(p)} saved after ${its(p)} model or settings changed, so the saved curves are not the fit’s and the old fit isn’t shown; ${its(p)} peaks are loaded.`);
+  say(report.unmatched, (s, p) => `${s}: the old fit’s points can’t be matched to the spectrum’s data, so it isn’t shown; ${its(p)} peaks are loaded.`);
+  say(report.uncheckable, (s, p) => `${s}: the old fit can’t be checked against its data (its numbers exceed what the check can compare), so it isn’t shown; ${its(p)} peaks are loaded.`);
   say(report.damaged, (s, p) => `${s}: the saved fit is incomplete or inconsistent, so it isn’t shown; ${its(p)} peaks are loaded.`);
   say(report.unreadable, (s, p) => `${s}: the saved fit record can’t be read, so it isn’t shown; ${its(p)} peaks are loaded.`);
-  say(report.unconfirmed, (s, p) => `${s} ${shows(p)} the old fit as saved, but it can’t be confirmed against today’s background (saved by an earlier version), so no χ², R-factor or uncertainties are shown.`);
-  say(report.bgchanged, (s, p) => `${s} ${shows(p)} the old fit as saved, but today’s background differs from the one it was fitted against, so no χ², R-factor or uncertainties are shown.`);
-  say(report.voigt, (s, p) => `${s} ${shows(p)} the old fit as saved, but it used a Voigt mix the page no longer draws, so no χ², R-factor or uncertainties are shown.`);
-  if (report.voigtAlso.length)
-    lines.push(`In ${report.voigtAlso.length} of those, the fit also used a Voigt mix the page no longer draws.`);
-  if (report.stackEntries)
-    lines.push(`${report.stackEntries} stack entr${report.stackEntries === 1 ? 'y was' : 'ies were'} removed from ${report.stacks} stack${report.stacks === 1 ? '' : 's'}: ${report.stackEntries === 1 ? 'its spectrum is' : 'their spectra are'} not in the file.`);
+  say(report.unconfirmed, (s, p) => `${s} ${shows(p)} the old fit as saved, but it can’t be confirmed against today’s background (it was saved without the record of its charge correction), ${noStats}${also(report.voigtAlsoUnconfirmed.length)}`);
+  say(report.bgchanged, (s, p) => `${s} ${shows(p)} the old fit as saved, but today’s background differs from the one it was fitted against, ${noStats}${also(report.voigtAlsoBgchanged.length)}`);
+  say(report.voigt, (s, p) => `${s} ${shows(p)} the old fit as saved, but it used a Voigt mix the page no longer draws, ${noStats}`);
+  if (report.stackEntries) {
+    // stacks are few; their names say which changed (round 1: the old per-stack notice named them)
+    const named = report.stacks.map(([name, k]) => `“${name}” (${k})`).join(', ');
+    lines.push(`${report.stackEntries} stack entr${report.stackEntries === 1 ? 'y was' : 'ies were'} removed from ${report.stacks.length === 1 ? 'stack' : 'stacks'} ${named}: ${report.stackEntries === 1 ? 'its spectrum is' : 'their spectra are'} not in the file.`);
+  }
   if (report.skippedFiles)
-    lines.push(`${report.skippedFiles} file${report.skippedFiles === 1 ? ' was' : 's were'} skipped: ${report.skippedFiles === 1 ? 'it holds' : 'they hold'} no spectrum the app can read.`);
+    lines.push(`${report.skippedFiles} file${report.skippedFiles === 1 ? ' was' : 's were'} skipped: ${report.skippedFiles === 1 ? 'it' : 'they'} could not be read as ${report.skippedFiles === 1 ? 'a spectrum' : 'spectra'}.`);
   if (report.missingFiles)
     lines.push(`${report.missingFiles} spectrum file${report.missingFiles === 1 ? ' listed in the project was' : 's listed in the project were'} missing from the ZIP and not loaded.`);
   return lines;
 }
 function _loadReportHasFitNotes(report) {
-  return ['earlier', 'rawdata', 'background', 'editedsave', 'unmatched', 'damaged', 'unreadable', 'unconfirmed', 'bgchanged', 'voigt', 'voigtAlso'].some(k => report[k].length);
+  return ['earlier', 'rawdata', 'background', 'editedsave', 'unmatched', 'uncheckable', 'damaged', 'unreadable', 'unconfirmed', 'bgchanged',
+          'voigt'].some(k => report[k].length);
 }
 // Show the summary (replacing any earlier one) — or, when the load restored everything, the short green notice.
 function showLoadSummary(title, report, subjectOf) {
   const lines = _loadSummaryLines(report, subjectOf);
   const foot = _loadReportHasFitNotes(report)
     ? 'Press Run Fit on a tab to refit it. Each tab’s Results panel says what happened to its saved fit.' : '';
-  _lastLoadSummary = { title, lines, foot, report };
-  const box = document.getElementById('load-summary');
+  _lastLoadSummary = { title, lines, foot, report, kind: 'summary' };
   if (!lines.length) { dismissLoadSummary(); notify(title, 'green'); return; }
+  _showLoadBox(title, lines, foot, false);
+}
+// A load that failed says so in the same box (red edge), until dismissed or replaced — never in a timed toast
+// (round 1: a peak's invalid colour from a file was quoted whole, 1438 characters, into a 3-second toast).
+function showLoadError(title, detail) {
+  const lines = detail ? [_boundedText(detail, 400)] : [];
+  _lastLoadSummary = { title, lines, foot: '', report: null, kind: 'error' };
+  _showLoadBox(title, lines, '', true);
+}
+function _boundedText(t, n) { t = String(t); return t.length > n ? t.slice(0, n - 1) + '…' : t; }
+// a value quoted from a file, bounded (the project-id checks already cut at 60)
+function _quoted(v) { return _boundedText(JSON.stringify(v), 60); }
+function _showLoadBox(title, lines, foot, isError) {
+  const box = document.getElementById('load-summary');
+  box.classList.toggle('is-error', !!isError);
   document.getElementById('load-summary-title').textContent = title;
   const ul = document.getElementById('load-summary-list');
   ul.textContent = '';
@@ -15496,6 +15530,9 @@ function showLoadSummary(title, report, subjectOf) {
   document.getElementById('load-summary-foot').textContent = foot;
   box.hidden = false;
 }
+// a stack whose entries a load removed says so in its own legend (round 1: the summary alone is dismissible) —
+// a runtime marker, never saved
+const _prunedStackEntries = new WeakMap();   // stack tab -> how many entries the load removed
 function dismissLoadSummary() {
   const box = document.getElementById('load-summary');
   if (box) box.hidden = true;
@@ -17831,12 +17868,12 @@ const _SLUG_ID_RE   = /^[A-Za-z0-9_-]{1,64}$/;
 function _peakLoadError(p) {
   if (!p || typeof p !== 'object') return null;
   if (!/^\d+$/.test(String(p.id)))
-    return 'peak id ' + JSON.stringify(p.id) + ' is not a non-negative integer';
+    return 'peak id ' + _quoted(p.id) + ' is not a non-negative integer';
   if (p.linked != null && p.linked !== false && !/^\d+$/.test(String(p.linked)))
-    return 'peak link target ' + JSON.stringify(p.linked) + ' is not a valid peak id';
+    return 'peak link target ' + _quoted(p.linked) + ' is not a valid peak id';
   if (p.color != null && p.color !== '' &&
       (typeof p.color !== 'string' || !_HEX_COLOR_RE.test(p.color)))
-    return 'peak color ' + JSON.stringify(p.color) + ' is not a valid hex color';
+    return 'peak color ' + _quoted(p.color) + ' is not a valid hex color';
   return null;
 }
 

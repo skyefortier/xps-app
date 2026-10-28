@@ -1,0 +1,32 @@
+I found **two MAJOR issues** and five MINOR issues.
+
+1. **MAJOR — A many-reason summary can hide its own dismiss button on phones.** [templates/index.html:821](/Users/skyefortier/xps-app/.claude/worktrees/load-notices/templates/index.html:821)  
+   The fixed, bottom-anchored box has no maximum height or scrolling. At 320×568, a project containing several dropped-fit groups, stale groups, unreadable seals and pruned stacks can grow above the viewport; its header and close button go with it. The width rule alone does not prevent this. Long unbroken project/spectrum names can also overflow the flex header. Bound the height, scroll the contents, keep dismissal visible, and allow title wrapping. This finding is from CSS inspection, not a browser measurement.
+
+2. **MAJOR — The audit misses load errors that still put arbitrarily long text into timed toasts.** [templates/index.html:14194](/Users/skyefortier/xps-app/.claude/worktrees/load-notices/templates/index.html:14194), [templates/index.html:17831](/Users/skyefortier/xps-app/.claude/worktrees/load-notices/templates/index.html:17831)  
+   `_peakLoadError` includes complete invalid IDs, links and colors. Project, spectrum and fit/v1 loaders pass these to prominent notifications, which disappear after three seconds. Reproduction: load a project with a peak whose `color` is `"invalid".repeat(200)`; the reason alone is **1,438 characters**. The plan’s assertion that these validation messages are short is false. Raw-spectrum parse/upload errors and `_loadSessionFile`’s exception message also remain unrestricted timed text. Bound the summary and retain detailed errors in a persistent, readable place.
+
+3. **MINOR — Stack-specific information is discarded.** [templates/index.html:14354](/Users/skyefortier/xps-app/.claude/worktrees/load-notices/templates/index.html:14354)  
+   The old notice identified each affected stack and its removed-entry count. The report retains only aggregate counts; neither stack IDs/names nor per-stack counts survive. Load two differently named stacks with missing sources: the summary cannot tell the user which changed, and there is no corresponding per-stack explanation. Preserve that detail outside the grouped notice.
+
+4. **MINOR — Some grouped sentences claim more than their reasons establish.** [templates/index.html:15431](/Users/skyefortier/xps-app/.claude/worktrees/load-notices/templates/index.html:15431)  
+   Missing `fittedY` establishes a missing envelope, not that an earlier version saved the file. A damaged or edited legacy-format record follows the same branch. Likewise, arithmetic overflow maps to “incomplete or inconsistent,” although finite, internally consistent inputs can exceed the comparison’s arithmetic limits. `_restoredFitGrid`’s point-limit and arithmetic failures are folded into “points can’t be matched,” obscuring that checking was refused. Use descriptions of the missing evidence or unavailable check rather than inferred provenance/corruption. No returned reason falls outside the grouping machinery, but not every resulting explanation is justified.
+
+5. **MINOR — “In N of those” has an ambiguous antecedent.** [templates/index.html:15468](/Users/skyefortier/xps-app/.claude/worktrees/load-notices/templates/index.html:15468)  
+   Reproduced with three tabs: A unconfirmed+Voigt, B background-changed, C Voigt-only. The output lists A’s group, B’s group, C’s group, then “In 1 of those … also used a Voigt mix.” That last line refers to A, despite immediately following C. Name the background-related groups explicitly or attach separate “also” counts to them. The underlying ID counts are correct, including repeated names; the ambiguity is in their presentation.
+
+6. **MINOR — Some subsequent successful loads leave the previous summary visible.** [templates/index.html:15485](/Users/skyefortier/xps-app/.claude/worktrees/load-notices/templates/index.html:15485)  
+   Replacement happens only through `showLoadSummary`. Reproduction: load a legacy project, then a valid CSV through `setSpectrum`; the old project summary remains beside the new green notice. Fit/v1 application and snapshot restore similarly bypass replacement. Define the intended boundary and clear/replace the summary consistently for subsequent loads.
+
+7. **MINOR — The refit proposal overstates ordinary Run Fit’s rollback guarantees.** [2026-10-28-load-summary.md:64](/Users/skyefortier/xps-app/.claude/worktrees/load-notices/docs/superpowers/plans/2026-10-28-load-summary.md:64)  
+   Run Fit preserves edits made during fitting; it does not restore the tab “exactly as loaded.” It also pushes undo before execution, and transport failure can invoke the local fallback. The proposal needs explicit failure/fallback semantics. Its statements about Batch Fit being local-only, `_serverFitJob`, and one running fit per worker are correct. Red-band confirmation belongs to adopting an alternative; ordinary Run Fit does not invoke that confirmation.
+
+The remaining audit found no additional concatenated per-tab load/restore notifications. JSON/ZIP, `.spec.json`, legacy restore outcomes, unreadable seals, stack pruning and missing ZIP entries use the new report. Folder outcomes are grouped. Fixed prerequisite, resource-limit, missing-manifest, fit-application and snapshot notices remain short. Seal installation and legacy checking have no independent notification path. The outstanding dynamic error paths are described above.
+
+Fit restoration decisions are unchanged by this diff. Dropped-fit reasons, both background-stale reasons, Voigt reasons and unreadable-seal explanations remain available in Results. The status/live-region markup and native, named dismiss button are appropriate; the layout issue compromises visible access to that button.
+
+The browser tests meaningfully reject the old concatenated/toast behavior and wrong folder count. However, the “fully restored” fixture contains **no fitted result**, the per-tab loops can execute zero times, and coverage omits mixed stale groups, replacement, phone layout and actual FileReader errors. The six-second `prominent` assertion alone would pass with the old timer, but notification capture supplies the stronger check.
+
+I reran the two updated JS files: **56 tests passed**. Targeted execution also passed folder success, parse-failure, FileReader-error and XLSX cases; `_loadOneFile` has only the folder caller. I did not rerun browser tests or full pytest in this read-only environment, and do not assume full pytest passed.
+
+VERDICT: NO-GO
