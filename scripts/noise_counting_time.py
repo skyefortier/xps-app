@@ -13,12 +13,16 @@ one effective counting time T? Read-only measurement over every committed .VGD (
    energy can be counted for at most the time the acquisition lasted, whatever the detector does in
    parallel; (b) each decoded candidate T = c × scans × dwell, c = 1 … 1024 (a channel or pass count),
    whatever its length, in a band covering the float32 dwell and its decimal.
-3. "Integer-like" (approximate), at each candidate T: the Rayleigh statistic R = |mean exp(2πi y T)| over the
-   m points with y·T ≤ 1e5 (≈ 1 for near-integers; for phases with no structure m·R² is asymptotically Exp(1),
-   p = exp(−m R²)); the family of 1024 candidates is judged by Bonferroni: integer-like at 1 % iff
-   1024 · min p < 0.01.
+3. "Integer-like" (approximate), at each decoded candidate T of range (b) only: the alignment of y·T with the
+   integers, V = mean cos(2π y T) over the m ≥ 10 points with y·T ≤ 1e5 (V = 1 for exact integers, −1 for a
+   half-integer lattice; for independent uniform phases V·√(2m) is asymptotically N(0, 1), one-sided
+   p = Φ(−V√(2m))). The 1024 candidates of a file are one family, judged by Bonferroni: integer-like at 1 % iff
+   1024 · min p < 0.01 — a perfect lattice on 10 points reaches 1024·Φ(−√20) = 0.004 (round 1: the Rayleigh
+   |mean exp(2πi y T)| first used here ignored the phase's direction and needed ≥ 12 exact points).
 4. Does each region's estimated noise scale k (variance = k·y, scripts/noise_estimators.py) follow 1/(dwell ×
-   scans), as counting noise over those times would?
+   scans)? Poisson counts over f × dwell × scans times a deterministic correction a give k × dwell × scans = a/f.
+5. The files' own property names (each set's dictionary), the corrections they record, the sidecars' intensity-axis
+   titles, and (a by-product) the sidecars' energy axis against the app's VGD reader.
 
     venv/bin/python scripts/noise_counting_time.py [--json OUT.json] > OUT.txt
 """
@@ -80,32 +84,49 @@ def _apply(iv, v, d, n_min):
 
 def admissible_times(y, ranges):
     """Every T in ``ranges`` (list of (lo, hi) Fractions) for which each y_i is within δ_i = 2 ulp(y_i) of a
-    whole number / T. Exact; [] proves there is none. Returns (intervals, constraints applied, deferred)."""
+    non-negative whole number / T — exact rational arithmetic. Returns a dict:
+
+    status       'excluded'   — the set is empty: no such T exists in the ranges (a proof, under δ);
+                 'admissible' — every constraint was applied: ``intervals`` is every admissible T;
+                 'unresolved' — some constraints were deferred (they would split the set into more than
+                                INTERVAL_CAP pieces): ``intervals`` is a SUPERSET, not an admissible set.
+    excluded_by  for 'excluded': which constraint emptied the set — ('gap', rank among the gaps, smallest
+                 first), ('value', rank, smallest first) or ('negative', None) for a value below −δ.
+    applied, deferred — constraint counts."""
     y = np.asarray(y, float)
-    if (y < 0).any():
-        return [], 0, 0                                           # a count is never negative
-    vals = [Fraction(float(v)) for v in np.unique(y)]
-    dlt = [Fraction(float(2 * np.spacing(float(v)))) for v in np.unique(y)]
-    gaps = sorted(((vals[i + 1] - vals[i], dlt[i] + dlt[i + 1]) for i in range(len(vals) - 1)),
-                  key=lambda g: g[0])
-    cons = [(g, e, 1) for g, e in gaps if g > e]                    # a resolvable gap: a positive multiple of 1/T
-    cons += sorted(((v, e, 0) for v, e in zip(vals, dlt) if v > e), key=lambda c: c[0])
+    u = np.unique(y)
+    dlt = [Fraction(float(2 * np.spacing(abs(float(v))))) for v in u]
+    vals = [Fraction(float(v)) for v in u]
+    if any(v < -e for v, e in zip(vals, dlt)):
+        return {"intervals": [], "status": "excluded", "excluded_by": ("negative", None), "applied": 0, "deferred": 0}
+    gaps = sorted(((vals[i + 1] - vals[i], dlt[i] + dlt[i + 1]) for i in range(len(vals) - 1)), key=lambda g: g[0])
+    # a resolvable gap is a positive multiple of 1/T (implied by the value constraints: it only narrows sooner);
+    # a value within δ of 0 is met by N = 0 and constrains nothing
+    cons = [("gap", r, g, e, 1) for r, (g, e) in enumerate(gp for gp in gaps if gp[0] > gp[1])]
+    cons += [("value", r, v, e, 0) for r, (v, e) in enumerate(sorted(((v, e) for v, e in zip(vals, dlt) if v > e),
+                                                                   key=lambda c: c[0]))]
     iv = _merge([(Fraction(lo), Fraction(hi)) for lo, hi in ranges])
     applied, pending = 0, cons
-    while pending and iv:
+    while pending:
         later = []
-        for v, e, n_min in pending:
+        for kind, rank, v, e, n_min in pending:
             new = _apply(iv, v, e, n_min)
             if new is None:
-                later.append((v, e, n_min))
+                later.append((kind, rank, v, e, n_min))
                 continue
             iv, applied = new, applied + 1
             if not iv:
-                break
-        if len(later) == len(pending):
-            return iv, applied, len(later)                         # nothing narrowed further: report what is left
+                return {"intervals": [], "status": "excluded", "excluded_by": (kind, rank), "applied": applied,
+                        "deferred": 0}
+        if not later:
+            break
+        if len(later) == len(pending):                              # nothing narrowed further
+            return {"intervals": iv, "status": "unresolved", "excluded_by": None, "applied": applied,
+                    "deferred": len(later)}
         pending = later
-    return iv, applied, 0
+    if not iv:
+        return {"intervals": [], "status": "excluded", "excluded_by": ("range", None), "applied": applied, "deferred": 0}
+    return {"intervals": iv, "status": "admissible", "excluded_by": None, "applied": applied, "deferred": 0}
 
 
 def gap_bound(y):
@@ -114,20 +135,26 @@ def gap_bound(y):
     best = None
     for a, b in zip(u[:-1], u[1:]):
         g = Fraction(float(b)) - Fraction(float(a))
-        e = Fraction(float(2 * np.spacing(float(a)))) + Fraction(float(2 * np.spacing(float(b))))
+        e = Fraction(float(2 * np.spacing(abs(float(a))))) + Fraction(float(2 * np.spacing(abs(float(b)))))
         if g > e:
             t = 1 / (g + e)
             best = t if best is None or t > best else best
     return best
 
 
-def rayleigh(y, t):
+def integer_alignment(y, t):
+    """(V, m): V = mean cos(2π y·T) over the m points with y·T ≤ RAYLEIGH_U_MAX; (None, m) when m < 10."""
     u = np.asarray(y, float) * float(t)
     u = u[u <= RAYLEIGH_U_MAX]
     if u.size < 10:
         return None, int(u.size)
     frac = u - np.floor(u)
-    return float(abs(np.mean(np.exp(2j * np.pi * frac)))), int(u.size)
+    return float(np.mean(np.cos(2 * np.pi * frac))), int(u.size)
+
+
+def alignment_p(v, m):
+    """One-sided p of V under independent uniform phases (asymptotic): Φ(−V·√(2m))."""
+    return 0.5 * math.erfc(v * math.sqrt(2 * m) / math.sqrt(2))
 
 
 def _files():
@@ -146,47 +173,63 @@ def measure(path):
     elapsed = (t1 - t0) / 1e7
     name = os.path.basename(path)
     nums = [v[1] for v in P.values() if isinstance(v, tuple) and isinstance(v[1], (int, float)) and not isinstance(v[1], bool)]
-    row = {"n_properties": len(P), "any_property_equals_128": any(v == 128 for v in nums), "file": path, "region": "Survey" if "Survey" in name else name.split(" ")[0], "n": int(y.size),
+    names = vp.main_property_names(os.path.join(ROOT, path))
+    row = {"n_properties": len(P), "any_property_equals_128": any(v == 128 for v in nums),
+           "names_as_expected": all(names.get(k) == v for k, v in vp.ACQUISITION.items()),
+           "n_named": len(names),
+           "corrections": {vp.ACQUISITION[k]: P[k][1] for k in (311, 313, 415, 416, 413, 417, 850, 982)},
+           "txfn_coeffs": [P[k][1] for k in range(100000, 100004)],
+           "psf_coeffs": [P[k][1] for k in range(300000, 300008)],
+           "file": path, "region": "Survey" if "Survey" in name else name.split(" ")[0], "n": int(y.size),
            "step_ev": round(abs(be[1] - be[0]), 6), "dwell_s": float(dwell32), "scans": scans,
            "scans_328": int(P[328][1]), "pass_energy_ev": float(P[404][1]), "photon_energy_ev": float(P[105][1]),
            "prop_406": float(P[406][1]), "elapsed_s": elapsed, "y_min": float(y.min()), "y_max": float(y.max())}
     b = gap_bound(y)
     row["gap_bound_s"] = float(b) if b is not None else None
     ceiling = Fraction(int(t1 - t0) + 10_000_000, 10_000_000)       # elapsed + 1 s
-    iv, applied, deferred = admissible_times(y, [(Fraction(1, 10**9), ceiling)])
-    row["any_T_up_to_elapsed"] = {"ceiling_s": float(ceiling), "admissible": [[float(a), float(c)] for a, c in iv[:5]],
-                                  "n_intervals": len(iv), "constraints_applied": applied, "deferred": deferred}
+    res = admissible_times(y, [(Fraction(1, 10**9), ceiling)])
+    row["any_T_up_to_elapsed"] = {"ceiling_s": float(ceiling), "status": res["status"],
+                                  "excluded_by": res["excluded_by"],
+                                  "intervals": [[float(a), float(c)] for a, c in res["intervals"][:5]],
+                                  "n_intervals": len(res["intervals"]), "constraints_applied": res["applied"],
+                                  "deferred": res["deferred"]}
     lo32, nom = Fraction(float(dwell32)), (dwell if dwell is not None else Fraction(float(dwell32)))
     lo_d, hi_d = min(lo32, nom), max(lo32, nom)
     band = Fraction(1, 10**9)
     cands = [(c * scans * lo_d * (1 - band), c * scans * hi_d * (1 + band)) for c in range(1, C_MAX + 1)]
-    iv, applied, deferred = admissible_times(y, cands)
-    row["decoded_candidates"] = {"admissible_c": sorted({round(float((a + c) / 2) / float(scans * nom))
-                                                         for a, c in iv}), "n_intervals": len(iv),
-                                 "constraints_applied": applied, "deferred": deferred}
+    res = admissible_times(y, cands)
+    row["decoded_candidates"] = {"status": res["status"], "excluded_by": res["excluded_by"],
+                                 "c_in_intervals": sorted({round(float((a + c) / 2) / float(scans * nom))
+                                                           for a, c in res["intervals"]}),
+                                 "n_intervals": len(res["intervals"]), "constraints_applied": res["applied"],
+                                 "deferred": res["deferred"]}
     rs = []
     for c in range(1, C_MAX + 1):
-        r, m = rayleigh(y, c * scans * nom)
-        if r is not None:
-            rs.append((math.exp(-m * r * r), c, r, m))
+        v, m = integer_alignment(y, c * scans * nom)
+        if v is not None:
+            rs.append((alignment_p(v, m), c, v, m))
     if rs:
-        p, c, r, m = min(rs)
-        row["rayleigh_best"] = {"p": p, "family_p": min(1.0, p * C_MAX), "c": c, "R": r, "points": m,
-                                "candidates_tested": len(rs),
-                                "R_at_c1": next((x[2] for x in rs if x[1] == 1), None),
-                                "R_at_c128": next((x[2] for x in rs if x[1] == 128), None)}
+        p, c, v, m = min(rs)
+        row["alignment_best"] = {"p": p, "family_p": min(1.0, p * C_MAX), "c": c, "V": v, "points": m,
+                                 "candidates_tested": len(rs), "min_points": min(x[3] for x in rs),
+                                 "V_at_c1": next((x[2] for x in rs if x[1] == 1), None),
+                                 "V_at_c128": next((x[2] for x in rs if x[1] == 128), None)}
     else:
-        row["rayleigh_best"] = None
+        row["alignment_best"] = None
     # by-product (not noise): the chart sidecar's "Binding Energy (eV)" axis against hv − KE and against the app's reader
     with open(os.path.join(ROOT, path[:-4] + ".xml"), encoding="utf-8", errors="replace") as fh:
-        ax = re.search(r'<AxisX [^>]*Title="Binding Energy \(eV\)"[^>]*Maximum="([-0-9.Ee]+)" Minimum="([-0-9.Ee]+)"', fh.read())
+        xml = fh.read()
+    ty = re.search(r'<AxisY [^>]*Title="([^"]*)"', xml)
+    row["sidecar_y_title"] = ty.group(1) if ty else None
+    row["non_integer_fraction"] = float(np.mean(np.abs(y - np.round(y)) > 0))
+    ax = re.search(r'<AxisX [^>]*Title="Binding Energy \(eV\)"[^>]*Maximum="([-0-9.Ee]+)" Minimum="([-0-9.Ee]+)"', xml)
     with olefile.OleFileIO(os.path.join(ROOT, path)) as ole:
         start, step = vgd_parser._find_ke_axis(ole.openstream("VGSpaceAxes").read())
     ke = start + np.arange(y.size) * step
     if ax:
         amax, amin = float(ax.group(1)), float(ax.group(2))
         hv = 1486.68                                                # property 105 is float32(1486.68)
-        row["sidecar_be_axis"] = [amin, amax]
+        row["sidecar_be_axis"] = [amin, amax]                      # identity checked against the decimal 1486.68
         row["sidecar_minus_hv_minus_ke"] = max(abs(amax - (hv - ke.min())), abs(amin - (hv - ke.max())))
         row["sidecar_minus_app_be"] = [amax - max(be), amin - min(be)]
     m = ne.ESTIMATORS["scaled_d4"](y)
@@ -218,34 +261,52 @@ def report(rows):
     above = sum(1 for r in rows if r["gap_bound_s"] and r["gap_bound_s"] > r["any_T_up_to_elapsed"]["ceiling_s"])
     lines.append(f"gap bound T ≥ 1/(gap + δ): {min(gb):.4g} … {max(gb):.4g} s (median {np.median(gb):.4g}); "
                  f"above the file's own elapsed + 1 s in {above} of {len(rows)} files")
-    a = [r for r in rows if r["any_T_up_to_elapsed"]["n_intervals"]]
-    dfr = [r for r in rows if r["any_T_up_to_elapsed"]["deferred"]]
-    lines.append(f"EXACT, any common T ≤ elapsed + 1 s: admissible T in {len(a)} of {len(rows)} files; "
-                 f"files left with deferred constraints: {len(dfr)}")
-    for r in a[:10]:
-        lines.append(f"    {r['file']}: {r['any_T_up_to_elapsed']['admissible']}")
-    c = [r for r in rows if r["decoded_candidates"]["n_intervals"]]
-    dfr = [r for r in rows if r["decoded_candidates"]["deferred"]]
-    lines.append(f"EXACT, T = c × scans × dwell, c = 1…{C_MAX}: admissible in {len(c)} of {len(rows)} files; "
-                 f"deferred: {len(dfr)}")
-    for r in c[:10]:
-        lines.append(f"    {r['file']}: c = {r['decoded_candidates']['admissible_c']}")
-    rb = [r["rayleigh_best"] for r in rows if r["rayleigh_best"]]
+    for key, label in (("any_T_up_to_elapsed", "EXACT, range (a): any common T in [1e-9 s, elapsed + 1 s]"),
+                       ("decoded_candidates", f"EXACT, range (b): T = c × scans × dwell, c = 1…{C_MAX}")):
+        st = collections.Counter(r[key]["status"] for r in rows)
+        by = collections.Counter(tuple(r[key]["excluded_by"]) for r in rows if r[key]["status"] == "excluded")
+        lines.append(f"{label}: status {dict(sorted(st.items()))}; excluded by {dict(sorted(by.items()))} "
+                     f"(kind, rank — rank 0 = the smallest gap / value)")
+        for r in rows:
+            if r[key]["status"] != "excluded":
+                lines.append(f"    {r['file']}: {r[key]['status']} {r[key].get('intervals', r[key].get('c_in_intervals'))}")
+    rb = [r["alignment_best"] for r in rows if r["alignment_best"]]
     over = sum(1 for z in rb if z["family_p"] < 0.01)
     fam = sorted(z["family_p"] for z in rb)
-    lines.append(f"integer-like (Rayleigh, points with y·T ≤ {RAYLEIGH_U_MAX:g}, Bonferroni over {C_MAX} candidates): "
-                 f"tested in {len(rb)} files; integer-like at 1 % in {over}; smallest family p {fam[0]:.3g}, "
-                 f"median {np.median(fam):.3g}; R at c = 1: max {max((z['R_at_c1'] or 0) for z in rb):.3f}; "
-                 f"c = 128: max {max((z['R_at_c128'] or 0) for z in rb):.3f}")
-    lines.append(f"main property set: {sorted(collections.Counter(r['n_properties'] for r in rows).items())} (properties: files); "
-                 f"files with any numeric property equal to 128: {sum(r['any_property_equals_128'] for r in rows)}")
+    tested = [z["candidates_tested"] for z in rb]
+    lines.append(f"integer-like (alignment V = mean cos 2πyT) at the decoded candidates of range (b) only, points with "
+                 f"y·T ≤ {RAYLEIGH_U_MAX:g}, a candidate needing ≥ 10 such points; Bonferroni over {C_MAX}: tested in "
+                 f"{len(rb)} files (candidates evaluated per file {min(tested)} … {max(tested)}; all {C_MAX} in "
+                 f"{sum(1 for t in tested if t == C_MAX)}; fewest points at any evaluated candidate "
+                 f"{min(z['min_points'] for z in rb)}); integer-like at 1 % in {over}; smallest family p {fam[0]:.3g}, "
+                 f"median {np.median(fam):.3g}; V at c = 1: {min(z['V_at_c1'] for z in rb):+.3f} … "
+                 f"{max(z['V_at_c1'] for z in rb):+.3f}; best V over all candidates and files {max(z['V'] for z in rb):+.3f}")
+    hit = [(r["file"], r["alignment_best"]) for r in rows if r["alignment_best"] and r["alignment_best"]["family_p"] < 0.01]
+    lines.append(f"  expected by chance at the per-file 1 % level over {len(rb)} files: {0.01 * len(rb):.2f}; across all files "
+                 f"(Bonferroni {len(rb)} × {C_MAX}): smallest p {min(1.0, fam[0] * len(rb)):.3g}")
+    for f, z in hit:
+        lines.append(f"    {f}: c = {z['c']}, V = {z['V']:+.3f} on {z['points']} points, family p {z['family_p']:.3g}")
+    lines.append(f"property names: {sum(r['names_as_expected'] for r in rows)} of {len(rows)} files name every id this "
+                 f"unit reads as scripts/vgd_properties.ACQUISITION does; dictionary entries "
+                 f"{sorted(collections.Counter(r['n_named'] for r in rows).items())} (entries: files)")
+    corr = collections.Counter(tuple(sorted(r["corrections"].items())) for r in rows)
+    for c, n in corr.items():
+        lines.append(f"  corrections recorded ({n} files): {dict(c)}")
+    tx = collections.Counter(tuple(round(v, 9) for v in r["txfn_coeffs"]) for r in rows)
+    ps = collections.Counter((r["pass_energy_ev"], tuple(round(v, 9) for v in r["psf_coeffs"])) for r in rows)
+    lines.append(f"  unnamed 100000-100003 (4 values; NumberOfTXFNCoeffs = 4): {dict(tx)}")
+    lines.append(f"  unnamed 300000-300007 (8 values; NumberOfPSFCoeffs = 8), by pass energy: {dict(ps)}")
+    yt = collections.Counter(r["sidecar_y_title"] for r in rows)
+    lines.append(f"sidecar intensity-axis titles: {dict(yt)}; files whose stored values are all integers: "
+                 f"{sum(1 for r in rows if r['non_integer_fraction'] == 0)}; non-integer fraction of the 'Counts'-titled files: "
+                 f"{sorted(round(r['non_integer_fraction'], 4) for r in rows if r['sidecar_y_title'] == 'Counts')}")
     sx = [r for r in rows if "sidecar_be_axis" in r]
     off = sorted({round(v, 9) for r in sx for v in r["sidecar_minus_app_be"]})
-    lines.append(f"by-product — the chart sidecar's Binding Energy axis: in {len(sx)} of {len(rows)} files; equals 1486.68 − KE over the "
+    lines.append(f"by-product — the chart sidecar's Binding Energy axis: in {len(sx)} of {len(rows)} files; equals the decimal 1486.68 (property 105 is its float32) − KE over the "
                  f"data to {max(r['sidecar_minus_hv_minus_ke'] for r in sx):.2g} eV; the app's VGD reader (hv 1486.6, work function 4.5) "
                  f"is lower by {off} eV")
-    lines.append("noise scale vs counting time (counting noise over T_eff = f × dwell × scans predicts k × dwell × scans = 1/f, "
-                 "the same in every region):")
+    lines.append("noise scale vs counting time (Poisson counts over T_eff = f × dwell × scans, times a deterministic correction a, "
+                 "give k × dwell × scans = a/f: the same in every region only if a/f is):")
     by = collections.defaultdict(list)
     for r in rows:
         by[r["region"]].append(r)

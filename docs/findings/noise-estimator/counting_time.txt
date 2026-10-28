@@ -4,12 +4,19 @@
 elapsed (303→304) vs points × dwell × scans: slope 1.0050, intercept 20.95 s, residual -3.34 … +2.69 s; elapsed − points×dwell×scans 17.8 … 23.8 s
 photon energy (105): [1486.680054]; property 406: [4.2]
 gap bound T ≥ 1/(gap + δ): 2.278 … 6.027e+04 s (median 96.67); above the file's own elapsed + 1 s in 158 of 275 files
-EXACT, any common T ≤ elapsed + 1 s: admissible T in 0 of 275 files; files left with deferred constraints: 0
-EXACT, T = c × scans × dwell, c = 1…1024: admissible in 0 of 275 files; deferred: 0
-integer-like (Rayleigh, points with y·T ≤ 100000, Bonferroni over 1024 candidates): tested in 275 files; integer-like at 1 % in 0; smallest family p 0.0144, median 1; R at c = 1: max 0.142; c = 128: max 0.313
-main property set: [(72, 21), (73, 254)] (properties: files); files with any numeric property equal to 128: 0
-by-product — the chart sidecar's Binding Energy axis: in 275 of 275 files; equals 1486.68 − KE over the data to 0 eV; the app's VGD reader (hv 1486.6, work function 4.5) is lower by [4.58] eV
-noise scale vs counting time (counting noise over T_eff = f × dwell × scans predicts k × dwell × scans = 1/f, the same in every region):
+EXACT, range (a): any common T in [1e-9 s, elapsed + 1 s]: status {'excluded': 275}; excluded by {('gap', 0): 158, ('gap', 1): 117} (kind, rank — rank 0 = the smallest gap / value)
+EXACT, range (b): T = c × scans × dwell, c = 1…1024: status {'excluded': 275}; excluded by {('gap', 0): 275} (kind, rank — rank 0 = the smallest gap / value)
+integer-like (alignment V = mean cos 2πyT) at the decoded candidates of range (b) only, points with y·T ≤ 100000, a candidate needing ≥ 10 such points; Bonferroni over 1024: tested in 275 files (candidates evaluated per file 58 … 1024; all 1024 in 113; fewest points at any evaluated candidate 10); integer-like at 1 % in 2; smallest family p 0.00534, median 1; V at c = 1: -0.124 … +0.125; best V over all candidates and files +0.657
+  expected by chance at the per-file 1 % level over 275 files: 2.75; across all files (Bonferroni 275 × 1024): smallest p 1
+    docs/autofit/test_data/1 UCl4-graphite 4%, Cu, 1eV, 180 mA, 200 um, 10spot.DATA/XPS Survey.VGD: c = 107, V = +0.083 on 1361 points, family p 0.0082
+    docs/autofit/test_data/5 B4C-BN-graphite 33%, Cu, 1eV, 180 mA, 200 um, 10spot.DATA/C1s Scan_6.VGD: c = 60, V = +0.240 on 168 points, family p 0.00534
+property names: 275 of 275 files name every id this unit reads as scripts/vgd_properties.ACQUISITION does; dictionary entries [(57, 21), (58, 254)] (entries: files)
+  corrections recorded (275 files): {'Acq_TXFN_CCorrectionType': 3, 'Acq_TXFN_Correction': True, 'Calibration Detector Efficiency': '96.9937', 'DataStorageMethod': 0, 'DetectorMode': 2, 'NumberOfPSFCoeffs': 8, 'NumberOfTXFNCoeffs': 4, 'SignatureCorrected': True}
+  unnamed 100000-100003 (4 values; NumberOfTXFNCoeffs = 4): {(4.682280064, 0.708091021, -0.550961018, 0.037712): 275}
+  unnamed 300000-300007 (8 values; NumberOfPSFCoeffs = 8), by pass energy: {(50.0, (0.143458, 0.00648695, -0.000250791, 1.725e-06, 0.290071, -0.00756657, 0.000138152, -1.535e-06)): 202, (200.0, (0.780622, 0.00720008, -0.000253035, 1.902e-06, 0.786301, -0.00682941, 0.000154295, -1.619e-06)): 73}
+sidecar intensity-axis titles: {'Counts / s': 268, 'Counts': 7}; files whose stored values are all integers: 0; non-integer fraction of the 'Counts'-titled files: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+by-product — the chart sidecar's Binding Energy axis: in 275 of 275 files; equals the decimal 1486.68 (property 105 is its float32) − KE over the data to 0 eV; the app's VGD reader (hv 1486.6, work function 4.5) is lower by [4.58] eV
+noise scale vs counting time (Poisson counts over T_eff = f × dwell × scans, times a deterministic correction a, give k × dwell × scans = a/f: the same in every region only if a/f is):
   B1s      50 files  dwell×scans 0.2 s  PE 50  step 0.1  k scaled_d4 0.727 [0.547, 0.884]  k×dwell×scans 0.1455  (varmean 0.961, ×dwell×scans 0.1922)  rho1_d4 -0.784 (white −0.80)
   C1s      73 files  dwell×scans 0.2 s  PE 50  step 0.1  k scaled_d4 0.691 [0.491, 0.960]  k×dwell×scans 0.1381  (varmean 1.408, ×dwell×scans 0.2815)  rho1_d4 -0.735 (white −0.80)
   Cl2p      6 files  dwell×scans 0.2 s  PE 50  step 0.1  k scaled_d4 0.637 [0.619, 0.671]  k×dwell×scans 0.1274  (varmean 0.702, ×dwell×scans 0.1404)  rho1_d4 -0.725 (white −0.80)

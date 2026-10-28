@@ -1,13 +1,14 @@
 """Read the property sets of a Thermo Avantage .VGD file exactly (MS-OLEPS), for measurement only.
 
-olefile's ``getproperties`` misreads these streams: several values are vectors of variants and its
-string reader runs past them (it returns 'Nexsa_G2\\x00\\x00\\x03\\x00…' for property 6). This reader
-follows the property-set format — each property a 4-byte type header and its value padded to 4 bytes;
-VT_VECTOR of VT_VARIANT elements each with its own header.
+olefile's ``getproperties`` misreads these streams: its LPWSTR branch (olefile.py:2286-2293 in the
+installed 0.47) returns strings that run past their own end (property 6 comes back as
+'Nexsa_G2\\x00\\x00\\x03\\x00…'). This reader follows the property-set format: each property a 4-byte
+type header and its value padded to 4 bytes; a vector's fixed-size elements packed and the sequence padded
+(MS-OLEPS). The committed files hold no vectors; the vector branch is pinned by tests only.
 
+Each set carries its own DICTIONARY (property 0: id -> name), which ``property_names`` decodes; the names
+used by this unit (``ACQUISITION``) are the files' own (docs/findings/noise-estimator/counting-time.md).
 The app never reads these properties (vgd_parser.py reads only VGData, VGDataAxes and VGSpaceAxes).
-``ACQUISITION`` names the ids this unit uses; every name is an identification by evidence, not a
-documented meaning — Thermo does not publish the ids (docs/findings/noise-estimator/counting-time.md).
 
     venv/bin/python scripts/vgd_properties.py FILE.VGD     # dump every property of every set
 """
@@ -21,19 +22,16 @@ _VT = {0: "EMPTY", 1: "NULL", 2: "I2", 3: "I4", 4: "R4", 5: "R8", 7: "DATE", 8: 
        11: "BOOL", 12: "VARIANT", 16: "I1", 17: "UI1", 18: "UI2", 19: "UI4", 20: "I8", 21: "UI8",
        22: "INT", 23: "UINT", 30: "LPSTR", 31: "LPWSTR", 64: "FILETIME", 65: "BLOB", 72: "CLSID"}
 
-# id -> (name, evidence) — identifications, see counting-time.md for the evidence of each
+# the ids this unit reads, with the name each file's own dictionary gives them (checked in every file)
 ACQUISITION = {
-    105: "photon energy (eV)",
-    305: "dwell time per step (s)",
-    306: "number of scans",
-    328: "number of scans (second copy)",
-    404: "pass energy (eV)",
-    406: "unidentified (4.2; a work function would be one reading)",
-    303: "acquisition start",
-    304: "acquisition end",
-    331: "detector signature file (path on the instrument PC)",
-    981: "energy calibration (text)",
+    105: "SourceEnergy", 303: "AcquisitionStart", 304: "AcquisitionEnd", 305: "DwellTime", 306: "Scans",
+    311: "DetectorMode", 313: "SignatureCorrected", 328: "Current Scan", 331: "DetectorSignatureCorrectionPath",
+    404: "PassEnergy", 406: "ChamberWorkFunction", 413: "NumberOfTXFNCoeffs", 415: "Acq_TXFN_Correction",
+    416: "Acq_TXFN_CCorrectionType", 417: "NumberOfPSFCoeffs", 850: "DataStorageMethod",
+    981: "Calibration Energy Scale", 982: "Calibration Detector Efficiency",
 }
+_SIZE = {2: 2, 18: 2, 3: 4, 22: 4, 10: 4, 19: 4, 23: 4, 16: 1, 17: 1, 4: 4, 5: 8, 7: 8, 11: 2, 20: 8, 21: 8, 64: 8,
+         72: 16}
 
 
 def _pad4(n):
@@ -50,7 +48,13 @@ def _value(b, o, vt=None):
         n = struct.unpack_from("<I", b, o)[0]
         o += 4
         out = []
-        for _ in range(n):
+        if base in _SIZE:                                     # fixed-size elements: packed, the sequence padded
+            size = _SIZE[base]
+            for i in range(n):
+                v, _ = _value(b[o + i * size:o + (i + 1) * size] + b"\0" * 16, 0, base)
+                out.append(v)
+            return ("VECTOR", out), o + _pad4(n * size)
+        for _ in range(n):                                    # variants and strings: each its own padded value
             v, o = _value(b, o, None if base == 12 else base)
             out.append(v)
         return ("VECTOR", out), o
@@ -64,8 +68,10 @@ def _value(b, o, vt=None):
         return ("I4", struct.unpack_from("<i", b, o)[0]), o + 4
     if base in (10, 19, 23):
         return (_VT[base], struct.unpack_from("<I", b, o)[0]), o + 4
-    if base in (16, 17):
-        return (_VT[base], b[o]), o + 4
+    if base == 16:
+        return ("I1", struct.unpack_from("<b", b, o)[0]), o + 4
+    if base == 17:
+        return ("UI1", b[o]), o + 4
     if base == 4:
         return ("R4", struct.unpack_from("<f", b, o)[0]), o + 4
     if base == 5:
@@ -119,6 +125,35 @@ def property_set(raw):
     return out
 
 
+def property_names(raw):
+    """{id: name} from the property set's dictionary (property 0) — MS-OLEPS DictionaryEntry: id, character
+    count, UTF-16LE name (code page 1200 in every committed file), padded to 4 bytes. {} when there is none."""
+    names = {}
+    for s in range(struct.unpack_from("<I", raw, 24)[0]):
+        off = struct.unpack_from("<I", raw, 28 + 20 * s + 16)[0]
+        nprop = struct.unpack_from("<I", raw, off + 4)[0]
+        ids = dict(struct.unpack_from("<II", raw, off + 8 + 8 * i) for i in range(nprop))
+        if 0 not in ids:
+            continue
+        o = off + ids[0]
+        for _ in range(struct.unpack_from("<I", raw, o)[0]):
+            pid, cnt = struct.unpack_from("<II", raw, o + 4)
+            names[pid] = raw[o + 12:o + 12 + 2 * cnt].decode("utf-16-le").rstrip("\0")
+            o = o + 8 + _pad4(2 * cnt)
+    return names
+
+
+def main_property_names(path):
+    """The dictionary of the file's main property set."""
+    with olefile.OleFileIO(path) as ole:
+        for e in ole.listdir():
+            if e[-1].startswith("\x05"):
+                raw = ole.openstream("/".join(e)).read()
+                if len(property_set(raw)) > 10:
+                    return property_names(raw)
+    return {}
+
+
 def all_property_sets(path):
     """{stream name without its leading \\x05: property set} for every property-set stream of the file."""
     with olefile.OleFileIO(path) as ole:
@@ -135,7 +170,8 @@ def main_properties(path):
 
 
 if __name__ == "__main__":
+    names = main_property_names(sys.argv[1])
     for name, props in all_property_sets(sys.argv[1]).items():
         print("==", repr(name))
         for k in sorted(props):
-            print(f"  {k:>10} {ACQUISITION.get(k, ''):40.40} {props[k]!r:.300}")
+            print(f"  {k:>10} {names.get(k, ''):40.40} {props[k]!r:.300}")

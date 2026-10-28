@@ -1,119 +1,194 @@
-# Unit B, next step — the counting time recorded in the VGD files (read-only, 2026-10-27)
+# Unit B, next step — the counting time recorded in the VGD files (read-only, 2026-10-27; revised after the round-1 review)
 
 **Question (owner, 2026-10-27):** decode the counting time from the VGD files, their XML sidecars and the parsers —
 dwell, number of scans, channels / detector — and test whether CPS × effective time gives integer-like counts on the
 committed files. If it does, Poisson noise becomes exact for raw (unsmoothed) data.
 
-**Answer in one line:** the files record the dwell and the number of scans, and the acquisition was stepped point by
-point. But **no common counting time T makes the stored values whole counts**: none of the 275 committed files admits
-any T up to its own acquisition time, exactly or approximately, and none admits T = c × scans × dwell for any c ≤ 1024.
-The noise also does not scale with the recorded counting time. So σ = √N cannot be recovered from these files.
+**Answer.**
+
+- **What the files record.** The dwell time and the number of scans, under the files' own property names. They also
+  record that two corrections were applied to every acquisition: `SignatureCorrected = True` and
+  `Acq_TXFN_Correction = True`. A transmission correction is one reading of the second name. The correction
+  algorithms themselves are not in the files.
+- **The exact test.** Two ranges were tested, under the error model |y − N/T| ≤ 2 ulp(y) with one common T per file:
+  (a) every T up to the acquisition's own elapsed time + 1 s, and (b) every T = c × scans × dwell with c ≤ 1024.
+  **No such T exists in any of the 275 committed files**, so the stored values are not whole counts over any of these
+  times. Range (a) holds on the condition stated in §2: each output energy is collected by at most one channel at a
+  time.
+- **The approximate test.** At the decoded candidates of range (b) where enough points qualify, the number of
+  files that look integer-like (2 of 275, both weak) is what chance gives.
+- **Is this a surprise?** No: non-integer values are what the recorded corrections would produce.
+- **Conclusion.** σ = √N cannot be recovered from these files. Recovering it would need the correction algorithms,
+  and probably the uncorrected counts, which the files do not store.
 
 Labels as in [README.md](README.md): **VERIFIED** (file:line or a committed output, read on main at a192f78; the
 outputs are `counting_time.txt` / `counting_time.json`, generator `scripts/noise_counting_time.py`, property reader
-`scripts/vgd_properties.py`, tests `tests/test_noise_counting_time.py`) or **HYPOTHESIS**.
+`scripts/vgd_properties.py`, tests `tests/test_noise_counting_time.py`) or **HYPOTHESIS**. Corrections from the
+round-1 review (`docs/autofit/codex/unit_b_counting_time_r1_verdict_run*.md`) are marked "round 1".
 
 ---
 
 ## 1. What the files record
 
-**Where the parameters are.** Every committed `.VGD` is an OLE compound file. The app reads three of its streams:
-`VGData`, the stored intensities; `VGDataAxes`, the point count; and `VGSpaceAxes`, the start KE and the step
-(`vgd_parser.py:75`, `:81`, `:88`). It reads nothing else. The acquisition parameters sit in a property-set stream
-with undocumented numeric ids (VERIFIED: one stream of 72 or 73 properties per file, `counting_time.txt`). olefile's property reader misreads
-that stream: several properties are vectors of variants, and its string reader runs past them. For example, it
-returns property 6 as `'Nexsa_G2\x00\x00\x03\x00…'`. `scripts/vgd_properties.py` reads it by the MS-OLEPS format.
-The XML sidecars are chart descriptions only: series, axes, titles. They hold no acquisition parameters (VERIFIED).
-Neither does the one committed Avantage project file (`9 A to G.vgp`), which is a "Processing Document" of data
-references and a chart grid (VERIFIED).
+**Where it is.**
 
-**The ids that matter.** Each identification below is by evidence, not documentation. Thermo does not publish the ids.
+- **What the app reads.** Every committed `.VGD` is an OLE compound file. The app reads three streams: `VGData`, the
+  stored intensities; `VGDataAxes`, the point count; and `VGSpaceAxes`, the start KE and the step
+  (`vgd_parser.py:75`, `:81`, `:88`). It reads nothing else.
+- **Where the parameters are.** In a property-set stream of 72 or 73 properties per file (VERIFIED,
+  `counting_time.txt`). olefile's property reader returns its strings running past their own end (its LPWSTR branch,
+  `olefile.py:2286-2293` in the installed 0.47); property 6 comes back as `'Nexsa_G2\x00\x00\x03\x00…'`.
+  `scripts/vgd_properties.py` reads the stream by the MS-OLEPS format instead. Round 1: the first version blamed
+  vectors of variants, but the committed files hold no vector properties.
+- **The names (round 1).** The stream carries its own **dictionary**, property 0, mapping ids to names. In every one
+  of the 275 files it names every id used here exactly as listed below (VERIFIED: 57 or 58 entries,
+  `counting_time.txt`). The first version had decoded the values but discarded the dictionary, and labelled every
+  name a HYPOTHESIS.
+- **What is not there.** The XML sidecars are chart descriptions with no acquisition parameters (VERIFIED). So is the
+  one committed Avantage project file, `9 A to G.vgp`, a "Processing Document" (VERIFIED).
 
-| id | value(s) in the 275 files | read as | label | evidence |
-|---|---|---|---|---|
-| 305 | 0.05 (202 files), 0.01 (73) | dwell time per step, s | HYPOTHESIS (the name), VERIFIED (the relation) | 0.01 on every survey and 0.05 on every high-resolution region; elapsed time follows points × p305 × p306 with slope 1.005 (row 303/304) |
-| 306, 328 | 4 (202), 2 (73) | number of scans | as above | equal to each other in every file; same split as 305 |
-| 404 | 50 (202), 200 (73) | pass energy, eV | HYPOTHESIS | 200 on surveys, 50 on high resolution: the usual pairing |
-| 303 → 304 | e.g. 04:23:39 → 04:24:40 | acquisition start and end (FILETIME, whole seconds) | HYPOTHESIS (the name), VERIFIED (the relation) | **elapsed = 1.005 × points × dwell × scans + 20.95 s**, residuals −3.3 … +2.7 s over all 275 files; elapsed − points × dwell × scans = 17.8 … 23.8 s. So each energy point was given dwell × scans of acquisition, one after another, plus a fixed ~21 s |
-| 105 | float32(1486.68) in every file | photon energy, eV (Al Kα) | HYPOTHESIS | see §4 |
-| 406 | 4.2 in every file | unidentified (a work function would be one reading) | HYPOTHESIS | — |
-| 331 | `C:\AvantageSystem\Signatures\18-10-2023\Detector.vgd` | a detector "signature" file on the instrument PC, not in the committed data | VERIFIED (the string), HYPOTHESIS (what it holds) | — |
-| 981 | "12:43:52 March 11, 2026, Ag3d = 368.209eV, Cu2p = 932.587eV, Au4f = 83.9537eV …" | the energy-scale calibration | HYPOTHESIS | — |
-| 6, 17 | `Nexsa_G2`, `v6.7.0 : Build 00086` | instrument, Avantage version | VERIFIED (the strings) | — |
+**The values** (all VERIFIED, `counting_time.txt`). The names are the files' own; what a name means beyond its
+wording is HYPOTHESIS.
 
-**What the files do not say.** No property holds 128 or any other channel count (VERIFIED: no numeric property
-equals 128 in any of the 275 files). The detector model is therefore not in the files. The Nexsa G2's detector has 128 channels
-according to Thermo's datasheet as cited in the round-4 review (HYPOTHESIS, not checked here). Nor do the files
-record whether, or how, Avantage combines the channels, corrects them (dead time, the detector signature), or bins
-them onto the energy grid.
+| id | name in the file | values over the 275 files |
+|---|---|---|
+| 305 | `DwellTime` | 0.05 (202 files), 0.01 (73) |
+| 306 | `Scans` | 4 (202), 2 (73) |
+| 328 | `Current Scan` | equal to `Scans` in every file (HYPOTHESIS: the last scan reached, so every scan completed) |
+| 404 | `PassEnergy` | 50 (202), 200 (73) |
+| 303, 304 | `AcquisitionStart`, `AcquisitionEnd` | FILETIME, whole seconds |
+| 105 | `SourceEnergy` | float32(1486.68) |
+| 406 | `ChamberWorkFunction` | 4.2 |
+| 311 | `DetectorMode` | 2 (the meaning of the value: HYPOTHESIS, unknown) |
+| 313 | `SignatureCorrected` | True in every file |
+| 331 | `DetectorSignatureCorrectionPath` | `C:\AvantageSystem\Signatures\18-10-2023\Detector.vgd`, a file on the instrument PC, not in the committed data |
+| 415, 416 | `Acq_TXFN_Correction`, `Acq_TXFN_CCorrectionType` | True, 3 in every file |
+| 413, 417 | `NumberOfTXFNCoeffs`, `NumberOfPSFCoeffs` | 4, 8 |
+| 100000–100003 | (no name) | four values, the same in every file. HYPOTHESIS: the 4 TXFN coefficients |
+| 300000–300007 | (no name) | eight values in two sets, one for pass energy 50 and one for 200. HYPOTHESIS: the 8 PSF coefficients (point-spread function) |
+| 981, 982 | `Calibration Energy Scale`, `Calibration Detector Efficiency` | "…Ag3d = 368.209eV, Cu2p = 932.587eV, Au4f = 83.9537eV…", "96.9937" |
+| 850 | `DataStorageMethod` | 0 |
 
-**Two acquisition settings cover every file** (VERIFIED, `counting_time.txt`). All 73 surveys: dwell 0.01 s,
-2 scans, pass energy 200 eV, step 1 eV. All 202 high-resolution regions (B1s, C1s, Cl2p, N1s, U4f): dwell 0.05 s,
-4 scans, pass energy 50 eV, step 0.1 eV.
+**Two acquisition settings cover every file** (VERIFIED):
 
-**The parsers.** `vgd_parser.py` reads only the three streams above (`:75-88`). For an overlay file it averages the
-scans (`:98`); no committed file has one. No other parser reads a unit or a counting time: CSV, TSV, TXT, XY and XLSX
-intensities are "counts or CPS" (`parser.py:47`) and nothing is stored about them (VERIFIED).
+- All 73 surveys: dwell 0.01 s, 2 scans, pass energy 200 eV, step 1 eV.
+- All 202 high-resolution regions (B1s, C1s, Cl2p, N1s, U4f): dwell 0.05 s, 4 scans, pass energy 50 eV, step 0.1 eV.
+
+**Timing** (VERIFIED, reproduced by the round-1 review):
+
+- **The relation.** Elapsed (303 → 304) = 1.005 × points × dwell × scans + 20.95 s. The residuals are −3.3 … +2.7 s,
+  and elapsed − points × dwell × scans = 17.8 … 23.8 s.
+- **What it shows.** Each energy step got dwell × scans of acquisition, plus a fixed ~21 s.
+- **What it does not show** (round 1: "stepped point by point" was stronger than this). Whether the detector's
+  channels collect several energies at once while the analyser steps, or how much exposure each output bin
+  accumulates.
+
+**What the files do not say.**
+
+- **The channel count.** No property holds 128 or any other channel count (VERIFIED: no numeric property equals 128
+  in any file). The Nexsa G2's detector has 128 channels according to Thermo's datasheet as cited in the earlier
+  review (HYPOTHESIS, not checked here).
+- **The corrections.** How the signature and TXFN corrections are computed is not recorded, and neither is any
+  uncorrected count.
+
+**The intensity unit** (round 1). The sidecars title the intensity axis `Counts / s` in 268 files and `Counts` in 7
+(VERIFIED). All 7 "Counts" files store non-integer values at every point (VERIFIED), so their title does not make
+them raw counts. Whether it is a stale display setting is not established. The README's "Counts / s" evidence
+covered the 230 files it read; it does not extend unqualified to all 275.
+
+**The parsers** (VERIFIED). `vgd_parser.py` reads only the three streams above (`:75-88`). For an overlay file it
+averages the scans (`:98`); no committed file has one. CSV, TSV, TXT, XY and XLSX intensities are "counts or CPS"
+(`parser.py:47`), and nothing about their unit or counting time is stored.
 
 ## 2. Is the stored value counts / T for one effective time T?
 
-**The test is exact and complete within its stated error model; there is no search heuristic.** It assumes one
-common T for every point of a file. A different T for each point (for instance, edge points seen by fewer channels)
-cannot be tested without a detector model the files do not record.
+**The test and its error model.**
 
-If y_i = N_i / T, rounded when stored, there are integers N_i with |y_i − N_i / T| ≤ δ_i. Here δ_i = 2 ulp(y_i),
-which allows up to four half-ulp roundings in Avantage's division. For each value, the admissible T form a union of
-intervals [N / (y + δ), N / (y − δ)]. The test intersects these sets in exact rational arithmetic (`fractions.Fraction`):
+- **The model.** One common T per file (a different T at each point cannot be tested without a detector model the
+  files do not record), and non-negative counts.
+- **The equivalence.** y_i = N_i / T, rounded when stored, holds iff there are integers N_i ≥ 0 with
+  |y_i − N_i / T| ≤ δ_i, where δ_i = 2 ulp(|y_i|) allows up to four half-ulp roundings.
+- **The procedure** (`admissible_times`). Each value gives a union of T intervals, [N / (y + δ), N / (y − δ)]. The test
+  intersects these in exact rational arithmetic (`fractions.Fraction`): first each gap between neighbouring distinct
+  values, then each value. A gap must be a positive multiple of 1/T, which is implied by the value constraints and
+  narrows the set sooner.
+- **What it returns** (round 1: the first version could report a superset left by deferred constraints as
+  "admissible"):
+  - **excluded:** the set is empty, which proves no such T exists in the range;
+  - **admissible:** every constraint was applied, and the result lists every admissible T, including the multiples
+    of the true T, which are always admissible;
+  - **unresolved:** some constraints would split the set too finely and were deferred, so the result is a superset
+    only.
+  - It also records which constraint emptied the set.
 
-1. First each gap between neighbouring distinct values. A gap must be a positive multiple of 1/T, which narrows T cheaply.
-2. Then each value, which pins the lattice at 0.
+**The tests** (`tests/test_noise_counting_time.py`: 12 tests; dropping the value constraints and setting δ = 0 are
+both caught). It:
 
-An empty result proves that no such T exists in the range. A non-empty one lists every admissible T, including the
-multiples of the true T, which are always admissible.
+- **finds** both counterexamples the earlier review gave against the heuristic quantum search (counts / 10 000 s and
+  counts / 1000 s with 1e8-count values), and Poisson counts / 0.2 s with their multiples;
+- **refuses** a 1 % smooth correction, the near-grid {1, 2, 3 + 4e-15}, an offset lattice whose gaps are all
+  multiples of 1/T, and a value below −δ;
+- **accepts** a negative value within its rounding as N = 0 (round 1: δ now uses |y|; `np.spacing` of a negative
+  number is negative);
+- **reports** {1, √2} over [1, 10⁶] and {1e8, 2e8 + 1} over [1, 2] as unresolved (the round-1 reviews' cases).
 
-`tests/test_noise_counting_time.py` (8 tests; the mutations that matter are caught) checks that it:
+**Ranges and results** (VERIFIED, `counting_time.txt`; status "excluded" in every file, nothing unresolved):
 
-- **finds** both counterexamples the round-3 review gave against the earlier heuristic search (counts / 10 000 s and
-  counts / 1000 s with 1e8-count values), and Poisson counts / 0.2 s together with their multiples;
-- **refuses** a 1 % smooth correction, round 3's near-grid {1, 2, 3 + 4e-15}, an offset lattice whose gaps are all
-  multiples of 1/T, and negative values.
+- **(a) Every T from 1e-9 s up to the file's own elapsed time + 1 s** (timestamps are whole seconds).
+  - **The cap.** One output energy is counted for at most as long as the acquisition lasted. This holds **on the
+    condition that** at any instant at most one detector channel contributes to a given output energy bin
+    (HYPOTHESIS, round 1). The timestamps' names are recorded; this exposure model is not.
+  - **Result: excluded in 275 of 275 files.** The smallest gap empties the set in 158 files and the second-smallest
+    in the other 117. No value constraint was needed. Round 1: the first version said the value constraints
+    excluded the 117.
+- **(b) Every decoded candidate T = c × scans × dwell, c = 1 … 1024,** whatever its length.
+  - c stands for a channel or pass count: c = 128 gives 25.6 s for high-resolution regions and 2.56 s for surveys.
+    Each candidate is tested in a band covering the float32 dwell and its decimal.
+  - This range does not depend on the exposure model.
+  - **Result: excluded in 275 of 275 files, all by the smallest gap.**
 
-**Ranges tested, with results (VERIFIED, `counting_time.txt`; no constraint deferred in any file):**
+**"Integer-like", approximately: at the decoded candidates of range (b) only** (round 1: this test does not cover
+range (a)'s continuum, where every phase concentrates trivially near T = 0).
 
-- **(a) Every T from 1e-9 s up to the file's own elapsed time + 1 s.** One energy is counted for at most as long as
-  the acquisition lasted, whatever the detector does in parallel. Only one channel can sit at a given energy at any
-  instant (HYPOTHESIS: a dispersive analyser; the elapsed time is property 303 → 304, read as above).
-  **Admissible in 0 of 275 files.** The gap bound alone (T ≥ 1 / (smallest gap + δ)) already exceeds the elapsed
-  time in 158 files; the value constraints exclude the remaining 117.
-- **(b) Every decoded candidate T = c × scans × dwell, c = 1 … 1024,** whatever its length. c stands for a channel or
-  pass count: c = 128 gives 25.6 s for high-resolution regions and 2.56 s for surveys. Each candidate is tested in a
-  band covering the float32 dwell and its decimal. **Admissible in 0 of 275 files.**
+- **The statistic** (round 1, run B). V = mean cos(2π y T) over the m points with y·T ≤ 1e5, which measures how far
+  the phases align with the integers. The first version used the Rayleigh R = |mean exp(2πi y T)|. That ignores where
+  the phases point, so a half-integer lattice also gave R = 1, and it needed at least 12 exact points to reach the
+  family threshold. The y·T ≤ 1e5 cutoff keeps the phase error from the float32/decimal dwell difference below
+  ~0.002 cycles (round-1 review).
+- **Which candidates count.** A candidate is evaluated only where at least 10 points qualify.
+- **The null.** For independent uniform phases, V·√(2m) is asymptotically N(0, 1), so p = Φ(−V√(2m)). This is not a
+  calibrated null for correlated spectra.
+- **The family.** The 1024 candidates of a file are judged by Bonferroni, which is conservative where candidates are
+  skipped. A perfect lattice on 10 points reaches 1024·Φ(−√20) = 0.004, so the test has the power it claims (tests).
+- **Coverage.** Between 58 and 1024 candidates evaluated per file; all 1024 in 113 files.
+- **Results** (VERIFIED, `counting_time.txt`):
+  - **2 of 275 files** pass the per-file 1 % level: 1 UCl4-graphite / XPS Survey (c = 107, V = +0.083 on 1361 points)
+    and 5 B4C-BN-graphite / C1s Scan_6 (c = 60, V = +0.240 on 168 points).
+  - Chance alone gives 2.75 such files at that level. Across all files (Bonferroni 275 × 1024) the smallest p is 1.
+  - Both alignments are weak (whole counts give V ≈ 1), and isolated: at the neighbouring c, V is 0.04/0.01 and
+    0.01/0.03. The exact test excludes both candidates anyway.
+  - At c = 1 (T = dwell × scans), V lies between −0.124 and +0.125 in every file.
+- **The controls** (tests): Poisson counts / 0.2 s give V > 0.999, and with a 1 % correction p > 1e-4. Ten exact
+  integers pass the family threshold; a half-integer lattice gives V ≈ −1, p > 0.5.
 
-**"Integer-like", approximately.** At each candidate in (b), the test uses the Rayleigh statistic
-R = |mean exp(2πi y T)| over the points with y·T ≤ 1e5. Near-integers give R ≈ 1; with no structure,
-p = exp(−m R²). The 1024 candidates form one family per file, judged by Bonferroni. Results (VERIFIED):
+**So the stored CPS are not whole counts over any common time in the ranges tested.** That includes T = dwell × scans,
+which is what "CPS × effective time" would most naturally mean, and every multiple of it up to 1024. The usual way to
+undo a CPS conversion does not work on these files. The files record why it would not: a detector signature
+correction and a TXFN correction applied to every acquisition, each with coefficients the files carry (the PSF set
+depends on the pass energy). How those corrections are computed is not recorded (HYPOTHESIS: per-channel gains from
+the signature file, a transmission function in KE / pass energy, and a point-spread correction would each leave no
+integer lattice; rebinning channel energies onto the energy grid would also correlate neighbouring points).
 
-- **Integer-like at the 1 % family level in 0 of 275 files.** The smallest family p over the 275 files is 0.014,
-  about what chance gives across that many files.
-- At c = 1 (T = dwell × scans), R ≤ 0.142 in every file.
-- The control: Poisson counts / 0.2 s give R > 0.999, and the same counts with a 1 % correction give m·R² < 9 (tests).
+## 3. Does the noise follow the counting time anyway? (round 1: re-derived)
 
-**So the stored CPS are not whole counts over any common time.** That includes T = dwell × scans, which is what
-"CPS × effective time" would most naturally mean, and any multiple of it up to 1024. The physical bound caps the
-search at the acquisition's own length, about 50–90 s per file. The usual way to undo a CPS conversion therefore
-does not work on these files.
+**The model.** Poisson counts N over T_eff = f × dwell × scans, multiplied by a deterministic correction a:
+y = a·N / (f·d·s), so Var(y) = (a / (f·d·s))·E[y] and k·d·s = a/f. The same value in every region would follow only if
+a/f were the same in every region. The files record corrections whose coefficients differ between the two settings
+(§1), so a need not be. Round 1: the first version wrote 1/f, "with any smooth correction", which a constant
+correction already contradicts.
 
-**What would explain it** (HYPOTHESIS, not tested; nothing in the files settles it). Avantage might combine the
-detector's channels with non-integer weights: a per-channel gain or efficiency from the detector signature (id 331),
-dead-time correction, or rebinning of channel energies onto the 0.1 / 1 eV grid. Any of these would leave no lattice.
-Rebinning would also correlate neighbouring points.
-
-## 3. Does the noise follow the counting time anyway?
-
-Suppose the stored value is counting noise over T_eff = f × dwell × scans, with the same detector factor f in every
-region, and any smooth correction factor. Then the variance scale k (variance = k·y) obeys k × dwell × scans = 1/f
-in every region. Measured with the two estimators of [README.md](README.md) §3 that do well on independent noise
-(VERIFIED, `counting_time.txt`, all 275 files):
+Measured with the two estimators of [README.md](README.md) §3 that do well on independent noise (VERIFIED,
+`counting_time.txt`, all 275 files):
 
 | region | files | dwell × scans | pass energy, step | k (scaled_d4), median [10–90 %] | k × dwell × scans | varmean k × dwell × scans | rho1_d4 (independent: −0.80) |
 |---|---|---|---|---|---|---|---|
@@ -126,58 +201,60 @@ in every region. Measured with the two estimators of [README.md](README.md) §3 
 
 **Reported, not concluded.**
 
-- **The prediction fails.** The surveys had a tenth of the counting time per point, but their estimated k is only
-  about 1.5 times the high-resolution k, not 10 times. k × dwell × scans differs between the two settings by a factor
-  of about 6.5.
-- **A detector factor proportional to pass energy / step does not rescue it.** That form predicts a factor of 25
-  between the two settings.
-- **What this does not show.** It does not show the noise is not counting noise. The estimators assume independent
-  points, and §4 of the README measured lag-1 difference estimators underestimating correlated noise 4–30×. rho1_d4
-  is slightly short of the independent −0.80 in every region (−0.725 … −0.784). The two settings could be correlated
-  differently, and that diagnostic cannot measure how much (README §4: it misses a 3-point moving average). A noise
-  floor, such as electronic or dark counts, would also break the proportionality (README §5 measured varmean's intercept: median 0, 90th percentile 0.105 of
-  the median intensity).
-- **What it does show.** One counting-time model with one detector factor does not describe the measured noise of
-  both settings. Recovering σ would need the acquisition and processing model that the files do not hold.
+- **What was measured.** The surveys had a tenth of the counting time per point; their estimated k is about 1.5
+  times the high-resolution k. So k × dwell × scans differs by about 6.5 between the settings.
+- **What it is consistent with.** Counting noise with a/f lower for the surveys by that factor (round-1 review: a
+  correction ratio of about 0.15). Equal corrections, or a detector factor proportional to pass energy / step, would
+  predict factors of 10 and 25.
+- **Why it decides nothing.** Neither the corrections' size nor the estimators' bias is known:
+  - lag-1 difference estimators underestimated correlated noise 4–30× on the synthetic set (README §4);
+  - rho1_d4 sits slightly short of the independent −0.80 in every region, and that diagnostic misses a 3-point moving
+    average (README §4);
+  - a noise floor would add a constant term (README §5 measured varmean's intercept: median 0, 90th percentile 0.105
+    of the median intensity).
 
 ## 4. A by-product, not a noise question: the app's VGD energy axis is 4.58 eV below Avantage's
 
-While decoding I compared the sidecars' axes with the app's reader. What I found (VERIFIED, `counting_time.txt`, all
-275 files):
+**The comparison** (VERIFIED, `counting_time.txt`, all 275 files):
 
 - **Avantage's axis.** Each chart sidecar titles its x axis "Binding Energy (eV)". Its Minimum and Maximum equal
-  1486.68 − KE at the data's last and first points exactly, where KE comes from the file's own start and step
-  (`VGSpaceAxes`) and 1486.68 is property 105.
+  1486.68 − KE at the data's last and first points exactly. KE comes from the file's own start and step
+  (`VGSpaceAxes`); 1486.68 is the decimal that `SourceEnergy` (105) stores as a float32 (round 1: the stored value is
+  1486.6800537…).
 - **The app's axis.** The app's VGD reader computes BE = hν − KE − work function with hν = 1486.6 and a work function
   of 4.5 (`vgd_parser.py:33-34`, `:107`). The page sends only the file (`templates/index.html:4031-4032`,
   `:5402-5404`), so the route's defaults apply (`app.py:1013-1014`).
-- **The result.** Every VGD's energy axis in the app is **4.58 eV lower** than the axis Avantage draws for the same
-  file.
-- **The lab's saved projects** carry charge shifts of −4.65 to −6.0 eV, plus 46 tabs at 0 (VERIFIED, `counting_time.txt`, read
-  from the committed `*.proj.zip`).
+- **The result.** Every VGD's axis in the app is **4.58 eV lower** than the one Avantage draws for the same file.
+- **The lab's saved projects** (166 spectrum tabs; the one stack tab has no charge shift): 46 have a shift of 0, and
+  120 have shifts of −6.00 to −4.65 eV (VERIFIED, `counting_time.txt`, read from the committed `*.proj.zip`; round 1:
+  the review counted 167 / 121, apparently including the stack tab).
 
-HYPOTHESES:
+**HYPOTHESES:**
 
-- The KE in `VGSpaceAxes` is already referred to the Fermi level by the instrument's calibration (id 981 names Ag 3d,
-  Cu 2p and Au 4f positions), so subtracting a work function again is a double correction. On this reading, every
-  charge correction saved in the lab's projects has absorbed this 4.58 eV.
+- The file records a `ChamberWorkFunction` of 4.2 (406). Avantage's axis subtracts no work function from the stored
+  KE, which suggests the stored KE is already referred to the instrument's calibrated energy scale (981 names Ag 3d,
+  Cu 2p and Au 4f positions). If so, subtracting 4.5 eV again is a double correction.
+- Every charge correction saved in the lab's projects has then absorbed this 4.58 eV.
+- Which axis is physically right is not established here.
 
-Rigid shifts cancel in a charge-corrected fit, so the fitted chemistry is unaffected. Uncorrected binding energies,
-the size of the displayed charge shift, and anything compared with absolute energies before correction (the
-reference-line overlay, for instance) are not. **This is outside Unit B and nothing was changed.** It is reported
-here for the owner's decision.
+**What it affects.** Rigid shifts cancel in a charge-corrected fit, so the fitted chemistry is unaffected. Uncorrected
+binding energies, the size of the displayed charge shift, and anything compared with absolute energies before
+correction (the reference-line overlay, for instance) are not. **This is outside Unit B and nothing was changed.** It
+is reported for the owner's decision.
 
 ## 5. Limits
 
-- Every property identification is HYPOTHESIS. The relations they enter (the elapsed-time regression, the
-  sidecar-axis identity) are VERIFIED.
-- The exact test assumes one common T per file and δ = 2 ulp. A larger rounding error (more than four half-ulp
-  roundings) or a different T for each point is not tested.
-- The physical cap in range (a) rests on the timestamps being the acquisition's start and end (HYPOTHESIS, supported
-  by the regression).
-- Range (b) covers c ≤ 1024 at any length.
-- §3 uses estimates whose bias under correlation is not known for these data.
-- Earlier figures: §2 and §5 of the README measured 230 of the 275 committed VGDs. The other 45, in
+- **Names and meanings.** The property names are the files' own; what they mean beyond their wording (`DetectorMode`
+  2, `Acq_TXFN_CCorrectionType` 3, the unnamed coefficient blocks) is HYPOTHESIS.
+- **The exact test** assumes one common T per file, non-negative counts and δ = 2 ulp(|y|). A larger rounding error,
+  or a different T at each point, is not tested.
+- **Range (a)'s cap** rests on the exposure model in §2. Range (b) does not.
+- **The approximate test** covers only range (b)'s eligible candidates.
+- **The reader** (`scripts/vgd_properties.py`) handles every type present in these files. Its vector and signed-I1
+  branches are pinned by tests only (round 1: it padded each vector element and read I1 unsigned). Types it does not
+  know raise an error.
+- **§3** uses estimates whose bias under correlation is not known for these data.
+- **Earlier figures.** README §2 and §5 read 230 of the 275 committed VGDs; the other 45, in
   `9 UCl4-graphite 4%, no kapton …/`, were outside the glob `test_data/*.DATA/*.VGD`. This step reads all 275. Its
-  per-region k agree with README §5's medians where both exist (C1s 0.691 vs 0.709, U4f 0.644 vs 0.661, B1s and N1s
-  identical, Survey 1.008 vs 1.008).
+  per-region k agree with README §5's medians where both exist: C1s 0.691 vs 0.709, U4f 0.644 vs 0.661, B1s and N1s
+  identical, Survey 1.008 vs 1.008.
