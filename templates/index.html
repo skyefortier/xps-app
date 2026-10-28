@@ -817,6 +817,28 @@
     white-space: nowrap;
   }
 
+  /* Load summary (2026-10-28): what a load could not restore, said once, grouped by reason; stays until dismissed */
+  #load-summary {
+    position: fixed; right: 16px; bottom: 24px;
+    width: min(480px, calc(100vw - 32px));
+    background: var(--bg2); border: 1px solid var(--border2); border-left: 3px solid var(--amber);
+    border-radius: var(--radius); padding: 10px 12px 12px;
+    font-family: var(--sans); font-size: 12px; line-height: 1.5; color: var(--text);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+    z-index: var(--z-toast, 2400);
+  }
+  #load-summary[hidden] { display: none; }
+  #load-summary .load-summary-head { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
+  #load-summary .load-summary-title { flex: 1; font-weight: 600; }
+  #load-summary .load-summary-close {
+    background: none; border: none; color: var(--text2); cursor: pointer; font-size: 14px; line-height: 1;
+    padding: 2px 4px; border-radius: 4px;
+  }
+  #load-summary .load-summary-close:hover, #load-summary .load-summary-close:focus-visible { color: var(--text); background: var(--bg4); }
+  #load-summary ul { margin: 0 0 6px 16px; }
+  #load-summary li { margin-bottom: 4px; }
+  #load-summary .load-summary-foot { color: var(--text2); }
+
   /* Multiplet link indicator */
   /* ROI past the data / centre outside the data (2026-09-25): warn, never move */
   .roi-hint { font-size: 10px; line-height: 1.4; color: var(--text3); margin: 2px 0 6px; }
@@ -2312,6 +2334,11 @@
 </div>
 
 <div id="notify"></div>
+<div id="load-summary" role="status" aria-live="polite" hidden>
+  <div class="load-summary-head"><span class="load-summary-title" id="load-summary-title"></span><button type="button" class="load-summary-close" aria-label="Dismiss" onclick="dismissLoadSummary()">&#x2715;</button></div>
+  <ul id="load-summary-list"></ul>
+  <div class="load-summary-foot" id="load-summary-foot"></div>
+</div>
 
 <script>
 const BUILD_DATE = '2026-04-26';
@@ -3431,18 +3458,21 @@ class TabManager {
 
     const prog = document.getElementById('folder-progress');
     prog.classList.add('active');
-    let done = 0;
+    let done = 0, loaded = 0;
     const update = () => { prog.textContent = 'Loading ' + done + '/' + eligible.length + '\u2026'; };
     update();
 
     for (const file of eligible) {
-      await this._loadOneFile(file);
+      if (await this._loadOneFile(file)) loaded++;
       done++;
       update();
     }
 
     prog.classList.remove('active');
-    notify('Loaded ' + done + ' spectra', 'green');
+    // it used to say "Loaded N spectra" counting every file it tried, read or not
+    const report = _newLoadReport();
+    report.skippedFiles = done - loaded;
+    showLoadSummary('Loaded ' + loaded + ' spectr' + (loaded === 1 ? 'um' : 'a') + '.', report, n => n + ' of ' + done);
   }
 
   // ── Serialization ───────────────────────────────
@@ -4022,6 +4052,8 @@ class TabManager {
     });
   }
 
+  // resolves true when the file became a tab, false when it held no spectrum the app can read (the folder load
+  // counts both and says so once — showLoadSummary)
   async _loadOneFile(file) {
     const sp = typeof _fileSourcePath === 'function' ? _fileSourcePath(file) : file.name;
     return new Promise(resolve => {
@@ -4034,30 +4066,33 @@ class TabManager {
           .then(json => {
             if (!json.error && json.be && json.be.length > 4) {
               this.createTab(file.name, json.be, json.inten, sp);
-            }
-            resolve();
+              resolve(true);
+            } else resolve(false);
           })
-          .catch(() => resolve());
+          .catch(() => resolve(false));
         return;
       }
       const reader = new FileReader();
+      reader.onerror = () => resolve(false);   // an unreadable file is skipped, never waited on
       if (ext === 'xlsx' || ext === 'xls') {
         reader.readAsArrayBuffer(file);
         reader.onload = e => {
+          let ok = false;
           try {
             const r = parseXLSX(e.target.result);
-            if (r.be.length > 0) this.createTab(file.name, r.be, r.inten, sp);
+            if (r.be.length > 0) { this.createTab(file.name, r.be, r.inten, sp); ok = true; }
           } catch(err) { /* skip unparseable files */ }
-          resolve();
+          resolve(ok);
         };
       } else {
         reader.readAsText(file);
         reader.onload = e => {
+          let ok = false;
           try {
             const r = parseCSV(e.target.result);
-            if (r.be.length > 0) this.createTab(file.name, r.be, r.inten, sp);
+            if (r.be.length > 0) { this.createTab(file.name, r.be, r.inten, sp); ok = true; }
           } catch(err) { /* skip unparseable files */ }
-          resolve();
+          resolve(ok);
         };
       }
     });
@@ -14041,11 +14076,12 @@ function _loadSpectrumFile(data, sessionFile) {
   // seal step 6 (§8.6): the sealed / legacy dispatch comes FIRST; a sealed file's convenience arrays and
   // statistics (written for external readers) are never read back
   let sealedLoad = false;
+  const report = _newLoadReport();   // said once by showLoadSummary below; the detail is in Results
   if (_savedHasSeal(data)) {
     sealedLoad = true;
     const why = _installSavedSeal(active, data.seal);
     state.fitResult = active.fitResult;
-    if (why) notify('Saved fit record cannot be read (' + why + '). The model (the peaks) is kept; run Fit to fit it again.', 'amber', true);
+    if (why) report.unreadable.push(active.id);
   } else if (data.statistics) {
     const fr = { chi: data.statistics.chi, chiReduced: data.statistics.chiReduced, rmse: data.statistics.rmse };
     for (const k of ['engine', 'objective', 'weighting', 'status', 'caveat', 'starts', 'startsModelKey', 'chosenAlternative', 'certificateMove']) if (data.statistics[k]) fr[k] = data.statistics[k];
@@ -14090,13 +14126,11 @@ function _loadSpectrumFile(data, sessionFile) {
     const failure = stale
       ? 'it was saved after its model or settings changed, and the file stores the background of that edited state, not the one it was fitted against'
       : _restoredFitBgFailure(active);
-    if (!failure && _restoredStale(fr)) {
-      notify('Saved fit restored as STALE: it was ' + _restoredStaleWhy(fr) + '. Its own background and peaks are shown; its statistics are not reported. Run Fit to fit it again.', 'amber', true);
-    }
+    if (!failure && _restoredStale(fr)) _reportStale(report, active);
     if (failure) {
       _dropRestoredFit(active, failure);
       state.fitResult = null;
-      notify('Saved fit not restored: ' + failure + ' The model (the fitted peaks) is kept; run Fit to fit it again.', 'amber', true);
+      _reportDropped(report, active, failure);
     }
   }
   const notesEl = document.getElementById('spectrum-notes');
@@ -14104,7 +14138,7 @@ function _loadSpectrumFile(data, sessionFile) {
   renderPeakList();
   updatePlot();
   renderResults();   // installs the restored result's designation in Results/Quantify and the statistic display (unit A0)
-  notify('Spectrum loaded as new tab: ' + active.name, 'green');
+  showLoadSummary('Spectrum loaded as new tab: ' + active.name, report, () => 'This spectrum');
   if (sealedLoad) _ensureVerified(active);
 }
 
@@ -14119,7 +14153,7 @@ const MAX_ZIP_SPECTRA       = 100;                  // manifest.spectra entries 
 const MAX_ZIP_UNCOMPRESSED  = 500 * 1024 * 1024;    // 500 MB total inflated (zip-bomb guard)
 const MAX_ZIP_COMPRESSED_FALLBACK = 50 * 1024 * 1024; // 50 MB, used only if sizes are unreadable
 
-function _loadProjectJSON(data, sessionFile) {
+function _loadProjectJSON(data, sessionFile, opts) {
   // Per-tab peaks live under data.tabs[i].peaks (v2+) and/or top-level
   // data.peaks (v1). Migrate both shapes.
   if (data && Array.isArray(data.peaks)) _migrateLineshapeAliases(data.peaks);
@@ -14275,26 +14309,20 @@ function _loadProjectJSON(data, sessionFile) {
   }
   // A restored fit whose background has no converged solution now is dropped
   // (background math, 2026-10-01): nothing downstream may treat it as a fit.
-  const droppedFits = [], staleFits = [], sealedTabs = [], unreadableSeals = [];
+  // what the restore could not do is collected per reason and said ONCE at the end (showLoadSummary); each tab's
+  // Results panel carries its own detail
+  const report = _newLoadReport(), sealedTabs = [];
+  report.missingFiles = (opts && opts.missingFiles) || 0;
   for (const tab of newTabs) {
     // seal step 6 (§8.6): the sealed / legacy dispatch comes FIRST — a sealed fit never reaches the legacy adapter
     if (!tab.isStack && _savedHasSeal(tab.fitResult)) {
       const why = _installSavedSeal(tab, tab.fitResult.seal);
-      if (why) unreadableSeals.push(tab.name + ' — ' + why); else sealedTabs.push(tab);
+      if (why) report.unreadable.push(tab.id); else sealedTabs.push(tab);
       continue;
     }
     const failure = _restoredFitBgFailure(tab);
-    if (failure) { _dropRestoredFit(tab, failure); droppedFits.push(tab.name + ' — ' + failure); }
-    else if (_restoredStale(tab.fitResult)) staleFits.push(tab.name + ' — ' + _restoredStaleWhy(tab.fitResult));
-  }
-  if (droppedFits.length) {
-    notify('Saved fit not restored: ' + droppedFits.join(' ') + ' The model (the fitted peaks) is kept; run Fit to fit it again.', 'amber', true);
-  }
-  if (staleFits.length) {
-    notify('Saved fit restored as STALE: ' + staleFits.join('. ') + '. Its own background and peaks are shown; its statistics are not reported. Run Fit to fit it again.', 'amber', true);
-  }
-  if (unreadableSeals.length) {
-    notify('Saved fit record cannot be read: ' + unreadableSeals.join('. ') + '. The model (the peaks) is kept; run Fit to fit it again.', 'amber', true);
+    if (failure) { _dropRestoredFit(tab, failure); _reportDropped(report, tab, failure); }
+    else if (_restoredStale(tab.fitResult)) _reportStale(report, tab);
   }
 
   // Rewrite stack-entry source references through idMap BEFORE pruning.
@@ -14323,10 +14351,7 @@ function _loadProjectJSON(data, sessionFile) {
     const before = t.entries.length;
     t.entries = t.entries.filter(e => validSpectrumIds.has(e.sourceTabId));
     const removed = before - t.entries.length;
-    if (removed > 0) {
-      notify('Pruned ' + removed + ' stale entr' + (removed === 1 ? 'y' : 'ies')
-             + ' from stack "' + t.name + '" (source tabs not found).', 'amber');
-    }
+    if (removed > 0) { report.stackEntries += removed; report.stacks++; }
   }
 
   // Phase 5: advance _nextStackNum past the highest restored "▦ Stack N"
@@ -14381,7 +14406,9 @@ function _loadProjectJSON(data, sessionFile) {
   tabManager.renderTabBar();
   tabManager._updateSurveyPanel();
   const label = data.sample_name ? ('"' + data.sample_name + '" — ') : '';
-  notify('Project loaded: ' + label + newTabs.length + ' tab' + (newTabs.length !== 1 ? 's' : '') + '.', 'green');
+  const nSpectra = newTabs.filter(t => !t.isStack).length;
+  showLoadSummary('Project loaded: ' + label + newTabs.length + ' tab' + (newTabs.length !== 1 ? 's' : '') + '.', report,
+                  n => n + ' of ' + nSpectra + ' tab' + (nSpectra !== 1 ? 's' : ''));
   // every loaded sealed fit is checked now, the inactive tabs too (stack sources; plan §9)
   for (const tab of sealedTabs) _ensureVerified(tab);
 }
@@ -14431,8 +14458,7 @@ async function _loadZipProject(file) {
     const t = JSON.parse(await specFile.async('string'));
     tabs.push(t);
   }
-  if (missing > 0) notify(missing + ' spectrum file' + (missing !== 1 ? 's' : '') + ' missing from ZIP.', 'amber');
-  _loadProjectJSON({ ...manifest, tabs }, file.name);
+  _loadProjectJSON({ ...manifest, tabs }, file.name, { missingFiles: missing });   // the summary says how many were missing
 }
 
 // ═══════════════════════════════════════════════════
@@ -15392,6 +15418,87 @@ function dismissToast() {
   const toast = document.getElementById('prominent-toast');
   toast.classList.remove('show');
   clearTimeout(toast._timer);
+}
+
+// ── Load summary (owner 2026-10-28) ──────────────────
+// What a load could not restore is said ONCE, in plain words, grouped by reason, and stays until dismissed; each
+// tab's own Results panel carries its detail (the dropped-fit and stale notes). Never one line per tab in a toast:
+// a 21-tab project used to concatenate every tab's reason into one prominent toast that cleared after 3 s.
+let _lastLoadSummary = null;   // the last summary shown: { title, lines, foot, report } (read by the browser tests)
+// a peaks-only restore's reason (_restoredFitBgFailure) -> its group; the full reason stays in the tab's Results
+function _restoreDropGroup(reason) {
+  const r = String(reason || '');
+  if (r.startsWith('it was saved without its fitted envelope') || r.startsWith('it was saved without the energies it was fitted on'))
+    return 'earlier';
+  if (r.startsWith('its raw data are')) return 'rawdata';
+  if (r.startsWith('its background settings give no converged background')) return 'background';
+  if (r.startsWith('it was saved after its model or settings changed')) return 'editedsave';
+  // the restore could not match the fit's stored points to the samples of its data (_restoredFitGrid)
+  if (r.startsWith('its stored points') || r.startsWith('it has more stored points') || r.startsWith('its stored statistics cannot be compared'))
+    return 'unmatched';
+  return 'damaged';
+}
+// An empty report: tabs per group (names in load order), stack entries removed, spectrum files missing.
+function _newLoadReport() {
+  return { earlier: [], rawdata: [], background: [], editedsave: [], unmatched: [], damaged: [], unreadable: [], unconfirmed: [], bgchanged: [],
+           voigt: [], voigtAlso: [],
+           stackEntries: 0, stacks: 0, missingFiles: 0, skippedFiles: 0 };
+}
+// Record one tab's restore outcome (by tab id: names can repeat): a peaks-only reason, an unreadable seal, or a
+// restored-stale fit by its flags — a Voigt mix on a fit already counted for its background is said as "also".
+function _reportDropped(report, tab, reason) { report[_restoreDropGroup(reason)].push(tab.id); }
+function _reportStale(report, tab) {
+  const fr = tab.fitResult || {};
+  if (fr.backgroundStale && fr.backgroundStale.unconfirmed) report.unconfirmed.push(tab.id);
+  else if (fr.backgroundStale) report.bgchanged.push(tab.id);
+  if (fr.voigtStale) (fr.backgroundStale ? report.voigtAlso : report.voigt).push(tab.id);
+}
+// The summary's lines. `subjectOf(n)` names n tabs ("3 of 21 tabs", or "This spectrum" for a one-spectrum load).
+function _loadSummaryLines(report, subjectOf) {
+  const lines = [];
+  const say = (names, f) => { const n = names.length; if (n) lines.push(f(subjectOf(n), n !== 1)); };
+  const was = p => p ? 'were' : 'was', its = p => p ? 'their' : 'its', has = p => p ? 'have' : 'has', shows = p => p ? 'show' : 'shows';
+  say(report.earlier, (s, p) => `${s} ${was(p)} saved by an earlier version: ${its(p)} peaks are loaded, but the old fit can’t be redrawn.`);
+  say(report.rawdata, (s, p) => `${s} ${has(p)} incomplete spectrum data: ${its(p)} peaks are loaded, but the old fit can’t be checked, so it isn’t shown.`);
+  say(report.background, (s, p) => `${s}: the background settings no longer give a converged background, so the old fit isn’t shown; ${its(p)} peaks are loaded.`);
+  say(report.editedsave, (s, p) => `${s} ${was(p)} saved after ${its(p)} model was edited, so the saved curves are not the fit\u2019s and the old fit isn\u2019t shown; ${its(p)} peaks are loaded.`);
+  say(report.unmatched, (s, p) => `${s}: the old fit\u2019s points can\u2019t be matched to the spectrum\u2019s data, so it isn\u2019t shown; ${its(p)} peaks are loaded.`);
+  say(report.damaged, (s, p) => `${s}: the saved fit is incomplete or inconsistent, so it isn’t shown; ${its(p)} peaks are loaded.`);
+  say(report.unreadable, (s, p) => `${s}: the saved fit record can’t be read, so it isn’t shown; ${its(p)} peaks are loaded.`);
+  say(report.unconfirmed, (s, p) => `${s} ${shows(p)} the old fit as saved, but it can’t be confirmed against today’s background (saved by an earlier version), so no χ², R-factor or uncertainties are shown.`);
+  say(report.bgchanged, (s, p) => `${s} ${shows(p)} the old fit as saved, but today’s background differs from the one it was fitted against, so no χ², R-factor or uncertainties are shown.`);
+  say(report.voigt, (s, p) => `${s} ${shows(p)} the old fit as saved, but it used a Voigt mix the page no longer draws, so no χ², R-factor or uncertainties are shown.`);
+  if (report.voigtAlso.length)
+    lines.push(`In ${report.voigtAlso.length} of those, the fit also used a Voigt mix the page no longer draws.`);
+  if (report.stackEntries)
+    lines.push(`${report.stackEntries} stack entr${report.stackEntries === 1 ? 'y was' : 'ies were'} removed from ${report.stacks} stack${report.stacks === 1 ? '' : 's'}: ${report.stackEntries === 1 ? 'its spectrum is' : 'their spectra are'} not in the file.`);
+  if (report.skippedFiles)
+    lines.push(`${report.skippedFiles} file${report.skippedFiles === 1 ? ' was' : 's were'} skipped: ${report.skippedFiles === 1 ? 'it holds' : 'they hold'} no spectrum the app can read.`);
+  if (report.missingFiles)
+    lines.push(`${report.missingFiles} spectrum file${report.missingFiles === 1 ? ' listed in the project was' : 's listed in the project were'} missing from the ZIP and not loaded.`);
+  return lines;
+}
+function _loadReportHasFitNotes(report) {
+  return ['earlier', 'rawdata', 'background', 'editedsave', 'unmatched', 'damaged', 'unreadable', 'unconfirmed', 'bgchanged', 'voigt', 'voigtAlso'].some(k => report[k].length);
+}
+// Show the summary (replacing any earlier one) — or, when the load restored everything, the short green notice.
+function showLoadSummary(title, report, subjectOf) {
+  const lines = _loadSummaryLines(report, subjectOf);
+  const foot = _loadReportHasFitNotes(report)
+    ? 'Press Run Fit on a tab to refit it. Each tab’s Results panel says what happened to its saved fit.' : '';
+  _lastLoadSummary = { title, lines, foot, report };
+  const box = document.getElementById('load-summary');
+  if (!lines.length) { dismissLoadSummary(); notify(title, 'green'); return; }
+  document.getElementById('load-summary-title').textContent = title;
+  const ul = document.getElementById('load-summary-list');
+  ul.textContent = '';
+  for (const l of lines) { const li = document.createElement('li'); li.textContent = l; ul.appendChild(li); }
+  document.getElementById('load-summary-foot').textContent = foot;
+  box.hidden = false;
+}
+function dismissLoadSummary() {
+  const box = document.getElementById('load-summary');
+  if (box) box.hidden = true;
 }
 
 // ═══════════════════════════════════════════════════

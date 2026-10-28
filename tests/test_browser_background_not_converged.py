@@ -115,10 +115,12 @@ def test_a_saved_fit_whose_background_no_longer_converges_is_not_restored(browse
         pg.evaluate("data => _loadProjectJSON(data, 'old.proj.json')", saved)
         pg.wait_for_timeout(500)
         got = pg.evaluate("""() => ({ fit: tabManager.tabs.filter(t => !t.isStack).map(t => t.fitResult), live: state.fitResult,
-                                     n: window.__n, peaks: state.peaks.length })""")
+                                     s: (_lastLoadSummary && _lastLoadSummary.lines) || [], d: tabManager.tabs.filter(t => !t.isStack).map(t => _droppedLegacyFitOf(t)), n: window.__n, peaks: state.peaks.length })""")
         assert all(f is None for f in got["fit"]) and got["live"] is None, got
         assert got["peaks"] == 1, "the model is kept"
-        assert any(m.startswith("Saved fit not restored: U — its background settings give no converged background now: Shirley background not converged") for m in got["n"]), got["n"]
+        # said once in the load summary (2026-10-28), the full reason in the tab's own Results note
+        assert any(l.startswith("1 of 1 tab: the background settings no longer give a converged background") for l in got["s"]), got["s"]
+        assert any(d and d.startswith("its background settings give no converged background now: Shirley background not converged") for d in got["d"]), got["d"]
         # a stack built on it shows no fit
         rd = pg.evaluate("""() => { const id = tabManager.tabs.find(t => !t.isStack).id; tabManager.createStackTab();
             const st = tabManager._getTab(tabManager.activeId); _addSpectrumToStack(st, id);
@@ -195,12 +197,13 @@ def test_restored_fits_keep_only_a_stored_curve_that_satisfies_its_statement(bro
             pg.evaluate("() => { window.__n = []; const o = notify; window.notify = (m, k) => { window.__n.push(m); return o(m, k); }; }")
             pg.evaluate("data => _loadProjectJSON(data, 'p.proj.json')", data)
             pg.wait_for_timeout(400)
-            got = pg.evaluate("""() => ({ fit: !!state.fitResult, n: window.__n, stale: state.fitResult && state.fitResult.backgroundStale,
+            got = pg.evaluate("""() => ({ fit: !!state.fitResult, n: window.__n, s: (_lastLoadSummary && _lastLoadSummary.lines) || [], d: tabManager.tabs.filter(t => !t.isStack).map(t => _droppedLegacyFitOf(t)), why: state.fitResult ? _restoredStaleWhy(state.fitResult) : '', stale: state.fitResult && state.fitResult.backgroundStale,
                 st: _statsLiveState(), certified: !!(state.fitResult && state.fitResult.bgIntensity.converged === true) })""")
             assert got["fit"], got
             if stale:
                 assert got["stale"] and got["stale"]["pct"] > 0.1 and got["st"] == "stale" and not got["certified"], got
-                assert any(m.startswith("Saved fit restored as STALE: ") and "differs from the one its settings give now" in m for m in got["n"]), got["n"]
+                assert any("today\u2019s background differs from the one it was fitted against" in l for l in got["s"]), got["s"]
+                assert "differs from the one its settings give now" in got["why"], got["why"]
             else:
                 assert not got["stale"] and got["certified"], got
         finally:
@@ -279,7 +282,7 @@ def test_a_spectrum_file_fit_is_restored_and_a_stale_one_is_not(browser, server)
             pg.evaluate(NOTIFY)
             pg.evaluate("data => _loadSpectrumFile(data, 'p.spec.json')", saves[name])
             pg.wait_for_timeout(400)
-            got = pg.evaluate("""() => ({ fit: !!state.fitResult, n: window.__n,
+            got = pg.evaluate("""() => ({ fit: !!state.fitResult, n: window.__n, s: (_lastLoadSummary && _lastLoadSummary.lines) || [], d: tabManager.tabs.filter(t => !t.isStack).map(t => _droppedLegacyFitOf(t)), 
                 bgOk: !!(state.fitResult && state.fitResult.bgIntensity && state.fitResult.bgIntensity.converged === true),
                 be: state.fitResult && state.fitResult.be, fittedY: state.fitResult && state.fitResult.fittedY })""")
             assert got["fit"] is kept, (name, got["n"])
@@ -288,7 +291,8 @@ def test_a_spectrum_file_fit_is_restored_and_a_stale_one_is_not(browser, server)
                 # the file's own order is kept (round 5): the grid and curve as saved, point for point
                 assert got["be"] == saves[name]["roiBE"] and got["fittedY"] == saves[name]["fittedY"], name
             else:
-                assert any("saved after its model or settings changed" in m for m in got["n"]), got["n"]
+                assert any(l.startswith("This spectrum was saved after its model was edited") for l in got["s"]), got["s"]
+                assert any(d and "saved after its model or settings changed" in d for d in got["d"]), got["d"]
         finally:
             pg.close()
         assert errors == [], errors
@@ -314,14 +318,15 @@ def test_a_manual_fit_whose_anchors_moved_after_the_fit_is_not_restored(browser,
             pg.evaluate(NOTIFY)
             pg.evaluate("data => _loadProjectJSON(data, 'm.proj.json')", saved)
             pg.wait_for_timeout(400)
-            got = pg.evaluate("""() => ({ fit: !!state.fitResult, n: window.__n, peaks: state.peaks.length,
+            got = pg.evaluate("""() => ({ fit: !!state.fitResult, n: window.__n, s: (_lastLoadSummary && _lastLoadSummary.lines) || [], d: tabManager.tabs.filter(t => !t.isStack).map(t => _droppedLegacyFitOf(t)), peaks: state.peaks.length,
                 stale: state.fitResult && state.fitResult.backgroundStale, st: _statsLiveState() })""")
             assert got["peaks"] == 2, (name, got)
             if got["fit"]:
                 assert got["stale"] and got["st"] == "stale", (name, got)
-                assert any(m.startswith("Saved fit restored as STALE: ") for m in got["n"]), (name, got["n"])
-            else:   # a save that carried no envelope: peaks only, said plainly
-                assert any("saved without its fitted envelope" in m for m in got["n"]), (name, got["n"])
+                assert any(" the old fit as saved, but " in l for l in got["s"]), (name, got["s"])
+            else:   # a save that carried no envelope: peaks only, said plainly (once, and in the tab's Results)
+                assert any("saved by an earlier version" in l for l in got["s"]), (name, got["s"])
+                assert any(d and "saved without its fitted envelope" in d for d in got["d"]), (name, got["d"])
         finally:
             pg.close()
 
@@ -434,10 +439,10 @@ def test_a_background_stale_fit_shows_no_evidence_and_survives_a_spectrum_save(b
         pg.evaluate(NOTIFY)
         pg.evaluate("data => _loadSpectrumFile(data, 'm.spec.json')", spec)
         pg.wait_for_timeout(400)
-        got = pg.evaluate("() => ({ fit: !!state.fitResult, stale: state.fitResult && state.fitResult.backgroundStale, n: window.__n })")
+        got = pg.evaluate("() => ({ fit: !!state.fitResult, stale: state.fitResult && state.fitResult.backgroundStale, " + """s: (_lastLoadSummary && _lastLoadSummary.lines) || [], d: tabManager.tabs.filter(t => !t.isStack).map(t => _droppedLegacyFitOf(t)), """ + "n: window.__n })")
         assert got["fit"] and got["stale"], got
         assert abs(got["stale"]["pct"] - pct) <= 1e-9 * pct, (got["stale"], pct)
-        assert any(m.startswith("Saved fit restored as STALE: ") for m in got["n"]), got["n"]
+        assert any(l.startswith("This spectrum shows the old fit as saved, but ") for l in got["s"]), got["s"]
     finally:
         pg.close()
     assert errors == [], errors
@@ -628,10 +633,11 @@ def test_a_spectrum_file_carries_the_counts_its_fit_saw(browser, server):
             pg.evaluate(NOTIFY)
             pg.evaluate("data => _loadSpectrumFile(data, 'c.spec.json')", data)
             pg.wait_for_timeout(400)
-            got = pg.evaluate("() => ({ fit: !!state.fitResult, st: _statsLiveState(), n: window.__n })")
+            got = pg.evaluate("() => ({ fit: !!state.fitResult, st: _statsLiveState(), " + """s: (_lastLoadSummary && _lastLoadSummary.lines) || [], d: tabManager.tabs.filter(t => !t.isStack).map(t => _droppedLegacyFitOf(t)), """ + "n: window.__n })")
             if name == "with counts":
                 assert got["fit"] and got["st"] == "current", (name, got)
             else:   # the RMSE cannot choose: refused, said as such
-                assert not got["fit"] and any("cannot be told apart" in m for m in got["n"]), (name, got)
+                assert not got["fit"] and any(d and "cannot be told apart" in d for d in got["d"]), (name, got)
+                assert any(l.startswith("This spectrum: the old fit\u2019s points can\u2019t be matched") for l in got["s"]), got["s"]
         finally:
             pg.close()

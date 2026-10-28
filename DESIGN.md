@@ -191,6 +191,11 @@ add a hairline border. Never a box-shadow.
 ### Toasts
 - Small bottom toasts tinted by state hue (green/amber/red dim background,
   full-hue border + text), auto-dismiss, no motion beyond fade.
+- A load summary is not a toast (2026-10-28): a bottom-right notice with an
+  amber edge that stays until dismissed (✕), saying once, in plain words, what
+  a load could not restore — one line per reason, never one per tab; each
+  tab's Results panel carries the detail. Long text never goes in an
+  auto-dismissing toast.
 
 ## 6. Do's and Don'ts
 
