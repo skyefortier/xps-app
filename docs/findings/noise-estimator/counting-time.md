@@ -7,7 +7,7 @@ committed files. If it does, Poisson noise becomes exact for raw (unsmoothed) da
 **Answer.**
 
 - **What the files record.** The dwell time and the number of scans, under the files' own property names. They also
-  record that two corrections were applied to every acquisition: `SignatureCorrected = True` and
+  record that two corrections were set for every acquisition: `SignatureCorrected = True` and
   `Acq_TXFN_Correction = True`. A transmission correction is one reading of the second name. The correction
   algorithms themselves are not in the files.
 - **The exact test.** Two ranges were tested, under the error model |y − N/T| ≤ 2 ulp(y) with one common T per file:
@@ -15,10 +15,11 @@ committed files. If it does, Poisson noise becomes exact for raw (unsmoothed) da
   **No such T exists in any of the 275 committed files**, so the stored values are not whole counts over any of these
   times. Range (a) holds on the condition stated in §2: each output energy is collected by at most one channel at a
   time.
-- **The approximate test.** At the decoded candidates of range (b) where enough points qualify, the number of
-  files that look integer-like (2 of 275, both weak) is what chance gives.
-- **Is this a surprise?** No: non-integer values are what the recorded corrections would produce.
-- **Conclusion.** σ = √N cannot be recovered from these files. Recovering it would need the correction algorithms,
+- **The approximate test.** At the decoded candidates of range (b) where enough points qualify, no candidate
+  survives a correction across all files and candidates. Two files pass the per-file 1 % level, both weakly.
+- **Is this a surprise?** Not necessarily. A correction that varies from point to point would remove a lattice
+  (HYPOTHESIS). The flags alone do not show that: a constant correction would keep one at a rescaled T (§2).
+- **Conclusion.** σ = √N cannot be recovered from these files within what was tested. Recovering it would need the correction algorithms,
   and probably the uncorrected counts, which the files do not store.
 
 Labels as in [README.md](README.md): **VERIFIED** (file:line or a committed output, read on main at a192f78; the
@@ -85,8 +86,9 @@ wording is HYPOTHESIS.
 
 **What the files do not say.**
 
-- **The channel count.** No property holds 128 or any other channel count (VERIFIED: no numeric property equals 128
-  in any file). The Nexsa G2's detector has 128 channels according to Thermo's datasheet as cited in the earlier
+- **The channel count.** No property is identified as a channel count (VERIFIED: no dictionary name says so, and
+  no numeric property equals 128 in any file; round 2: that check cannot exclude a channel count encoded some other
+  way). The Nexsa G2's detector has 128 channels according to Thermo's datasheet as cited in the earlier
   review (HYPOTHESIS, not checked here).
 - **The corrections.** How the signature and TXFN corrections are computed is not recorded, and neither is any
   uncorrected count.
@@ -164,20 +166,32 @@ range (a)'s continuum, where every phase concentrates trivially near T = 0).
 - **Results** (VERIFIED, `counting_time.txt`):
   - **2 of 275 files** pass the per-file 1 % level: 1 UCl4-graphite / XPS Survey (c = 107, V = +0.083 on 1361 points)
     and 5 B4C-BN-graphite / C1s Scan_6 (c = 60, V = +0.240 on 168 points).
-  - Chance alone gives 2.75 such files at that level. Across all files (Bonferroni 275 × 1024) the smallest p is 1.
+  - **No candidate survives a global correction:** across all files (Bonferroni 275 × 1024) the smallest adjusted p
+    is 1.
+  - **What the 2 per-file flags mean** (round 2: the first version called them "what chance gives", which is not
+    established). Bonferroni bounds each file's false-flag probability from above; it does not set it. Summed over the
+    156 024 candidates actually evaluated, the expected number of per-file flags under the stated null is at most
+    156 024 × 0.01 / 1024 = 1.52, and that null is not calibrated for these spectra. So the 2 flags are neither
+    explained by chance nor evidence of a lattice.
   - Both alignments are weak (whole counts give V ≈ 1), and isolated: at the neighbouring c, V is 0.04/0.01 and
     0.01/0.03. The exact test excludes both candidates anyway.
   - At c = 1 (T = dwell × scans), V lies between −0.124 and +0.125 in every file.
 - **The controls** (tests): Poisson counts / 0.2 s give V > 0.999, and with a 1 % correction p > 1e-4. Ten exact
   integers pass the family threshold; a half-integer lattice gives V ≈ −1, p > 0.5.
 
-**So the stored CPS are not whole counts over any common time in the ranges tested.** That includes T = dwell × scans,
-which is what "CPS × effective time" would most naturally mean, and every multiple of it up to 1024. The usual way to
-undo a CPS conversion does not work on these files. The files record why it would not: a detector signature
-correction and a TXFN correction applied to every acquisition, each with coefficients the files carry (the PSF set
-depends on the pass energy). How those corrections are computed is not recorded (HYPOTHESIS: per-channel gains from
-the signature file, a transmission function in KE / pass energy, and a point-spread correction would each leave no
-integer lattice; rebinning channel energies onto the energy grid would also correlate neighbouring points).
+**So the stored CPS are not whole counts over any common time in the ranges tested, under the stated error model.**
+That includes T = dwell × scans, which is what "CPS × effective time" would most naturally mean, and every multiple of
+it up to 1024. The usual way to undo a CPS conversion does not work on these files. The bounds matter (round 2): every
+stored float is a dyadic rational, so some enormous T always makes every value a whole number. For the first C 1s scan,
+T = 2⁴¹ s does exactly that. Such a T has no acquisition meaning, and it lies far outside both ranges.
+
+**Why, as far as the files say** (round 2: the first version stated the cause as recorded). Every file records that a
+detector-signature correction and a TXFN correction were set (§1). It does not record the transformations, and the
+two unnamed coefficient blocks are their coefficients only by HYPOTHESIS. A constant multiplicative correction would
+keep a lattice at a rescaled T, so the flags alone do not explain the result. HYPOTHESIS: a correction that varies from
+point to point would leave no common lattice — per-channel gains from the signature file, a transmission function in
+KE and pass energy, or a point-spread correction — and rebinning channel energies onto the energy grid would also
+correlate neighbouring points.
 
 ## 3. Does the noise follow the counting time anyway? (round 1: re-derived)
 
@@ -203,9 +217,11 @@ Measured with the two estimators of [README.md](README.md) §3 that do well on i
 
 - **What was measured.** The surveys had a tenth of the counting time per point; their estimated k is about 1.5
   times the high-resolution k. So k × dwell × scans differs by about 6.5 between the settings.
-- **What it is consistent with.** Counting noise with a/f lower for the surveys by that factor (round-1 review: a
-  correction ratio of about 0.15). Equal corrections, or a detector factor proportional to pass energy / step, would
-  predict factors of 10 and 25.
+- **What it is consistent with.** Counting noise with a/f lower for the surveys by about that factor. That can come
+  from the correction a, from the detector factor f, or both (round 2): equal corrections with f larger for the
+  surveys by about 6.5 reproduce the measurement as well as equal f with a survey correction about 0.15 of the
+  high-resolution one. The factors 10 and 25 follow only if a/f is equal in both settings, or if f is proportional to
+  pass energy / step with equal a.
 - **Why it decides nothing.** Neither the corrections' size nor the estimators' bias is known:
   - lag-1 difference estimators underestimated correlated noise 4–30× on the synthetic set (README §4);
   - rho1_d4 sits slightly short of the independent −0.80 in every region, and that diagnostic misses a 3-point moving

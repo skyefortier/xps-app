@@ -5,8 +5,11 @@ nothing is deployed. Whether and how the displayed χ²ᵣ changes is a separate
 
 **Owner decisions, 2026-10-27:**
 - **No change to the fitting weights.** §1a derives what a constant noise scale does and does not change, and measures it.
-- **Next step, read-only:** decode the counting time from the files. That is [counting-time.md](counting-time.md): no
-  common counting time makes the stored values whole counts, so σ = √N is not recoverable from these files.
+- **Next step, read-only:** decode the counting time from the files. That is [counting-time.md](counting-time.md).
+  Within the tested ranges (any common T up to each acquisition's own length, and every c × scans × dwell with
+  c ≤ 1024), under the stated error model, no common counting time makes the stored values whole counts. So σ = √N
+  is not recoverable from these files. (Round 2: the bounds are essential. Every stored float is a dyadic rational,
+  so some enormous T always makes a file's values whole numbers.)
 - **Proposed wording for the displayed χ²ᵣ** is in §8, for approval. It is not implemented.
 
 **Correction, 2026-10-27:** §2 and §5 read 230 of the 275 committed VGDs. The other 45, in
@@ -117,7 +120,7 @@ required verdict would move beyond the measured run-to-run floor.
 |---|---|---|---|
 | Thermo Avantage `.vgd` (all 230 committed raw files) | **counts per second** | VERIFIED | each file's chart sidecar `.xml` titles the intensity axis `Counts / s` (e.g. `docs/autofit/test_data/1 UCl4-graphite …DATA/C1s Scan.xml`); at least 99.8 % of every file's stored values are non-integer (`real_spectra.txt`). The instrument is a Nexsa G2, Avantage v6.7.0 (strings in the files' main property stream) |
 | the same — raw counts divided by a per-point counting time t? | **not established either way** (round 4) | VERIFIED (the bound), HYPOTHESIS (whether the acquisition allows it) | were the values counts / t, all would be multiples of 1/t, so every gap would be at least 1/t: **t ≥ 1/(smallest gap)**, no search needed; for stored (rounded) values the gap is taken plus its endpoints' rounding (round 4). That gives t ≥ 2.3–60 000 s per point (median 99 s; smallest gaps 1.7e-5–0.44 CPS; `real_spectra.txt`). Whether such counting times are possible depends on the acquisition model, which is not established here: counted point by point, every whole spectrum would need at least 435 s, against about a minute (the files' start/end timestamps, in undocumented property ids); but the Nexsa G2's detector is multichannel (HYPOTHESIS: 128 channels collecting several energies at once, per Thermo's Nexsa G2 datasheet and application note 31009 as cited by the round-4 review; not checked here), and under assumed full 128-fold parallelism the calculated LOWER BOUNDS fall below 120 s for 99 of the 230 files (below 60 s for 68) — for those the bound does not exclude counts / t, and whether their actual acquisitions are compatible is not established (round 5). Supporting only: the heuristic search `noise_estimators.common_quantum` (divisors m ≤ 1000 of the smallest gap, least-squares refinement, values checked against 2 ulps + 4 ulps of u per multiple) finds the quantum in every tested counts / t case and refuses an incommensurate offset lattice, and accepts no candidate in any of the 230 files or 166 project spectra; it is not complete (round 3 found grids it misses) and its tolerance admits near-grids |
-| what Avantage did between counting and the stored CPS | unknown | HYPOTHESIS | a continuous correction (detector efficiency, dead time, transmission) would explain the absence of any grid; not established. 2026-10-27: the dwell, scans, pass energy and start / end are now decoded ([counting-time.md](counting-time.md) §1). An EXACT test excludes every common counting time up to each acquisition's own length, and every c × scans × dwell with c ≤ 1024, in all 275 files (§2 there). Every file records that a detector-signature correction and a TXFN correction were applied (`SignatureCorrected`, `Acq_TXFN_Correction`, with their coefficients); how they are computed is not in the files |
+| what Avantage did between counting and the stored CPS | unknown | HYPOTHESIS | a continuous correction (detector efficiency, dead time, transmission) would explain the absence of any grid; not established. 2026-10-27: the dwell, scans, pass energy and start / end are now decoded ([counting-time.md](counting-time.md) §1). An EXACT test excludes every common counting time up to each acquisition's own length, and every c × scans × dwell with c ≤ 1024, in all 275 files (§2 there). Every file records that a detector-signature correction and a TXFN correction were set (`SignatureCorrected`, `Acq_TXFN_Correction`, and coefficient counts; two unnamed blocks are HYPOTHESIS their coefficients); how they are computed, and whether they are what removes a lattice, is not in the files |
 | the app's VGD reader | returns the stored values unchanged; a multi-scan ("overlay") file becomes the **per-point mean of its scans** | VERIFIED | `vgd_parser.py:95-98` (the mean at `:98`; round 2: the line was off by one); the page always parses VGDs on the server (`templates/index.html:4032`, `:5404` → `app.py:1022`); its heuristic `parseVGD` (`templates/index.html:5322`) has no caller. All 230 committed VGDs hold one series, so the mean never applies to them |
 | committed projects (`*.proj.zip`, 166 spectra) | 70 are, value for value, a committed VGD's intensities; all 166 are non-integer, and the search above accepts no grid in any | VERIFIED (the 70; non-integer; the search's outcome) / HYPOTHESIS (that the other 96 are the same Avantage CPS — their tab names are VGD scan names) | `real_spectra.json` → `projects` (round 1: "all 166 are the same CPS" was not established) |
 | `.csv` / `.tsv` / `.txt` / `.xy` / `.xlsx` | **unknown to the app**: whatever the exporting program wrote (counts, CPS, normalised, smoothed) | VERIFIED (that it is not known) | `parser.py:47` ("intensity (counts or CPS)"); no unit is read or stored |
@@ -311,11 +314,12 @@ low; this measurement does not separate the two, and the expert fits are a refer
    ("noise estimated from the data: 0.7 × the CPS value"), and what to show when the data are few counts, smoothed,
    or give an unstable estimate.
 5. **The instrument's own evidence.** Attempted 2026-10-27 ([counting-time.md](counting-time.md)). Dwell and scans
-   are decoded, but the stored values are not whole counts over any common time tested, and every file records that
-   detector-signature and TXFN corrections were applied. The estimated k does not follow
-   1/(dwell × scans) across the two acquisition settings either: surveys have a tenth of the counting time and about
-   1.5 times the k. That is consistent with counting noise only if the corrections differ between the settings, and they are not
-   recorded in a usable form, so k cannot be taken from the acquisition with what the files hold.
+   are decoded, but the stored values are not whole counts over any common time in the tested ranges, and every file
+   records that detector-signature and TXFN corrections were set. The estimated k does not follow 1/(dwell × scans)
+   across the two acquisition settings either: surveys have a tenth of the counting time and about 1.5 times the k.
+   That is consistent with counting noise only if a/f (the correction over the detector factor) differs between the
+   settings, or if the estimators are biased differently. The files do not hold either factor in a usable form, so k
+   cannot be taken from the acquisition with what they hold.
 
 ## 7. Limits of this measurement
 

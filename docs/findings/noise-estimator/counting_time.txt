@@ -7,7 +7,7 @@ gap bound T ≥ 1/(gap + δ): 2.278 … 6.027e+04 s (median 96.67); above the fi
 EXACT, range (a): any common T in [1e-9 s, elapsed + 1 s]: status {'excluded': 275}; excluded by {('gap', 0): 158, ('gap', 1): 117} (kind, rank — rank 0 = the smallest gap / value)
 EXACT, range (b): T = c × scans × dwell, c = 1…1024: status {'excluded': 275}; excluded by {('gap', 0): 275} (kind, rank — rank 0 = the smallest gap / value)
 integer-like (alignment V = mean cos 2πyT) at the decoded candidates of range (b) only, points with y·T ≤ 100000, a candidate needing ≥ 10 such points; Bonferroni over 1024: tested in 275 files (candidates evaluated per file 58 … 1024; all 1024 in 113; fewest points at any evaluated candidate 10); integer-like at 1 % in 2; smallest family p 0.00534, median 1; V at c = 1: -0.124 … +0.125; best V over all candidates and files +0.657
-  expected by chance at the per-file 1 % level over 275 files: 2.75; across all files (Bonferroni 275 × 1024): smallest p 1
+  across all files (Bonferroni 275 × 1024): smallest adjusted p 1; union bound on the expected number of per-file 1 % flags under the stated (uncalibrated) null, over the 156024 evaluated candidates: ≤ 1.524
     docs/autofit/test_data/1 UCl4-graphite 4%, Cu, 1eV, 180 mA, 200 um, 10spot.DATA/XPS Survey.VGD: c = 107, V = +0.083 on 1361 points, family p 0.0082
     docs/autofit/test_data/5 B4C-BN-graphite 33%, Cu, 1eV, 180 mA, 200 um, 10spot.DATA/C1s Scan_6.VGD: c = 60, V = +0.240 on 168 points, family p 0.00534
 property names: 275 of 275 files name every id this unit reads as scripts/vgd_properties.ACQUISITION does; dictionary entries [(57, 21), (58, 254)] (entries: files)

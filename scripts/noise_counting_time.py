@@ -4,15 +4,18 @@ one effective counting time T? Read-only measurement over every committed .VGD (
 1. The acquisition parameters each file records (scripts/vgd_properties.py): dwell, scans, pass energy, step,
    points, start / end — and how the elapsed time relates to points × dwell × scans (least squares).
 2. An EXACT test, no search heuristic: the values are counts / T for a common T in a range iff there are integers
-   N_i with |y_i − N_i / T| ≤ δ_i for every point, δ_i = 2 ulp(y_i) (up to four half-ulp roundings of the
-   division). Every constraint is applied in exact rational arithmetic (fractions.Fraction) to the set of
+   N_i ≥ 0 with |y_i − N_i / T| ≤ δ_i for every point, δ_i = 2 ulp(|y_i|) (up to four half-ulp roundings of
+   the division). The constraints are applied in exact rational arithmetic (fractions.Fraction) to the set of
    admissible T — a union of intervals — first each gap between neighbouring distinct values (a gap must be
-   a positive multiple of 1/T: narrows T cheaply), then each value (pins the lattice at 0). An empty set
-   proves no such T exists in the range (under that δ); a non-empty one lists every admissible T.
+   a positive multiple of 1/T: narrows T cheaply), then each value (pins the lattice at 0). The result
+   (``admissible_times``) is 'excluded' (an empty set: no such T exists in the range, under that δ),
+   'admissible' (every constraint applied: every admissible T) or 'unresolved' (constraints deferred: a
+   superset, never reported as admissible).
    Ranges: (a) every T up to the acquisition's own elapsed time + 1 s (timestamps are whole seconds): one
-   energy can be counted for at most the time the acquisition lasted, whatever the detector does in
-   parallel; (b) each decoded candidate T = c × scans × dwell, c = 1 … 1024 (a channel or pass count),
-   whatever its length, in a band covering the float32 dwell and its decimal.
+   energy can be counted for at most the time the acquisition lasted IF at most one detector channel
+   contributes to an output energy bin at any instant (an exposure model the files do not record); (b) each
+   decoded candidate T = c × scans × dwell, c = 1 … 1024 (a channel or pass count), whatever its length, in a
+   band covering the float32 dwell and its decimal.
 3. "Integer-like" (approximate), at each decoded candidate T of range (b) only: the alignment of y·T with the
    integers, V = mean cos(2π y T) over the m ≥ 10 points with y·T ≤ 1e5 (V = 1 for exact integers, −1 for a
    half-integer lattice; for independent uniform phases V·√(2m) is asymptotically N(0, 1), one-sided
@@ -282,8 +285,9 @@ def report(rows):
                  f"median {np.median(fam):.3g}; V at c = 1: {min(z['V_at_c1'] for z in rb):+.3f} … "
                  f"{max(z['V_at_c1'] for z in rb):+.3f}; best V over all candidates and files {max(z['V'] for z in rb):+.3f}")
     hit = [(r["file"], r["alignment_best"]) for r in rows if r["alignment_best"] and r["alignment_best"]["family_p"] < 0.01]
-    lines.append(f"  expected by chance at the per-file 1 % level over {len(rb)} files: {0.01 * len(rb):.2f}; across all files "
-                 f"(Bonferroni {len(rb)} × {C_MAX}): smallest p {min(1.0, fam[0] * len(rb)):.3g}")
+    lines.append(f"  across all files (Bonferroni {len(rb)} × {C_MAX}): smallest adjusted p {min(1.0, fam[0] * len(rb)):.3g}; "
+                 f"union bound on the expected number of per-file 1 % flags under the stated (uncalibrated) null, over the "
+                 f"{sum(tested)} evaluated candidates: ≤ {sum(tested) * 0.01 / C_MAX:.3f}")
     for f, z in hit:
         lines.append(f"    {f}: c = {z['c']}, V = {z['V']:+.3f} on {z['points']} points, family p {z['family_p']:.3g}")
     lines.append(f"property names: {sum(r['names_as_expected'] for r in rows)} of {len(rows)} files name every id this "
