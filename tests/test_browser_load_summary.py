@@ -188,10 +188,11 @@ def test_the_lines_say_each_reason_once_with_a_voigt_mix_on_its_own_line(browser
             'its stored points match more than one set …', 'it has more stored points (9) than …',
             'its stored statistics cannot be compared with its data in floating point …',
             "its stored envelope and today's background cannot be compared in floating point …",
+            'its data less its background are not finite numbers in floating point (a value overflows), so it cannot be restored',
             'its stored envelope and the energies it was fitted on have different lengths',
             'its stored RMSE is negative …'].map(_restoreDropGroup)""")
         assert groups == ["earlier", "earlier", "rawdata", "background", "editedsave", "unmatched", "unmatched",
-                          "uncheckable", "uncheckable", "uncheckable", "damaged", "damaged"], groups
+                          "uncheckable", "uncheckable", "uncheckable", "uncheckable", "damaged", "damaged"], groups
     finally:
         pg.close()
 
@@ -213,6 +214,10 @@ def test_a_long_summary_keeps_its_dismiss_button_on_a_phone(browser, server):  #
         assert box["top"] >= 0 and box["bottom"] <= 568 and box["left"] >= 0 and box["right"] <= 320, box
         assert 0 <= box["ctop"] and box["cbottom"] <= 568 and box["cright"] <= 320, box
         assert box["scrolls"], "the body scrolls inside the box"
+        # a title from the file is bounded, so the reasons keep room (round 2)
+        body = pg.evaluate("""() => ({ h: document.querySelector('#load-summary .load-summary-body').clientHeight,
+            t: document.getElementById('load-summary-title').textContent.length })""")
+        assert body["h"] > 100 and body["t"] <= 120, body
         pg.click("#load-summary .load-summary-close")
         assert pg.evaluate("() => document.getElementById('load-summary').hidden")
     finally:
@@ -296,5 +301,35 @@ def test_a_file_the_browser_cannot_read_is_skipped_not_waited_on(browser, server
             FileReader.prototype.readAsText = real; }""")
         got = pg.evaluate(SUMMARY)
         assert got["title"] == "Loaded 1 spectrum." and got["items"] == ["1 file was skipped: it could not be read as a spectrum."], got
+    finally:
+        pg.close()
+
+
+def test_a_refused_fit_file_keeps_its_error_and_never_says_applied(browser, server):  # noqa: F811
+    """Round 2: _applyFitJSON dismissed the refusal and announced "Fit applied" over it."""
+    pg = _page(browser, server)
+    try:
+        got = pg.evaluate("""() => { const be = [], y = []; for (let i = 0; i < 40; i++) { be.push(280 + i * 0.1); y.push(100 + i); }
+            tabManager.createTab('A', be, y); addPeak({ center: 282, amplitude: 50, fwhm: 1 });
+            const before = state.peaks.length;
+            _applyFitJSON({ version: 1, peaks: [{ id: 1, color: 'invalid' }] });
+            return { before, after: state.peaks.length, shown: !document.getElementById('load-summary').hidden,
+                     title: document.getElementById('load-summary-title').textContent, n: window.__n }; }""")
+        assert got["shown"] and got["title"] == "Fit not loaded." and got["after"] == got["before"] == 1, got
+        assert not [m for m in got["n"] if m[0].startswith("Fit applied")], got["n"]
+    finally:
+        pg.close()
+
+
+def test_a_long_sample_name_never_reaches_a_toast_whole(browser, server):  # noqa: F811
+    pg = _page(browser, server)
+    try:
+        pg.evaluate("""() => { const be = [], y = []; for (let i = 0; i < 40; i++) { be.push(280 + i * 0.1); y.push(100 + i); }
+            tabManager.createTab('A', be, y); const data = JSON.parse(JSON.stringify(tabManager.toJSON()));
+            for (const t of data.tabs) t.id = t.id + 'v'; data.sample_name = 'n'.repeat(1400);
+            _loadProjectJSON(data, 'long.proj.json'); }""")
+        n = pg.evaluate("() => window.__n")
+        green = [m for m in n if m[0].startswith("Project loaded: ")]
+        assert green and all(len(m[0]) <= 120 for m in green), [len(m[0]) for m in n]
     finally:
         pg.close()

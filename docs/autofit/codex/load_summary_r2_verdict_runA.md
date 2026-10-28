@@ -1,0 +1,17 @@
+1. **MAJOR — Rejected fit files immediately lose their error and report success.** [templates/index.html:13970](/Users/skyefortier/xps-app/.claude/worktrees/load-notices/templates/index.html:13970)  
+   `fromJSON()` displays “Fit not loaded” and returns on validation failure, but `_applyFitJSON()` unconditionally dismisses that box and announces “Fit applied.” Reproduced using the actual functions with an active spectrum and `{version:1, peaks:[{id:1,color:"invalid"}]}`: old peaks remain, the error box is hidden, and the only toast claims success. Return an explicit success result and clear/report success only when the import succeeded. The new error test covers project validation, missing this fit-file route.
+
+2. **MINOR — Unbounded load titles still reach timed toasts.** [templates/index.html:15510](/Users/skyefortier/xps-app/.claude/worktrees/load-notices/templates/index.html:15510)  
+   An empty report passes the complete title to `notify()`, which disappears after four seconds. Project titles include unrestricted `sample_name`; spectrum titles include unrestricted saved names. A 1,400-character name produced a 1,425-character green notification with no persistent box. Bound names in success notices or use a fixed, short success title. This remains an uncovered load-message audit gap.
+
+3. **MINOR — One arithmetic refusal still falsely describes the saved fit as inconsistent.** [templates/index.html:15447](/Users/skyefortier/xps-app/.claude/worktrees/load-notices/templates/index.html:15447)  
+   The reason `its data less its background are not finite numbers in floating point (a value overflows), so it cannot be restored` falls through to `damaged`. The summary consequently says “the saved fit is incomplete or inconsistent,” although this refusal establishes an arithmetic overflow. The existing reproduction at [tests/js/background_not_converged.test.js:1005](/Users/skyefortier/xps-app/.claude/worktrees/load-notices/tests/js/background_not_converged.test.js:1005) passes; feeding its reason into the new classifier returns `damaged`. Include it in `uncheckable` and the mapping test.
+
+4. **MINOR — An unrestricted title can consume the scrolling body’s entire height.** [templates/index.html:834](/Users/skyefortier/xps-app/.claude/worktrees/load-notices/templates/index.html:834)  
+   By CSS inspection, the nonshrinking header has no height limit. At 320×568, loading a project with restore notes and a several-thousand-character `sample_name` makes the header exceed the box’s maximum height, shrinking the body to zero. The dismiss button remains accessible, but the reasons do not. Cap or clamp the title, or place the full name inside the scrolling body. The phone test checks box/button bounds and overflow, but never asserts a positive body height.
+
+The other dispositions are supported by the code and tests: named stack counts and persistent legend notes, group-specific Voigt wording, successful-load replacement, bounded persistent errors at the other audited call sites, and the corrected proposal without a batch implementation. The real-fit save/reload and folder FileReader-error tests are present. The core restore/check/drop functions and per-tab reason strings are identical to base.
+
+Independent validation: **57 focused JavaScript tests passed**, plus the reproductions above. The broad JavaScript run encountered sandbox temporary-directory failures; browser tests were not independently rerun. I do not assume the full pytest suite passed.
+
+VERDICT: NO-GO

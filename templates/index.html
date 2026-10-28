@@ -3533,16 +3533,17 @@ class TabManager {
     if (data.version === 1 || !data.tabs) {
       // v1 backward compat: apply settings to the ACTIVE tab only
       // Other tabs are preserved — this just restores peaks/background/CC
+      // returns true once applied, false when refused (_applyFitJSON reports success only then)
       if (!this.activeId || !state.rawBE.length) {
         notify('Load a spectrum file first, then load the v1 setup.', 'amber');
-        return;
+        return false;
       }
       const active = this._getTab(this.activeId);
-      if (!active) return;
+      if (!active) return false;
 
       // Audit F1/F4/F5: reject unsafe peak ids/links/colors before rendering.
       const pe = _peaksLoadError(data.peaks);
-      if (pe) { showLoadError('Fit not loaded.', 'In the file, ' + pe + '.'); return; }
+      if (pe) { showLoadError('Fit not loaded.', 'In the file, ' + pe + '.'); return false; }
 
       // Import is an undoable transaction on this record: the previous model
       // (and its averaging) is one Ctrl-Z away, redo is cleared, and a Find
@@ -3614,7 +3615,7 @@ class TabManager {
       updatePlot();
       renderResults();   // installs the imported model's designation (or the plain placeholder) and clears stale widgets
       dismissLoadSummary();   // another file loaded: an earlier load's summary no longer describes what is on screen
-      return;
+      return true;
     }
 
     // v2+ multi-tab data — route through _loadProjectJSON (has confirmation)
@@ -13967,7 +13968,7 @@ function _migrateLineshapeAliases(peaks) {
 function _applyFitJSON(data) {
   if (data && Array.isArray(data.peaks)) _migrateLineshapeAliases(data.peaks);
   if (!state.rawBE.length) { notify('Load a spectrum first before loading a fit.', 'amber', true); return; }
-  tabManager.fromJSON(data);
+  if (tabManager.fromJSON(data) !== true) return;   // refused: its own message stays (round 2)
   const nPeaks = (data.peaks || []).length;
   dismissLoadSummary();   // another file loaded
   notify('Fit applied to active tab: ' + nPeaks + ' peak' + (nPeaks !== 1 ? 's' : '') + '.', 'green');
@@ -15444,9 +15445,8 @@ function _restoreDropGroup(reason) {
   // the restore could not match the fit's stored points to the samples of its data (_restoredFitGrid)
   if (r.startsWith('its stored points')) return 'unmatched';
   // the check was refused: the numbers exceed what its arithmetic can compare (round 1: not "inconsistent")
-  if (r.startsWith('it has more stored points') || r.includes('cannot be compared in floating point') ||
-      r.startsWith('its stored statistics cannot be compared'))
-    return 'uncheckable';
+  // (round 2: every reason that names floating point is a refused check, "data less background … overflows" too)
+  if (r.startsWith('it has more stored points') || r.includes('in floating point')) return 'uncheckable';
   return 'damaged';
 }
 // An empty report: tabs per group (names in load order), stack entries removed, spectrum files missing.
@@ -15503,6 +15503,7 @@ function _loadReportHasFitNotes(report) {
 }
 // Show the summary (replacing any earlier one) — or, when the load restored everything, the short green notice.
 function showLoadSummary(title, report, subjectOf) {
+  title = _boundedText(title, 120);   // it carries a sample or tab name from the file (round 2)
   const lines = _loadSummaryLines(report, subjectOf);
   const foot = _loadReportHasFitNotes(report)
     ? 'Press Run Fit on a tab to refit it. Each tab’s Results panel says what happened to its saved fit.' : '';
@@ -15513,6 +15514,7 @@ function showLoadSummary(title, report, subjectOf) {
 // A load that failed says so in the same box (red edge), until dismissed or replaced — never in a timed toast
 // (round 1: a peak's invalid colour from a file was quoted whole, 1438 characters, into a 3-second toast).
 function showLoadError(title, detail) {
+  title = _boundedText(title, 120);
   const lines = detail ? [_boundedText(detail, 400)] : [];
   _lastLoadSummary = { title, lines, foot: '', report: null, kind: 'error' };
   _showLoadBox(title, lines, '', true);
