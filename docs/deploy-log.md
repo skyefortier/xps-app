@@ -6,6 +6,39 @@ own bullet even when it shipped inside a larger unit, so it can be found
 later. Procedure: [DEPLOY.md](../DEPLOY.md). The xps2 droplet is deployed by
 scripts/deploy_xps2.sh with every deploy since 2026-10-16 (DEPLOY.md, step 5).
 
+## 2026-10-28 — Load messages: one grouped summary that stays until dismissed (3b871ae) — both machines
+
+- **Release note:** opening an older project used to flash one toast that joined every tab's restore message into
+  one unreadable block for 3 s; the "not restored", "restored as STALE" and "record cannot be read" toasts also
+  replaced one another. Now each load says what it could not restore ONCE, in a notice that stays until dismissed:
+  one plain line per reason, never one per tab ("14 of 18 tabs were saved without the fitted curve or the energies
+  their fit needs (earlier versions saved fits this way): their peaks are loaded, but the old fit can't be
+  redrawn."), and "Press Run Fit on a tab to refit it. Each tab's Results panel says what happened to its saved
+  fit." The per-tab detail is unchanged, in each tab's Results; which fits are restored, stale or dropped is
+  unchanged.
+- **Other load paths:**
+  - Pruned stack entries are one line naming the stacks, and the stack's own legend says what was removed.
+  - Spectrum files missing from a ZIP are one line.
+  - Every load FAILURE uses the same box with a red edge: project / spectrum / fit validation, size limits, ZIP
+    manifest and version, parse and VGD errors. Values quoted from a file are capped at 60 characters; a peak's
+    invalid colour used to be quoted whole.
+  - A fit file that is refused no longer reports "Fit applied".
+  - The folder load counts only the files it read ("Loaded N spectra" counted every file tried); it says how many it
+    skipped, and a file the browser cannot read no longer hangs it.
+  - A later file load clears an old summary.
+- **Proposed, not built:** "Refit these tabs" (`docs/superpowers/plans/2026-10-28-load-summary.md`).
+- **Review:** Codex rounds 1–2 NO-GO ×2, round 3 GO ×2 (`docs/autofit/codex/load_summary_r*`).
+- **Tests:**
+  - `tests/test_browser_load_summary.py` (13, real browser and server);
+  - `tests/test_browser_background_not_converged.py` (now reads the summary and each tab's own reason);
+  - the full suite on 6fe1564: 2157 passed, 8 skipped; JS 41/41 files.
+- **Deploy:**
+  - i9: ff-only to 3b871ae, kickstart; :5050 and reference ok.
+  - `scripts/deploy_xps2.sh 3b871ae`: PASS.
+  - A real browser loaded the committed 21-file legacy project (1-GTA) on xps.fortierlab.org and xps2.fortierlab.org:
+    the summary was shown, still shown after 6 s, with no tab names, no prominent toast and no page error. PASS on
+    both.
+
 ## 2026-10-27 — Security: cloudflared 2026.3.0 → 2026.10.4 on both machines (no app change)
 
 - **Why:** Cloudflare advisory (eMudhra certificate compromise, 2026-10-19): cloudflared ≥ 2026.10.2 (≥ 2026.10.3
