@@ -1,0 +1,34 @@
+You are reviewing a READ-ONLY measurement unit in this repository (branch unit-b-noise-estimator, commit 81f9f8c). Nothing a user sees changes, no app code changes, nothing is deployed. Your job is an adversarial design and measurement review of ONE finding: whether the committed Thermo Avantage .VGD files record a counting time that turns their stored intensities (counts per second) into whole counts.
+
+Read:
+- docs/findings/noise-estimator/counting-time.md  (the finding under review; every claim labelled VERIFIED (file:line or committed output) or HYPOTHESIS)
+- scripts/vgd_properties.py  (an MS-OLEPS property-set reader; the app never uses it)
+- scripts/noise_counting_time.py  (the generator) and its outputs docs/findings/noise-estimator/counting_time.txt / counting_time.json
+- tests/test_noise_counting_time.py  (8 tests)
+- vgd_parser.py, app.py around 990-1035, templates/index.html around 4025-4035 and 5395-5410, parser.py:47 (the cited app code)
+- For context only: docs/findings/noise-estimator/README.md §2 (the table row on counts/t), §6 item 5, §7, and the "Correction, 2026-10-27" note near the top. README §1a and §8 are NOT in scope for this review (a separate decision).
+- The data: docs/autofit/test_data/**.VGD (275 files) and their .xml sidecars; docs/autofit/test_data/*.proj.zip.
+
+Claims to test (try to break each one; reproduce numbers yourself where you can — the scripts are read-only and run in ~20 s with /Users/skyefortier/xps-app/venv/bin/python):
+
+1. The property reader. Is the MS-OLEPS decoding correct (type headers, 4-byte padding, VT_VECTOR|VT_VARIANT, LPWSTR counts in characters, BSTR as UTF-16 here, FILETIME)? Is olefile's reading of these streams really wrong as stated? Is "72 or 73 properties per file" and "no numeric property equals 128" right?
+
+2. The identifications (305 dwell, 306/328 scans, 404 pass energy, 303/304 start/end, 105 photon energy, 331, 981). Are they labelled correctly as HYPOTHESIS for the name and VERIFIED only for the relations? Reproduce the regression elapsed = 1.005 × points × dwell × scans + 20.95 s (residuals −3.3…+2.7 s). Does it support "stepped point by point" as strongly as written?
+
+3. The exact counts/T test (admissible_times). The claim: under the error model |y_i − N_i/T| ≤ δ_i = 2 ulp(y_i) and ONE common T per file, it is exact and complete — an empty result proves no such T exists in the range, a non-empty result lists every admissible T. Try to construct counterexamples within that error model: a true lattice it rejects, or a non-lattice it accepts, or a range where the deferral logic (INTERVAL_CAP, the "nothing narrowed" exit) returns something that is reported wrongly. Check the gap constraints are implied by the value constraints (so they never wrongly exclude), the N ranges (ceil/floor at interval ends), the n_min for gaps, values ≤ δ, negative values, and the Fraction arithmetic. Does "deferred: 0" in every file mean what the doc says? Are the tests strong enough (mutations: dropping value constraints, δ = 0, etc.)?
+
+4. The physical cap for range (a): "one energy is counted for at most as long as the acquisition lasted, whatever the detector does in parallel". Is the argument sound, and is its premise (a dispersive analyser: one channel at a given energy at any instant; the timestamps are start/end) labelled honestly? Is elapsed + 1 s the right slack for whole-second timestamps?
+
+5. Range (b), T = c × scans × dwell, c ≤ 1024, in a band covering the float32 dwell and its decimal: correct and correctly reported?
+
+6. The approximate ("integer-like") Rayleigh test: is p = exp(−m R²) the right asymptotic statement, is the Bonferroni family per file stated correctly, is "smallest family p 0.014 over 275 files is about what chance gives" a fair reading, and is the restriction to y·T ≤ 1e5 sound (phase error from an inexact T)?
+
+7. §3 (noise scale vs counting time): does it conclude more than the measurement supports? Are the predictions (factor 10 for dwell × scans, 25 for a factor ∝ pass energy / step) derived correctly? Are the caveats (correlation bias of the estimators, a noise floor) enough?
+
+8. §4, the by-product: the app's VGD energy axis is 4.58 eV below the axis Avantage's chart sidecar draws. Verify the sidecar identity (axis Minimum/Maximum = 1486.68 − KE at the data's ends, all 275 files) and the app's offset, and that the page sends only the file. Is anything overclaimed (e.g. which axis is "right" is labelled HYPOTHESIS)? The charge-shift census from the projects: correct?
+
+9. Do all numbers and sentences in counting-time.md match counting_time.txt / counting_time.json? Is any VERIFIED label unjustified, any sentence stronger than its evidence, any HYPOTHESIS that is really established (or the reverse)?
+
+Report findings as BLOCKER / MAJOR / MINOR with file:line, each with a reproduction where possible. End with exactly one line:
+VERDICT: GO   or   VERDICT: NO-GO
+(GO = no BLOCKER or MAJOR finding.)
