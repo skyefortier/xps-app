@@ -75,11 +75,12 @@ value. Corrections from the round-1 review (`docs/autofit/codex/vgd_energy_axis_
    measurements — round 1).
    - **How they are read:** each tab stores the observed raw position (`ccObs`, app's axis) and the reference
      (`ccLit`), with shift = observed − reference (corrected BE = raw − shift, `getCorrectedBE`).
-   - **Graphitic C 1s (284.50):** every observed position is 284.25–284.43 on Avantage's axis. Many of these settings
-     are carried over onto tabs of other regions; the observed position lies outside the tab's own energy range in
+   - **Graphitic C 1s (284.50):** every observed position is 284.25–284.43 on Avantage's axis. The observed position
+     lies outside the tab's own energy range — not read off that tab: possibly carried over, possibly mistyped
+     (round 2) — in
      36 of 72 (and in 11 of the 40 other settings).
    - **The B 1s, B₂O₃ and U 4f references** leave residuals of −1.2 to −1.4 eV on Avantage's axis. One U 4f tab
-     carries a 280.67 eV reference outside its range.
+     carries a 280.67 eV reference whose observed position (274.67) lies outside its range.
    - HYPOTHESIS: the residuals are charging of the insulating BN / UCl₄ samples; chemical shift, reference choice and
      entry error are not excluded.
    - On the app's axis, every setting is about 4.6 eV further off.
@@ -88,10 +89,13 @@ value. Corrections from the round-1 review (`docs/autofit/codex/vgd_energy_axis_
 
 - **The VGD reader and both routes** (VERIFIED, §1). The reader's docstring calls its defaults the "standard Thermo
   lab configuration".
-- **Charge correction absorbs it.** A charge-corrected spectrum is shifted rigidly, so positions after correction,
-  areas and shapes are unaffected. Uncorrected binding energies, and the size of the charge shift, are not. For
-  graphite in the lab's projects the shift is stored as −4.74 and shown as +4.74 eV (the page displays −`ccShift`,
-  `templates/index.html:5617-5618`); on Avantage's axis it would be about +0.16 (round 1: the sign).
+- **Charge correction absorbs it, when the shift is found on the same axis.** A charge-corrected spectrum is shifted
+  rigidly, so positions after correction, areas and shapes are unaffected, provided the shift was determined on the
+  axis it is applied to. An old shift applied to a re-read VGD on a corrected axis would put every line 4.58 eV too
+  high: 284.34 − (−4.74) = 289.08 instead of 284.50 (round 2). Uncorrected binding energies, and the size of the charge shift, are not. The
+  lab's graphite shifts are stored as −4.83 to −4.65 eV and shown as +4.65 to +4.83 (the page displays −`ccShift`,
+  `templates/index.html:5617-5618`). On Avantage's axis they would be +0.07 to +0.25; for example, −4.74 (20 of the 72)
+  would be +0.16. Round 1 corrected the sign; round 2, the example.
 - **Saved projects** store the raw energies in the app's frame (`rawBE`, `templates/index.html:13709`) with their
   shift. HYPOTHESIS: they stay self-consistent whatever the reader does later; a fixed reader would load the same VGD
   4.58 eV higher.

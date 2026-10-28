@@ -156,7 +156,7 @@ def main():
                 except (TypeError, ValueError):
                     continue
                 # the page: shift = observed − reference, corrected BE = raw − shift (getCorrectedBE); an observed
-                # position outside the tab's own energy range is a setting carried over from another region
+                # position outside the tab's own energy range was not read off this tab (carried over, or mistyped)
                 raw = t.get("rawBE") or []
                 inside = bool(raw) and min(raw) <= obs <= max(raw)
                 cc[(str(ui.get("ccMethod")), lit, round(obs, 2), round(obs - APP_OFFSET, 2), inside)] += 1
@@ -165,7 +165,7 @@ def main():
                  "whether that position lies inside the tab's own energy range: tabs")
     for (meth, lit, obs, av, inside), n in sorted(cc.items()):
         lines.append(f"  {meth:10s} {lit:7.2f}   observed app {obs:7.2f}   Avantage {av:7.2f}   ({av - lit:+.2f})"
-                     f"   {'in range' if inside else 'OUTSIDE the tab (a carried-over setting)'}: {n}")
+                     f"   {'in range' if inside else 'OUTSIDE the tab (possibly carried over)'}: {n}")
     print("\n".join(lines))
     if a.json:
         json.dump({"calibration": dict(out["calibration"]), "app_offset": APP_OFFSET, "regions": out["regions"],

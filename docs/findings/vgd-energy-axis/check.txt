@@ -30,47 +30,47 @@ survey WINDOW MAXIMA (not peak identifications) for elements in the sample's des
   N 1s      30 surveys   Avantage   397.0   397.0   398.0   app   392.4   392.4   393.4   (within 1 eV of the window edge: 0)
 committed projects' charge-correction SETTINGS: reference (method, eV), the observed raw position the user entered (app's axis), the same point on Avantage's axis, its residual from the reference, and whether that position lies inside the tab's own energy range: tabs
   c1s         284.50   observed app  279.67   Avantage  284.25   (-0.25)   in range: 1
-  c1s         284.50   observed app  279.70   Avantage  284.28   (-0.22)   OUTSIDE the tab (a carried-over setting): 1
+  c1s         284.50   observed app  279.70   Avantage  284.28   (-0.22)   OUTSIDE the tab (possibly carried over): 1
   c1s         284.50   observed app  279.70   Avantage  284.28   (-0.22)   in range: 2
-  c1s         284.50   observed app  279.71   Avantage  284.29   (-0.21)   OUTSIDE the tab (a carried-over setting): 2
+  c1s         284.50   observed app  279.71   Avantage  284.29   (-0.21)   OUTSIDE the tab (possibly carried over): 2
   c1s         284.50   observed app  279.71   Avantage  284.29   (-0.21)   in range: 2
-  c1s         284.50   observed app  279.72   Avantage  284.30   (-0.20)   OUTSIDE the tab (a carried-over setting): 1
+  c1s         284.50   observed app  279.72   Avantage  284.30   (-0.20)   OUTSIDE the tab (possibly carried over): 1
   c1s         284.50   observed app  279.72   Avantage  284.30   (-0.20)   in range: 1
-  c1s         284.50   observed app  279.76   Avantage  284.34   (-0.16)   OUTSIDE the tab (a carried-over setting): 10
+  c1s         284.50   observed app  279.76   Avantage  284.34   (-0.16)   OUTSIDE the tab (possibly carried over): 10
   c1s         284.50   observed app  279.76   Avantage  284.34   (-0.16)   in range: 10
-  c1s         284.50   observed app  279.77   Avantage  284.35   (-0.15)   OUTSIDE the tab (a carried-over setting): 5
+  c1s         284.50   observed app  279.77   Avantage  284.35   (-0.15)   OUTSIDE the tab (possibly carried over): 5
   c1s         284.50   observed app  279.77   Avantage  284.35   (-0.15)   in range: 5
-  c1s         284.50   observed app  279.78   Avantage  284.36   (-0.14)   OUTSIDE the tab (a carried-over setting): 1
+  c1s         284.50   observed app  279.78   Avantage  284.36   (-0.14)   OUTSIDE the tab (possibly carried over): 1
   c1s         284.50   observed app  279.78   Avantage  284.36   (-0.14)   in range: 1
-  c1s         284.50   observed app  279.79   Avantage  284.37   (-0.13)   OUTSIDE the tab (a carried-over setting): 2
+  c1s         284.50   observed app  279.79   Avantage  284.37   (-0.13)   OUTSIDE the tab (possibly carried over): 2
   c1s         284.50   observed app  279.79   Avantage  284.37   (-0.13)   in range: 2
-  c1s         284.50   observed app  279.80   Avantage  284.38   (-0.12)   OUTSIDE the tab (a carried-over setting): 8
+  c1s         284.50   observed app  279.80   Avantage  284.38   (-0.12)   OUTSIDE the tab (possibly carried over): 8
   c1s         284.50   observed app  279.80   Avantage  284.38   (-0.12)   in range: 6
-  c1s         284.50   observed app  279.81   Avantage  284.39   (-0.11)   OUTSIDE the tab (a carried-over setting): 4
+  c1s         284.50   observed app  279.81   Avantage  284.39   (-0.11)   OUTSIDE the tab (possibly carried over): 4
   c1s         284.50   observed app  279.81   Avantage  284.39   (-0.11)   in range: 4
-  c1s         284.50   observed app  279.85   Avantage  284.43   (-0.07)   OUTSIDE the tab (a carried-over setting): 2
+  c1s         284.50   observed app  279.85   Avantage  284.43   (-0.07)   OUTSIDE the tab (possibly carried over): 2
   c1s         284.50   observed app  279.85   Avantage  284.43   (-0.07)   in range: 2
   custom      190.70   observed app  184.70   Avantage  189.28   (-1.42)   in range: 1
   custom      190.70   observed app  184.73   Avantage  189.31   (-1.39)   in range: 1
   custom      190.70   observed app  184.75   Avantage  189.33   (-1.37)   in range: 2
   custom      190.70   observed app  184.76   Avantage  189.34   (-1.36)   in range: 6
-  custom      193.00   observed app  187.04   Avantage  191.62   (-1.38)   OUTSIDE the tab (a carried-over setting): 1
+  custom      193.00   observed app  187.04   Avantage  191.62   (-1.38)   OUTSIDE the tab (possibly carried over): 1
   custom      193.00   observed app  187.04   Avantage  191.62   (-1.38)   in range: 1
-  custom      193.00   observed app  187.09   Avantage  191.67   (-1.33)   OUTSIDE the tab (a carried-over setting): 1
+  custom      193.00   observed app  187.09   Avantage  191.67   (-1.33)   OUTSIDE the tab (possibly carried over): 1
   custom      193.00   observed app  187.09   Avantage  191.67   (-1.33)   in range: 1
-  custom      193.00   observed app  187.10   Avantage  191.68   (-1.32)   OUTSIDE the tab (a carried-over setting): 2
+  custom      193.00   observed app  187.10   Avantage  191.68   (-1.32)   OUTSIDE the tab (possibly carried over): 2
   custom      193.00   observed app  187.10   Avantage  191.68   (-1.32)   in range: 2
-  custom      193.00   observed app  187.11   Avantage  191.69   (-1.31)   OUTSIDE the tab (a carried-over setting): 2
+  custom      193.00   observed app  187.11   Avantage  191.69   (-1.31)   OUTSIDE the tab (possibly carried over): 2
   custom      193.00   observed app  187.11   Avantage  191.69   (-1.31)   in range: 2
-  custom      193.00   observed app  187.12   Avantage  191.70   (-1.30)   OUTSIDE the tab (a carried-over setting): 1
+  custom      193.00   observed app  187.12   Avantage  191.70   (-1.30)   OUTSIDE the tab (possibly carried over): 1
   custom      193.00   observed app  187.12   Avantage  191.70   (-1.30)   in range: 1
-  custom      193.00   observed app  187.13   Avantage  191.71   (-1.29)   OUTSIDE the tab (a carried-over setting): 1
+  custom      193.00   observed app  187.13   Avantage  191.71   (-1.29)   OUTSIDE the tab (possibly carried over): 1
   custom      193.00   observed app  187.13   Avantage  191.71   (-1.29)   in range: 1
-  custom      193.00   observed app  187.16   Avantage  191.74   (-1.26)   OUTSIDE the tab (a carried-over setting): 1
+  custom      193.00   observed app  187.16   Avantage  191.74   (-1.26)   OUTSIDE the tab (possibly carried over): 1
   custom      193.00   observed app  187.16   Avantage  191.74   (-1.26)   in range: 1
-  custom      193.00   observed app  187.22   Avantage  191.80   (-1.20)   OUTSIDE the tab (a carried-over setting): 1
+  custom      193.00   observed app  187.22   Avantage  191.80   (-1.20)   OUTSIDE the tab (possibly carried over): 1
   custom      193.00   observed app  187.22   Avantage  191.80   (-1.20)   in range: 1
-  custom      280.67   observed app  274.67   Avantage  279.25   (-1.42)   OUTSIDE the tab (a carried-over setting): 1
+  custom      280.67   observed app  274.67   Avantage  279.25   (-1.42)   OUTSIDE the tab (possibly carried over): 1
   custom      380.60   observed app  374.66   Avantage  379.24   (-1.36)   in range: 2
   custom      380.61   observed app  374.67   Avantage  379.25   (-1.36)   in range: 1
   custom      380.61   observed app  374.66   Avantage  379.24   (-1.37)   in range: 1
